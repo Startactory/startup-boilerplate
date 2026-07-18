@@ -81,7 +81,8 @@ reach that step** and follow it; don't run ahead. Keep a todo per step.
 5. **Verify locally** → `references/05-verify-locally.md`
    Run migrations, boot `pnpm dev`, sign in, and pass the `pnpm validate` gate.
 6. **Deploy to production** → `references/06-deploy-production.md`
-   Create the Vercel project, push production env, wire prod OAuth + Autumn + Stripe, deploy.
+   Create the Vercel project, push production env, set the GitHub Actions secrets CI needs,
+   wire prod OAuth + Autumn + Stripe, deploy.
 
 At the end, report a per-service status checklist (configured / needs user action / skipped) and
 the live URL.
