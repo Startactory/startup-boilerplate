@@ -24,20 +24,55 @@ it (Better Auth `trustedOrigins`, secure cookies, OAuth redirects, email links).
 
 ## 6c. Push production environment variables
 
-Set **every required var** from `.env` into the Vercel project's **Production** environment, with
-these production overrides:
+`src/shared/env.ts` validates the environment **at build time**, not just at runtime — Next.js
+evaluates it while collecting route data, so a single missing variable fails the Vercel *build*
+with `Invalid environment variables`. Push the complete set before deploying.
 
-- `NODE_ENV=production`, `VERCEL_ENV` is set by Vercel automatically.
-- `NEXT_PUBLIC_APP_URL` and `BETTER_AUTH_URL` → the production URL from 6a.
-- `DATABASE_URL` → the Supabase **pooler** connection string; `DATABASE_SSL=require`.
-- Email `*_FROM_EMAIL` → an address on the production domain (Resend strongly preferred over Gmail
-  SMTP in production).
-- Keep the generated secrets (`BETTER_AUTH_SECRET`, `EARLY_ACCESS_PEPPER`, `CRON_SECRET`,
-  `ENCRYPTION_KEY`) — reuse the same values or regenerate; if you regenerate `CRON_SECRET`, it must
-  match what the cron caller uses.
-- `AUTUMN_SECRET_KEY` → the **production** key (see 6f).
+### The full inventory
 
-Never paste secrets into `vercel.json` or any committed file — they go in the project's env store.
+Vercel injects `NODE_ENV`, `VERCEL_ENV`, `VERCEL_URL` and `VERCEL_DEPLOYMENT_ID` itself — never
+push those. Everything else comes from `.env`:
+
+| Variable | Required | Where the value comes from |
+| --- | --- | --- |
+| `NEXT_PUBLIC_APP_URL` | ✅ | the production URL from 6a |
+| `BETTER_AUTH_URL` | ✅ | the same production URL |
+| `DATABASE_URL` | ✅ | Supabase **session pooler** (see 6d) |
+| `DATABASE_SSL` | — | `require` for hosted Postgres |
+| `BETTER_AUTH_SECRET` | ✅ | generated in step 3 |
+| `EARLY_ACCESS_PEPPER` | ✅ | generated in step 3 |
+| `CRON_SECRET` | ✅ | generated in step 3; Vercel Cron sends it back as a bearer token |
+| `ENCRYPTION_KEY` | — | generated in step 3 |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ✅ | Google Cloud Console (4b) |
+| `OPENAI_API_KEY` | ✅ | platform.openai.com (4c) |
+| `SUPABASE_URL` | ✅ | Supabase project (4a) |
+| `SUPABASE_SECRET_KEY` | ✅ | must start `sb_secret_` |
+| `SUPABASE_PUBLISHABLE_KEY` | ✅ | must start `sb_publishable_` |
+| `SUPABASE_STORAGE_BUCKET` | ✅ | `files` |
+| `ZEROENTROPY_API_KEY` | ✅ | ZeroEntropy (4d) |
+| `ZEROENTROPY_API_URL` | ✅ | e.g. `https://eu-api.zeroentropy.dev/v1` |
+| `AUTUMN_SECRET_KEY` | ✅ **in production** | Autumn production key (6f) — `assertBillingConfigured` fails the build without it |
+| `EMAIL_PROVIDER` + its vars | ✅ | `resend` → `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; `smtp` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` |
+| `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | — | PostHog (4e) |
+| `UPSTASH_*`, `BRAVE_SEARCH_API_KEY`, `MICROSOFT_*`, `OTEL_*` | — | optional; leave unset to disable |
+
+### Push them
+
+Don't click through the dashboard one variable at a time — use the bundled script. It reads `.env`,
+**refuses to run** if anything required is missing or still holds a placeholder, skips the
+Vercel-managed variables, and streams each value over stdin so nothing is ever printed:
+
+```bash
+vercel link                                     # once, links this repo to the project
+node scripts/push-env-to-vercel.mjs             # dry run — lists what would be pushed
+node scripts/push-env-to-vercel.mjs --apply     # push to production
+```
+
+It is idempotent (removes then re-adds), so re-run it whenever `.env` changes. Use `--env preview`
+or `--file .env.staging` for other environments. It also warns when `NEXT_PUBLIC_APP_URL` /
+`BETTER_AUTH_URL` still point at `localhost`, or when `DATABASE_SSL` is not `require`.
+
+Never paste secrets into `vercel.json` or any committed file — they belong in the project's env store.
 
 ## 6d. Push CI/CD secrets to GitHub Actions
 
@@ -69,9 +104,17 @@ VERCEL_DEPLOY_HOOK_URL` and paste at the hidden prompt.
 
 Two things that will bite otherwise:
 
-- Use the **direct or session-pooler** connection string (port `5432`) for `DATABASE_URL`.
-  The transaction pooler (`6543`) does not reliably support the advisory locks and prepared
-  statements `drizzle-kit migrate` needs, so migrations can fail or half-apply.
+- Use the **session pooler** connection string for `DATABASE_URL`: host
+  `aws-<n>-<region>.pooler.supabase.com`, port **`5432`**, user **`postgres.<project-ref>`**.
+  - Do **not** use the direct connection (`db.<ref>.supabase.co`). It is **IPv6-only** unless the
+    project has the IPv4 add-on, and GitHub Actions runners are IPv4-only — the job hangs with no
+    error until it hits the timeout.
+  - Do **not** use the transaction pooler (`6543`) either: it does not reliably support the
+    advisory locks and prepared statements `drizzle-kit migrate` needs. Note Supabase's own ORM
+    snippet suggests `6543` — that is aimed at the serverless app runtime, not migrations.
+- **Substitute the password.** Supabase's copyable strings contain a literal `[YOUR-PASSWORD]`;
+  leaving it in produces an instant auth failure that drizzle-kit reports with no message at all.
+  URL-encode special characters (`@` → `%40`, `#` → `%23`, `/` → `%2F`, …).
 - Set these **before the first push to `master`**, or the `migrate` job fails its
   `Verify database url` guard and the release never triggers.
 
