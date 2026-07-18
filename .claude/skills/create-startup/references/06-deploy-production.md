@@ -51,7 +51,7 @@ add real users as test users or publish the app. (Same for Microsoft if it was e
 1. In the Autumn dashboard, connect/enable **Stripe live mode** (real payouts).
 2. Push the product config to production:
    ```bash
-   npx atmn push -p
+   pnpm dlx atmn push -p
    ```
 3. Set the **production** `AUTUMN_SECRET_KEY` (`am_sk_live_…`) in Vercel Production env.
 
