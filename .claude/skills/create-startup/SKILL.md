@@ -1,167 +1,94 @@
 ---
 name: create-startup
 description: >-
-  Bootstrap a new startup / SaaS project from this boilerplate end-to-end. Use this skill
-  whenever the user wants to start, scaffold, initialize, or set up a new startup from this
-  repo — name their company, wire up the service integrations (Supabase, Autumn, PostHog,
-  Resend, Vercel, OpenAI), and get to a running skeleton fast. Trigger on phrases like "set
-  up my startup", "initialize the boilerplate", "create a new startup", "let's start the
-  project", or "connect the services", even when the skill is not named explicitly.
+  Bootstrap a new startup / SaaS project from this boilerplate end-to-end, all the way to a
+  production deployment. Use this skill whenever the user wants to start, scaffold, initialize,
+  provision, or ship a new startup from this repo — name their company, wire up and configure
+  every service (Supabase, Google OAuth, OpenAI, ZeroEntropy, Autumn payments, PostHog, Resend,
+  Vercel), fill the environment, run the app locally, and deploy it live. Trigger on phrases
+  like "set up my startup", "initialize the boilerplate", "create a new startup", "let's start
+  the project", "connect the services", or "deploy it to prod", even when the skill is not
+  named explicitly.
 ---
 
 # Create Startup
 
-Take a fresh clone of this boilerplate and turn it into a ready-to-build startup: named,
-with every external service connected, and (in later steps) fully scaffolded.
+Take a fresh clone of this boilerplate and drive it to a **production-ready, deployed** startup:
+named, every service provisioned and configured, environment filled, running locally, then live
+on Vercel — with as little manual dashboard work by the user as possible.
 
-This skill is built **incrementally**. The steps below are executed in order. Steps marked
-`(planned)` are not implemented yet — do not attempt them; stop after the last implemented
-step and tell the user what comes next.
+## How this skill works
 
-## The stack this boilerplate targets
+Setup is a **hybrid**. Some services expose an MCP that lets you configure them directly
+(create the project, mint keys, push config); others have no MCP and need a short guided
+paste-back where the user creates something in a console and hands you the key. Your job is to
+do everything you can automatically and make the manual parts a tight, well-signposted flow —
+never a vague "go set up X yourself".
 
-| Concern | Choice |
-| --- | --- |
-| Framework | Next.js (App Router) + TypeScript, Node.js runtime |
-| Package manager | pnpm |
-| Auth | Better Auth |
-| Database + Storage | Supabase (Postgres + Storage buckets) + Drizzle ORM |
-| Payments / billing | Autumn |
-| Product analytics | PostHog |
-| Tracing + logs | PostHog via OpenTelemetry |
-| Transactional email | Resend |
-| AI | OpenAI via the AI SDK |
-| Hosting | Vercel |
+Two hard rules that keep this reliable:
 
-## Flow overview
+- **`src/shared/env.ts` is the source of truth for configuration.** It validates every variable
+  at boot (via valibot). Before filling `.env`, read it — required vs optional, formats
+  (e.g. `SUPABASE_SECRET_KEY` must start with `sb_secret_`, `BETTER_AUTH_SECRET` ≥ 32 chars),
+  and cross-field rules (the email provider check). If a value doesn't satisfy `env.ts`, the app
+  won't start. Treat that file as the contract, not this skill.
+- **Secrets live in `.env` only, which is git-ignored. Never commit a key.** Project-level MCP
+  config (URLs, no secrets) lives in `.mcp.json` and *is* committed. `.env.template` is the
+  committed, empty shape.
 
-1. **Name the startup** — capture the name and derive identifiers. *(implemented)*
-2. **Connect the service connectors** — add every MCP so services can be configured for the
-   user without them touching each dashboard. *(implemented)*
-3. Scaffold the Next.js app + tooling. *(planned)*
-4. Provision & configure each service (create the Supabase project, Autumn product, PostHog
-   project, Resend domain, Vercel project, wire env vars). *(planned)*
-5. Generate code integrations (Better Auth, Drizzle schema, PostHog + OTel, Resend, AI SDK). *(planned)*
+## The stack (what's actually in this repo)
 
----
-
-## Step 1 — Name the startup
-
-The name threads through everything later (package name, Supabase/Vercel project names, env
-prefixes, email `from` address), so capture it first and persist it.
-
-1. Ask the user for the startup name if they haven't already given it. Keep it a plain
-   conversational question — names are free-form.
-2. Derive identifiers from the name and confirm them with the user before saving:
-   - `name` — the display name exactly as given (e.g. `Acme Analytics`)
-   - `slug` — lowercase, hyphenated, safe for package names and project refs
-     (e.g. `acme-analytics`)
-   - `domain` — ask for it if they have one, otherwise leave empty for now
-3. Persist to `startup.config.json` at the repo root so later steps (and later sessions) can
-   read it. Create it with exactly this shape:
-
-   ```json
-   {
-     "name": "Acme Analytics",
-     "slug": "acme-analytics",
-     "domain": "",
-     "createdStep": "naming"
-   }
-   ```
-
-   If the file already exists, read it and confirm/update rather than overwriting silently.
-
-Once saved, tell the user the name is locked in and move to Step 2.
-
----
-
-## Step 2 — Connect the service connectors
-
-Goal: the user should never have to open each service's dashboard and copy API keys by hand.
-Instead, connect each service's MCP server so it can be configured directly from here. Most
-are remote HTTP servers with a browser OAuth login — the user signs in once per service and
-grants access.
-
-### 2a. What gets connected (and what doesn't)
-
-**Management connectors** — these let this session create and configure resources on the
-user's account (projects, products, domains, deployments):
-
-| Service | MCP name | Add command |
+| Concern | Choice | Configured in |
 | --- | --- | --- |
-| Supabase | `supabase` | `claude mcp add --scope project --transport http supabase https://mcp.supabase.com/mcp` |
-| Autumn | `autumn` | `claude mcp add --scope project --transport http autumn https://mcp.useautumn.com/mcp` |
-| PostHog | `posthog` | `claude mcp add --scope project --transport http posthog https://mcp.posthog.com/mcp` |
-| Resend | `resend` | `claude mcp add --scope project --transport http resend https://mcp.resend.com/mcp` |
-| Vercel | `vercel` | `claude mcp add --scope project --transport http vercel https://mcp.vercel.com` |
+| Framework | Next.js 16 (App Router) · React 19 · TS 6 · pnpm | — |
+| Auth | Better Auth — Google OAuth (required), Microsoft (optional), org plugin | `src/infra/auth/auth.ts` |
+| Database | Supabase Postgres + Drizzle ORM | `DATABASE_URL` |
+| File storage | Supabase Storage (private `files` bucket) | `SUPABASE_*` |
+| Payments | **Autumn** (over Stripe) — see the billing integration | `AUTUMN_SECRET_KEY`, `autumn.config.ts` |
+| AI | OpenAI via Vercel AI SDK + Mastra agents | `OPENAI_API_KEY` |
+| RAG | ZeroEntropy (locked) | `ZEROENTROPY_API_KEY` |
+| Analytics | PostHog | `NEXT_PUBLIC_POSTHOG_KEY` |
+| Tracing / logs | OpenTelemetry (+ PostHog exporter) · pino | `OTEL_*` (optional) |
+| Email | Resend **or** SMTP (provider-switchable) | `EMAIL_PROVIDER` + provider vars |
+| Rate limit / cache | Upstash Redis (optional) | `UPSTASH_*` |
+| Hosting | Vercel (+ cron) | Step 6 |
 
-**Docs / dev-tools connectors** — no account configuration, but they make building far more
-accurate (live app state, up-to-date API docs):
+Do **not** hard-code the startup's brand name in user-facing copy — the boilerplate is
+brand-neutral by design (see `CLAUDE.md`). The name captured in Step 1 is for project/config
+identifiers, not for baking into UI strings.
 
-| Service | MCP name | How to add |
-| --- | --- | --- |
-| OpenAI docs | `openaiDeveloperDocs` | `claude mcp add --scope project --transport http openaiDeveloperDocs https://developers.openai.com/mcp` |
-| Next.js devtools | `next-devtools` | stdio server (see 2c) — added to `.mcp.json`, activates once `pnpm dev` runs |
+## What this run decided (per the repo owner)
 
-**Not an MCP connector: Better Auth.** Better Auth's "MCP plugin" turns *your* app into an
-OAuth provider for external MCP clients — it is not a server that configures Better Auth for
-you. There is nothing to connect here; Better Auth is wired up in code during the later
-scaffolding steps. Mention this to the user so they aren't left wondering why it's missing.
+- **Payments: Autumn is integrated for real** (code + provisioning), not deferred.
+- **End state: production.** A full run ends with a live Vercel deployment, hosted DB, and
+  payments configured.
+- **Optional services: PostHog is set up.** Upstash Redis, Microsoft OAuth, and Brave Search
+  are left as clearly-marked `TODO` lines in `.env` (the app degrades gracefully without them).
 
-`--scope project` writes these to a `.mcp.json` at the repo root, so they ship with the
-boilerplate — anyone who clones it inherits the same connectors and only needs to
-authenticate.
+## The flow
 
-### 2b. Add the connectors
+Execute in order. Each step is detailed in its own reference file — **read the file when you
+reach that step** and follow it; don't run ahead. Keep a todo per step.
 
-Run each `claude mcp add` command from the table above from the repo root. They are
-idempotent-ish, but if one reports the server already exists, that's fine — skip it.
+1. **Name the startup** → `references/01-name-startup.md`
+   Capture the name, derive identifiers, persist `startup.config.json`.
+2. **Connect the connectors** → `references/02-connect-connectors.md`
+   Add every service MCP so you can configure them from here; authenticate each.
+3. **Install & bootstrap env** → `references/03-install-and-secrets.md`
+   `pnpm install`, generate the local secrets, create `.env` from the template.
+4. **Provision & configure services** → `references/04-provision-services.md`
+   Supabase, Google OAuth, OpenAI, ZeroEntropy, Autumn, PostHog, email — fill every `.env` value.
+5. **Verify locally** → `references/05-verify-locally.md`
+   Run migrations, boot `pnpm dev`, sign in, and pass the `pnpm validate` gate.
+6. **Deploy to production** → `references/06-deploy-production.md`
+   Create the Vercel project, push production env, wire prod OAuth + Autumn + Stripe, deploy.
 
-After adding them, `.mcp.json` should contain the five management servers plus the OpenAI
-docs server. Add the Next.js devtools server as described in 2c.
+At the end, report a per-service status checklist (configured / needs user action / skipped) and
+the live URL.
 
-### 2c. Add the Next.js devtools server
+## Prerequisites to tell the user up front
 
-This one is a local stdio server (not remote), and it only connects to a *running* Next.js 16+
-dev server, so it stays dormant until the app is scaffolded and `pnpm dev` is running. Add it
-to `.mcp.json` now so it's ready:
-
-```json
-{
-  "mcpServers": {
-    "next-devtools": {
-      "command": "npx",
-      "args": ["-y", "next-devtools-mcp@latest"]
-    }
-  }
-}
-```
-
-### 2d. Authenticate each connector
-
-The management connectors (and OpenAI docs) use browser-based OAuth. Walk the user through
-authenticating them:
-
-1. Tell the user to run `/mcp` in Claude Code.
-2. For each server listed (`supabase`, `autumn`, `posthog`, `resend`, `vercel`,
-   `openaiDeveloperDocs`), have them select it and choose **Authenticate**, completing the
-   sign-in flow in the browser. Each grants this session the same access as their own account
-   on that service, so they should only approve what they recognize.
-3. Note the important caveat for **OAuth in Claude Code**: it must be run from a regular
-   terminal, not inside some IDE embeddings. If a server won't authenticate, retry from a
-   plain terminal session.
-
-### 2e. Verify
-
-- Run `claude mcp list` and confirm every server shows as connected.
-- Confirm `.mcp.json` at the repo root contains all seven entries (five management + OpenAI
-  docs + next-devtools).
-- Report the status back to the user as a short checklist (connected / needs auth / skipped),
-  then hand off: the next step (scaffolding the app) is not built yet.
-
----
-
-## After Step 2
-
-Stop here and tell the user Step 2 is complete and Steps 3–5 are still to be built. Do not
-improvise the scaffolding or provisioning — those will be added to this skill incrementally.
+They'll need accounts (free tiers are fine to start) for: **Supabase, Google Cloud** (OAuth),
+**OpenAI** (with billing), **ZeroEntropy**, **Autumn** (+ a **Stripe** account to connect for
+real payments), **Vercel**, and **PostHog**. Everything else is optional. Surface this list at
+the start of Step 4 so they can create any missing accounts before the guided parts.

@@ -110,6 +110,10 @@ const EnvSchema = v.object({
 
   UPSTASH_REDIS_REST_URL: v.optional(v.pipe(v.string(), v.url())),
   UPSTASH_REDIS_REST_TOKEN: v.optional(v.pipe(v.string(), v.minLength(1))),
+
+  // Payments (Autumn). Optional locally (use the dev paywall-skip); required in
+  // production — enforced by assertBillingConfigured below.
+  AUTUMN_SECRET_KEY: v.optional(v.pipe(v.string(), v.minLength(1))),
 });
 
 export type Env = v.InferOutput<typeof EnvSchema>;
@@ -136,6 +140,14 @@ function assertEmailProviderConfigured(parsed: Env): void {
   }
 }
 
+function assertBillingConfigured(parsed: Env): void {
+  if (parsed.VERCEL_ENV === 'production' && !parsed.AUTUMN_SECRET_KEY) {
+    throw new Error(
+      'AUTUMN_SECRET_KEY is required in production (payments / paywall).',
+    );
+  }
+}
+
 export function env(): Env {
   if (cached) return cached;
   const result = v.safeParse(EnvSchema, process.env);
@@ -149,6 +161,7 @@ export function env(): Env {
     throw new Error(`Invalid environment variables:\n${issues}`);
   }
   assertEmailProviderConfigured(result.output);
+  assertBillingConfigured(result.output);
   cached = result.output;
   return cached;
 }

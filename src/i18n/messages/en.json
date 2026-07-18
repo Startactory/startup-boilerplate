@@ -20,6 +20,12 @@
     "invalidCode": "Invalid or already-used code.",
     "unknownError": "Something went wrong. Please try again."
   },
+  "Paywall": {
+    "title": "Choose a plan to continue",
+    "subtitle": "Your workspace needs an active subscription to use the app.",
+    "upgrade": "Upgrade to Pro",
+    "devSkip": "Skip paywall (dev only)"
+  },
   "Nav": {
     "dashboard": "Dashboard",
     "storage": "Storage",
