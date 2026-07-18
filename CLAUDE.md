@@ -61,7 +61,7 @@ src/
     ports/           Port interfaces (*.port.ts) the domain depends on
     <context>/       agents, chat, conversation, file, storage, retrieval, …
     types/           cross-context types
-  application/       Use cases — orchestration + entry points (server actions)
+  application/       Use cases — orchestration, called from route handlers
     <feature>/
       <action>.ts    one verb per file
       dto.ts         DTOs co-located with the use case
@@ -73,7 +73,7 @@ src/
   app/               Next.js App Router UI
     (public)/        unauthenticated routes
     (app)/           authenticated routes (gated by layout.tsx)
-    api/             route handlers (chat stream, files, cron, …)
+    api/             route handlers — the ONLY server entry point (chat stream, files, conversations, cron, …)
     auth/[...all]/   Better Auth handler
   shared/            logger, env, telemetry, errors-http, utils
   i18n/              messages + request config
@@ -93,6 +93,7 @@ src/instrumentation-client.ts   PostHog client init
 ### Never
 
 - Import into `core/` from outside `core/`
+- **Write a server action.** The `'use server'` directive is banned (ESLint `no-server-actions/no-use-server`). Every client→server call goes through a route handler under `src/app/api/*`, invoked with `fetch` from the client. Register the new route's directory in its domain in `scripts/boundaries/manifest.mjs`.
 - Import `infra/` from `app/` UI (go through `application/`). Server-side wiring required by Next.js — route handlers, layout session checks — may import `@/infra/auth/auth`.
 - Call infrastructure from domain — use ports (`core/ports/*.port.ts` → adapter in `infra/` → wired in `application/`)
 - **Throw across layers from infrastructure** → return `Result<T, AppError>`. Internal pure helpers may throw; the calling adapter catches and converts.

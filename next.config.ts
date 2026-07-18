@@ -7,11 +7,6 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? 'development',
   },
   serverExternalPackages: ['pino', 'pino-pretty', 'pdfjs-dist'],
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '10mb',
-    },
-  },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },

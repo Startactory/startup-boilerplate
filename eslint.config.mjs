@@ -95,6 +95,56 @@ const domainBoundariesPlugin = {
   },
 };
 
+const noServerActionsPlugin = {
+  rules: {
+    'no-use-server': {
+      meta: {
+        type: 'problem',
+        docs: {
+          description:
+            "Ban the 'use server' directive — this app exposes server work through route handlers only",
+        },
+        schema: [],
+      },
+      create(context) {
+        function checkDirectives(body) {
+          for (const statement of body ?? []) {
+            if (statement.type !== 'ExpressionStatement') break;
+            const { expression } = statement;
+            if (
+              expression.type === 'Literal' &&
+              expression.value === 'use server'
+            ) {
+              context.report({
+                node: statement,
+                message:
+                  "Server actions are not used in this app. Expose the use case through a route handler under src/app/api instead of a 'use server' directive.",
+              });
+            }
+          }
+        }
+
+        return {
+          Program(node) {
+            checkDirectives(node.body);
+          },
+          FunctionDeclaration(node) {
+            checkDirectives(node.body?.body);
+          },
+          FunctionExpression(node) {
+            checkDirectives(node.body?.body);
+          },
+          ArrowFunctionExpression(node) {
+            if (node.body.type === 'BlockStatement') {
+              checkDirectives(node.body.body);
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -154,8 +204,14 @@ const eslintConfig = defineConfig([
   },
   {
     files: ['src/**/*.{js,jsx,ts,tsx,mjs,cjs}'],
-    plugins: { 'domain-boundaries': domainBoundariesPlugin },
-    rules: { 'domain-boundaries/enforce': 'error' },
+    plugins: {
+      'domain-boundaries': domainBoundariesPlugin,
+      'no-server-actions': noServerActionsPlugin,
+    },
+    rules: {
+      'domain-boundaries/enforce': 'error',
+      'no-server-actions/no-use-server': 'error',
+    },
   },
 ]);
 

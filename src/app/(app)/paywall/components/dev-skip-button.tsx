@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useTransition } from 'react';
-import { setDevPaywallSkip } from '@/application/billing/set-dev-paywall-skip';
 import { Button } from '@/components/ui/button';
 
 export function DevSkipButton(): React.ReactElement {
@@ -18,8 +17,10 @@ export function DevSkipButton(): React.ReactElement {
       loading={isPending}
       onClick={() => {
         startTransition(async () => {
-          const result = await setDevPaywallSkip();
-          if (result.success) router.replace('/dashboard');
+          const res = await fetch('/api/billing/dev-paywall-skip', {
+            method: 'POST',
+          });
+          if (res.ok) router.replace('/dashboard');
         });
       }}
     >

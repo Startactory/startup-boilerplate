@@ -48,6 +48,7 @@ export const DOMAINS = [
       'src/application/early-access',
       'src/infra/data-access/early-access',
       'src/app/(public)/onboarding',
+      'src/app/api/early-access',
     ],
     schemas: ['src/infra/database/schema/early-access-schema'],
     public: ['src/application/early-access/redeem'],
@@ -123,6 +124,7 @@ export const DOMAINS = [
       'src/infra/data-access/conversation',
       'src/infra/external-apis/mastra',
       'src/app/api/chat',
+      'src/app/api/conversations',
       'src/app/(app)/dashboard/components/chat',
       'src/app/(app)/dashboard/@chat',
     ],
@@ -209,6 +211,7 @@ export const DOMAINS = [
       'src/infra/external-apis/autumn',
       'src/app/(app)/paywall',
       'src/app/api/autumn',
+      'src/app/api/billing',
     ],
     schemas: [],
     // Reads the active org id via the auth domain (openToAll); nothing else

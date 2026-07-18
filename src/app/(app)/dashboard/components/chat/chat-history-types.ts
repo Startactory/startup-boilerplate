@@ -1,9 +1,19 @@
 import type { UIMessage } from 'ai';
 import type { MessageCursor } from '@/application/conversation/ports/message-store.port';
 
-export const HISTORY_PAGE_SIZE = 10;
+export type RequestResult<T> = { ok: true; data: T } | { ok: false };
 
-export type ActionResult<T> = { ok: true; data: T } | { ok: false };
+export type ConversationSummary = {
+  id: string;
+  title: string | null;
+  updatedAt: string;
+};
+
+export type ConversationPage = {
+  items: ConversationSummary[];
+  hasMore: boolean;
+  page: number;
+};
 
 export type SwitchedConversation = {
   conversationId: string;
