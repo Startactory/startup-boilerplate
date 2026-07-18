@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkDomainBoundaries } from './check-domain-boundaries.mjs';
+import { checkDomainBoundaries } from '../scripts/check-domain-boundaries.mjs';
 
 describe('domain boundaries', () => {
   it('has no cross-domain violations', () => {
