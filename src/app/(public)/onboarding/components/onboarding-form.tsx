@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import posthog from 'posthog-js';
 import { useState, useTransition } from 'react';
-import { redeem } from '@/application/early-access/redeem';
+import type { RedeemResult } from '@/application/early-access/redeem';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -17,6 +17,28 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+// The route mirrors RedeemResult for every mapped outcome, but transport-level
+// failures (rate limit, malformed body) answer with a different shape.
+async function redeemEarlyAccess(input: {
+  code: string;
+  organizationName: string;
+}): Promise<RedeemResult> {
+  try {
+    const res = await fetch('/api/early-access/redeem', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const body: unknown = await res.json();
+    if (typeof body === 'object' && body !== null && 'success' in body) {
+      return body as RedeemResult;
+    }
+    return { success: false, error: 'unknown' };
+  } catch {
+    return { success: false, error: 'unknown' };
+  }
+}
+
 export function OnboardingForm() {
   const t = useTranslations('Onboarding');
   const router = useRouter();
@@ -26,7 +48,7 @@ export function OnboardingForm() {
   const onSubmit = (formData: FormData): void => {
     setError(null);
     startTransition(async () => {
-      const result = await redeem({
+      const result = await redeemEarlyAccess({
         organizationName: String(formData.get('orgName') ?? ''),
         code: String(formData.get('code') ?? ''),
       });

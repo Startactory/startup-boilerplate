@@ -21,14 +21,14 @@ import { FilesDropZone } from '../../storage/components/files-drop-zone';
 import { type AttachmentDraft, AttachmentTray } from './attachment-tray';
 import { useNotifyAssistantFinished } from './chat-context';
 import {
-  loadOlderMessagesAction,
-  switchConversationAction,
-} from './chat-history-actions';
+  activateConversation,
+  clearActiveConversation,
+  fetchOlderMessages,
+} from './chat-history-api';
 import { ChatHistoryPopover } from './chat-history-popover';
 import { FloatingInput } from './floating-input';
 import { MessagesList } from './messages-list';
 import { prependUnique } from './prepend-unique';
-import { resetChatCookie } from './reset-chat-cookie';
 import { UploadAttachmentError, uploadAttachment } from './upload-attachment';
 import { useActiveContext } from './use-active-context';
 import { useChatScroll } from './use-chat-scroll';
@@ -196,12 +196,12 @@ export function ChatView({
     setOldestCursor(null);
     setInput('');
     setAttachments([]);
-    await resetChatCookie();
+    await clearActiveConversation();
   };
 
   const handleSelectConversation = async (id: string): Promise<void> => {
     if (isStreaming || id === conversationId) return;
-    const result = await switchConversationAction(id);
+    const result = await activateConversation(id);
     if (!result.ok) {
       toast.error(tErrors('description'));
       return;
@@ -238,7 +238,7 @@ export function ChatView({
     fetchingRef.current = true;
     setIsFetchingMore(true);
 
-    const result = await loadOlderMessagesAction({
+    const result = await fetchOlderMessages({
       threadId: snapshot.conversationId,
       before: snapshot.oldestCursor,
     });

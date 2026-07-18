@@ -29,16 +29,11 @@ import {
 import { useInfiniteScroll } from '@/hooks/use-infinite-scroll';
 import { cn } from '@/lib/utils';
 import {
-  deleteConversationAction,
-  listConversationsAction,
-  renameConversationAction,
-} from './chat-history-actions';
-
-type ConversationSummary = {
-  id: string;
-  title: string | null;
-  updatedAt: string;
-};
+  deleteConversation,
+  fetchConversations,
+  renameConversation,
+} from './chat-history-api';
+import type { ConversationSummary } from './chat-history-types';
 
 type Props = {
   activeConversationId: string | null;
@@ -88,7 +83,7 @@ export function ChatHistoryPopover({
     }
     const requestId = ++requestIdRef.current;
     setPhase('initial');
-    listConversationsAction({ page: 0 }).then((res) => {
+    fetchConversations({ page: 0 }).then((res) => {
       if (requestIdRef.current !== requestId) return;
       setItems(res.items);
       setHasMore(res.hasMore);
@@ -102,7 +97,7 @@ export function ChatHistoryPopover({
     const nextPage = page + 1;
     const requestId = ++requestIdRef.current;
     setPhase('more');
-    listConversationsAction({ page: nextPage }).then((res) => {
+    fetchConversations({ page: nextPage }).then((res) => {
       if (requestIdRef.current !== requestId) return;
       setItems((prev) => [...prev, ...res.items]);
       setHasMore(res.hasMore);
@@ -135,7 +130,7 @@ export function ChatHistoryPopover({
     finishRename();
     if (!trimmed) return;
 
-    const res = await renameConversationAction({
+    const res = await renameConversation({
       threadId: id,
       title: trimmed,
     });
@@ -156,7 +151,7 @@ export function ChatHistoryPopover({
     if (!confirmingId) return;
     const id = confirmingId;
     setDeleting(true);
-    const res = await deleteConversationAction(id);
+    const res = await deleteConversation(id);
     setDeleting(false);
     setConfirmingId(null);
     if (!res.ok) {

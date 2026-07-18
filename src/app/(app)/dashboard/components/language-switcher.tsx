@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, Globe } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useTransition } from 'react';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { LOCALES, type Locale } from '@/i18n/locales';
-import { setLocale } from '@/i18n/set-locale';
+import { requestLocaleChange } from '@/i18n/set-locale-request';
 
 const LOCALE_LABELS: Record<Locale, string> = {
   fr: 'Français',
@@ -25,13 +26,15 @@ const LOCALE_LABELS: Record<Locale, string> = {
 
 export function LanguageSwitcher() {
   const t = useTranslations('Nav');
+  const router = useRouter();
   const current = useLocale() as Locale;
   const [isPending, startTransition] = useTransition();
 
   const handleSelect = (locale: Locale): void => {
     if (locale === current) return;
-    startTransition(() => {
-      setLocale(locale);
+    startTransition(async () => {
+      await requestLocaleChange(locale);
+      router.refresh();
     });
   };
 

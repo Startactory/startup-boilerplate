@@ -1,4 +1,4 @@
-'use server';
+import 'server-only';
 
 import * as v from 'valibot';
 import { getCurrentUser } from '@/application/me/get-current-user';
