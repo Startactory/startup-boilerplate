@@ -20,6 +20,12 @@
     "invalidCode": "Code invalide ou déjà utilisé.",
     "unknownError": "Une erreur est survenue. Veuillez réessayer."
   },
+  "Paywall": {
+    "title": "Choisissez une formule pour continuer",
+    "subtitle": "Votre espace de travail nécessite un abonnement actif pour utiliser l'application.",
+    "upgrade": "Passer à Pro",
+    "devSkip": "Ignorer le paywall (dev uniquement)"
+  },
   "Nav": {
     "dashboard": "Tableau de bord",
     "storage": "Stockage",

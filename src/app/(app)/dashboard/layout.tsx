@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { Suspense } from 'react';
+import { getAppEntitlement } from '@/application/billing/get-app-entitlement';
 import { getCurrentUser } from '@/application/me/get-current-user';
 import { DashboardMainShell } from './components/dashboard-main-shell';
 import { DashboardWrapper } from './components/dashboard-wrapper';
@@ -18,6 +19,9 @@ export default async function DashboardLayout({
   const currentUser = await getCurrentUser();
   if (currentUser.isErr()) redirect('/sign-in');
   if (!currentUser.value.organizationId) redirect('/onboarding');
+
+  const entitlement = await getAppEntitlement();
+  if (entitlement.isErr() || !entitlement.value.allowed) redirect('/paywall');
 
   return (
     <DashboardWrapper user={currentUser.value} chat={chat}>

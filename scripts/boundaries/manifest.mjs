@@ -201,6 +201,20 @@ export const DOMAINS = [
     ],
     openToAll: true,
   },
+  {
+    name: 'billing',
+    dirs: [
+      'src/core/billing',
+      'src/application/billing',
+      'src/infra/external-apis/autumn',
+      'src/app/(app)/paywall',
+      'src/app/api/autumn',
+    ],
+    schemas: [],
+    // Reads the active org id via the auth domain (openToAll); nothing else
+    // depends on it yet, so no ALLOWED_EDGES entry is required.
+    public: ['src/application/billing/get-app-entitlement'],
+  },
 ];
 
 export const ALLOWED_EDGES = [
