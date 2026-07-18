@@ -13,6 +13,40 @@ then the manual keys, then Autumn last (it depends on the billing code being pre
 
 ---
 
+## How to collect the values the user must provide
+
+A few credentials cannot be fetched over MCP — they are issued to the user's own accounts. For
+those, run a **guided, one-at-a-time loop**. Never hand over a list of five things to go fetch: a
+wall of instructions is exactly how someone ends up pasting a placeholder or the wrong key, and
+that failure then surfaces much later as an unexplained build error.
+
+For each credential, in order, do this and nothing more:
+
+1. **Say what you need and why**, in one sentence — "I need your OpenAI API key so chat and RAG
+   can call the model."
+2. **Give the exact path to get it** — the clicks, not just the site name. Include anything that
+   must be configured while they're in there (a redirect URI, a billing card, a verified domain).
+3. **Give the command to set it**, so the secret never passes through the chat:
+
+   ```bash
+   printf "Paste OPENAI_API_KEY: "; read -rs V; echo
+   printf %s "$V" | node scripts/set-env-var.mjs OPENAI_API_KEY
+   unset V
+   ```
+
+4. **Wait.** Do not continue to the next credential, and do not batch them. One at a time.
+5. **Confirm what landed.** The script validates the value against `src/shared/env.ts` — prefixes,
+   lengths, URL and email shapes — plus vendor-format warnings, then prints a masked confirmation.
+   If it rejects the value, fix *that* one before moving on.
+
+Use the script rather than telling the user to edit `.env` by hand: it keeps secrets out of the
+transcript, out of shell history and out of `ps`, and it catches a wrong or placeholder paste
+immediately. It refuses anything that still looks like `[YOUR-PASSWORD]` or `<...>`.
+
+Tell the user where they are — "that's 3 of 5" — so the remaining work is visible.
+
+---
+
 ## 4a. Supabase — DB + storage (MCP: `supabase`)
 
 Fills: `DATABASE_URL`, `DATABASE_SSL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`,
@@ -51,7 +85,20 @@ without this **no one can sign in**. Walk the user through it:
 4. **Authorized redirect URIs** — Better Auth mounts at `/auth` (not `/api/auth`), so add:
    - `http://localhost:3000/auth/callback/google` (local)
    - the production one is added in Step 6: `https://<prod-domain>/auth/callback/google`
-5. Copy the client ID and secret → `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+5. Copy the client ID and secret. Ask for them **one at a time**:
+
+   ```bash
+   printf "Paste GOOGLE_CLIENT_ID: "; read -rs V; echo
+   printf %s "$V" | node scripts/set-env-var.mjs GOOGLE_CLIENT_ID
+   unset V
+
+   printf "Paste GOOGLE_CLIENT_SECRET: "; read -rs V; echo
+   printf %s "$V" | node scripts/set-env-var.mjs GOOGLE_CLIENT_SECRET
+   unset V
+   ```
+
+   The client ID normally ends `.apps.googleusercontent.com` and the secret starts `GOCSPX-`; the
+   script warns if they look swapped.
 
 (Microsoft OAuth is optional and left as a TODO — the code enables it automatically if
 `MICROSOFT_CLIENT_ID/SECRET` are set; redirect URI `/auth/callback/microsoft`.)
@@ -63,8 +110,16 @@ without this **no one can sign in**. Walk the user through it:
 Fills: `OPENAI_API_KEY`. Keep `CHAT_MODEL`/`CHEAP_MODEL` at their pinned defaults
 (`gpt-5.4-mini` / `gpt-5.4-nano` — the picklists are enforced in `core/chat/types.ts`).
 
-1. https://platform.openai.com → **API keys → Create new secret key** → `OPENAI_API_KEY`.
-2. Ensure the account has billing/credits, or chat and RAG calls will 401/429.
+1. https://platform.openai.com → **API keys → Create new secret key**, then:
+
+   ```bash
+   printf "Paste OPENAI_API_KEY: "; read -rs V; echo
+   printf %s "$V" | node scripts/set-env-var.mjs OPENAI_API_KEY
+   unset V
+   ```
+
+2. Ensure the account has billing/credits, or chat and RAG calls will 401/429. This is worth
+   checking *now* — an unfunded key passes validation and only fails at first use.
 3. Leave `LLM_DAILY_BUDGET_USD_PER_USER` at the default (`2`) unless the user wants a different cap.
 
 `BRAVE_SEARCH_API_KEY` (web-search chat tool) is optional — leave as a TODO unless requested.
@@ -77,7 +132,13 @@ Fills: `ZEROENTROPY_API_KEY`, `ZEROENTROPY_API_URL`. ZeroEntropy is locked in th
 uploaded files). There is a repo doc — **follow `docs/zeroentropy-deployment.md`** for the exact,
 current provisioning steps rather than improvising.
 
-1. Create a ZeroEntropy account/organization and mint an API key → `ZEROENTROPY_API_KEY`.
+1. Create a ZeroEntropy account/organization and mint an API key, then:
+
+   ```bash
+   printf "Paste ZEROENTROPY_API_KEY: "; read -rs V; echo
+   printf %s "$V" | node scripts/set-env-var.mjs ZEROENTROPY_API_KEY
+   unset V
+   ```
 2. `ZEROENTROPY_API_URL` defaults to the EU endpoint (`https://eu-api.zeroentropy.dev/v1`); switch
    to the US endpoint only if that's where the account/data lives.
 
