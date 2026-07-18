@@ -42,14 +42,14 @@ Everything else — installing dependencies, generating secrets, creating the Su
 | | |
 |---|---|
 | Framework | Next.js 16 · React 19 · TypeScript · pnpm |
-| Auth | Better Auth (Google OAuth, organizations) |
+| Auth | Better Auth (Google OAuth) |
 | Database | Supabase Postgres + Drizzle |
 | Storage | Supabase Storage |
-| Payments | Autumn (over Stripe) |
+| Payments | Autumn |
 | AI | OpenAI + Vercel AI SDK + Mastra |
 | RAG | ZeroEntropy |
 | Analytics | PostHog |
-| Email | Resend or SMTP |
+| Email | Resend |
 | Hosting | Vercel |
 
 ## Commands
@@ -59,9 +59,3 @@ pnpm dev        # start the dev server
 pnpm validate   # type-check, lint, boundaries, tests — run before committing
 pnpm test       # tests only
 ```
-
-## Notes
-
-- The whole app sits behind a paywall. In development, `/paywall` has a **Skip paywall** button so you never need to pay locally.
-- `.env` is git-ignored — never commit it.
-- Architecture rules and conventions live in [CLAUDE.md](CLAUDE.md).
