@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/zeroentropy-retry",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
