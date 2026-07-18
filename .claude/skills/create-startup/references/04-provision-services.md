@@ -18,23 +18,96 @@ then the manual keys, then Autumn last (it depends on the billing code being pre
 Fills: `DATABASE_URL`, `DATABASE_SSL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`,
 `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_STORAGE_BUCKET`.
 
-Using the Supabase MCP:
+Do all of this yourself over the MCP. **Exactly one value cannot be automated** —
+`SUPABASE_SECRET_KEY` — because the MCP deliberately exposes no tool for service-role/secret keys
+(that key bypasses Row Level Security, so Supabase withholds it from agents on purpose). Ask for
+that one; obtain everything else without involving the user.
 
-1. Create a project named after the `slug` (or reuse one the user picks). Pick a region near the
-   user and a strong DB password.
-2. Retrieve and write:
-   - `SUPABASE_URL` = `https://<project-ref>.supabase.co`
-   - `SUPABASE_PUBLISHABLE_KEY` — must start with `sb_publishable_` (the new key format; **not** the
-     legacy `anon`/JWT key). If the MCP/dashboard only shows legacy keys, enable the new API keys.
-   - `SUPABASE_SECRET_KEY` — must start with `sb_secret_` (new format; not the legacy `service_role`).
-   - `DATABASE_URL` = the Postgres connection string. Use the connection **pooler** URI for the
-     serverless app runtime; you can use the direct connection for migrations. Include the password.
-   - `DATABASE_SSL=require` (hosted Postgres needs SSL).
-3. Create a **private** Storage bucket named `files` and set `SUPABASE_STORAGE_BUCKET=files`
-   (this value is validated against the `BUCKETS` picklist — keep it `files` unless the code
-   changes). Leave `SUPABASE_STORAGE_HOST` empty unless serving via a custom domain/CDN.
+### 1. Pick the organization
 
-Verify: the URL resolves, keys have the right prefixes, and the bucket exists and is private.
+`list_organizations` → if there's more than one, ask which to use. Otherwise take the only one.
+
+### 2. Get cost approval before creating anything
+
+Creating a project can be **billable**, which is why the MCP has a cost-confirmation flow. Do not
+skip it:
+
+1. `get_cost` for a new project in that organization.
+2. **Show the amount to the user and get an explicit yes.** Creating a paid resource on someone's
+   account without asking is not yours to decide.
+3. `confirm_cost` → keep the returned confirmation id; `create_project` requires it.
+
+### 3. Create the project
+
+`create_project` with:
+
+- `name` — the `slug` from Step 1
+- `region` — nearest the user's users (ask if unsure)
+- `db_pass` — **generate a strong password yourself** (e.g. 32 random base64url chars). You supply
+  it, so you know it, which is what lets you build `DATABASE_URL` in step 6 without ever asking.
+  Record it somewhere the user can retrieve it (tell them it's their DB password) — Supabase will
+  not show it again.
+- `confirm_cost_id` — from step 2
+
+Then poll `get_project` until `status` is `ACTIVE_HEALTHY`. Provisioning takes a minute or two;
+every later call fails confusingly if you race it.
+
+### 4. Read back the values you can
+
+- `get_project_url` → `SUPABASE_URL` (`https://<ref>.supabase.co`)
+- `get_publishable_keys` → `SUPABASE_PUBLISHABLE_KEY`, which must start `sb_publishable_`. If only
+  a legacy JWT `anon` key comes back, the project still has legacy keys — enable the new API key
+  format in the dashboard, because `env.ts` validates the `sb_publishable_` prefix and will reject
+  the legacy key.
+- `get_project` → note the `region` and `ref`; you need both for the connection string.
+
+### 5. Ask for the one value you cannot get
+
+Ask the user for `SUPABASE_SECRET_KEY` from **Dashboard → Project Settings → API Keys**. It must
+start `sb_secret_` (the new format — *not* the legacy `service_role` JWT). Explain why you're
+asking rather than making it look like an oversight.
+
+### 6. Build `DATABASE_URL` — session pooler
+
+```
+postgresql://postgres.<ref>:<url-encoded db_pass>@aws-0-<region>.pooler.supabase.com:5432/postgres
+```
+
+- User is **`postgres.<ref>`**, not `postgres`.
+- Port **5432** (session mode). Not `6543` — transaction mode breaks `drizzle-kit migrate`.
+- Never the direct host `db.<ref>.supabase.co`: it is IPv6-only and unreachable from IPv4-only CI.
+- **URL-encode the password** (`@`→`%40`, `#`→`%23`, `/`→`%2F`, …).
+- Set `DATABASE_SSL=require`.
+
+The `aws-0-` prefix is not guaranteed — some projects use `aws-1-`. **Verify by connecting rather
+than assuming**, and if it fails with `ENOTFOUND`, read the exact host from Dashboard → Connect →
+Session pooler:
+
+```bash
+node --env-file=.env -e "const p=require('postgres');const s=p(process.env.DATABASE_URL,{ssl:'require',max:1});s\`select 1\`.then(()=>{console.log('OK');process.exit(0)}).catch(e=>{console.error('FAIL',e.code,e.message);process.exit(1)})"
+```
+
+### 7. Create the `files` bucket
+
+There is **no create-bucket tool** (the MCP's storage group is disabled by default and only exposes
+`list_storage_buckets` / `get_storage_config`), so create it with `execute_sql`:
+
+```sql
+insert into storage.buckets (id, name, public)
+values ('files', 'files', false)
+on conflict (id) do nothing;
+```
+
+It must be **private** (`public = false`) — the app serves objects through signed URLs. Confirm with
+`list_storage_buckets`, then set `SUPABASE_STORAGE_BUCKET=files` (validated against the `BUCKETS`
+picklist in the code — don't rename it). Leave `SUPABASE_STORAGE_HOST` empty unless serving through
+a custom domain/CDN.
+
+### 8. Write and verify
+
+Write the values into `.env` (`scripts/init-env.mjs --apply --supabase-ref <ref>` fills
+`SUPABASE_URL` for you). Then confirm: the connection test above prints `OK`, both keys carry the
+right prefixes, and the bucket exists and is private.
 
 ---
 
