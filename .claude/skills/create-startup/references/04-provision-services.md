@@ -87,7 +87,7 @@ current provisioning steps rather than improvising.
 
 Fills: `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`.
 
-1. Create (or pick) a PostHog project. The fastest path is the wizard: `npx @posthog/wizard mcp add`
+1. Create (or pick) a PostHog project. The fastest path is the wizard: `pnpm dlx @posthog/wizard mcp add`
    already ran in Step 2; you can also get the project's **Project API key** (`phc_…`) from the MCP
    or Project Settings.
 2. `NEXT_PUBLIC_POSTHOG_KEY` = the `phc_…` key.
@@ -135,7 +135,7 @@ entry in `env.ts`). If those aren't there yet, do the billing integration first,
 2. Get the **sandbox** `AUTUMN_SECRET_KEY` (starts `am_sk_test_…`) → write to `.env`.
 3. Push the product/pricing config to Autumn's sandbox:
    ```bash
-   npx atmn push
+   pnpm dlx atmn push
    ```
    (The products/plans live in `autumn.config.ts`. Use the Autumn MCP to inspect/adjust them if the
    user wants different tiers.)

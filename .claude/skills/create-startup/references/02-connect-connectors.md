@@ -32,7 +32,7 @@ add it to `.mcp.json` now and it stays dormant until Step 5:
 ```json
 {
   "mcpServers": {
-    "next-devtools": { "command": "npx", "args": ["-y", "next-devtools-mcp@latest"] }
+    "next-devtools": { "command": "pnpm", "args": ["dlx", "next-devtools-mcp@latest"] }
   }
 }
 ```
