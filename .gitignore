@@ -36,3 +36,6 @@ next-env.d.ts
 # local spreadsheets — potentially sensitive data, never commit
 *.xls
 *.xlsx
+
+# Claude Code worktrees (local only)
+.claude/worktrees/
