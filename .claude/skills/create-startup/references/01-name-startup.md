@@ -9,7 +9,7 @@ Autumn account, OAuth app name, email `from`), so capture it first and persist i
    - `name` — display name exactly as given (e.g. `Acme Analytics`)
    - `slug` — lowercase, hyphenated, safe for package names and project refs (e.g. `acme-analytics`)
    - `domain` — ask if they have one; leave empty if not (it decides the email provider in Step 4
-     and the production URL in Step 6)
+     and the production URL in Step 7)
 3. Persist to `startup.config.json` at the repo root so later steps and later sessions can read it:
 
    ```json

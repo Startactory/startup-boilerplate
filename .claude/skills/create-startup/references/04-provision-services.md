@@ -1,14 +1,21 @@
 # Step 4 — Provision & configure services
 
-Fill every remaining `.env` value. For each service: do it via MCP where possible, fall back to a
-tight guided paste-back otherwise. After each service, write its values into `.env` and tell the
-user what you set. Re-read `src/shared/env.ts` if unsure about a name, format, or whether a var is
-required.
+Fill every remaining **local** `.env` value. For each service: do it via MCP where possible, fall
+back to a tight guided paste-back otherwise. After each service, write its values into `.env` and
+tell the user what you set. Re-read `src/shared/env.ts` if unsure about a name, format, or whether
+a var is required.
+
+**Everything in this step targets `.env` — the local environment.** Production gets its own file
+and its own values in Step 7. Two consequences that matter here:
+
+- **Never write `DATABASE_URL` in this step.** Step 3d already pointed it at local Postgres. The
+  Supabase Postgres connection string is a Step 7 concern and must not reach local `.env`.
+- Where a service has separate test/live modes (Autumn/Stripe), take the **test** credential now.
 
 **First**, surface the accounts the user needs (Step "Prerequisites" in SKILL.md) so they can
 create any missing ones before the guided parts.
 
-Order matters a little: do **Supabase** first (it yields `DATABASE_URL`, needed for migrations),
+Order matters a little: do **Supabase** first (it yields the Storage keys the app needs to boot),
 then the manual keys, then Autumn last (it depends on the billing code being present).
 
 ---
@@ -47,28 +54,39 @@ Tell the user where they are — "that's 3 of 5" — so the remaining work is vi
 
 ---
 
-## 4a. Supabase — DB + storage (MCP: `supabase`)
+## 4a. Supabase — **Storage only** (MCP: `supabase`)
 
-Fills: `DATABASE_URL`, `DATABASE_SSL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`,
-`SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_STORAGE_BUCKET`.
+Fills: `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_STORAGE_BUCKET`.
+
+**Does not fill `DATABASE_URL`.** In this stack Supabase plays two unrelated roles: object storage
+for uploaded files, and a hosted Postgres. Local development uses only the first. The database it
+talks to is the local Postgres from Step 3b, and overwriting `DATABASE_URL` here would point local
+development — including `drizzle:migrate` and any `drizzle:push` — straight at the production
+database. Its Postgres URL is picked up in Step 7, into `.env.prod`.
+
+The Storage keys are still required locally because `src/shared/env.ts` marks all three as
+required; the app throws `Invalid environment variables` at boot without them.
 
 Using the Supabase MCP:
 
 1. Create a project named after the `slug` (or reuse one the user picks). Pick a region near the
-   user and a strong DB password.
+   user and a strong DB password. **Record the project ref and the DB password** — Step 7 needs
+   both to build the production connection string, and the password is only shown once.
 2. Retrieve and write:
    - `SUPABASE_URL` = `https://<project-ref>.supabase.co`
    - `SUPABASE_PUBLISHABLE_KEY` — must start with `sb_publishable_` (the new key format; **not** the
      legacy `anon`/JWT key). If the MCP/dashboard only shows legacy keys, enable the new API keys.
    - `SUPABASE_SECRET_KEY` — must start with `sb_secret_` (new format; not the legacy `service_role`).
-   - `DATABASE_URL` = the Postgres connection string. Use the connection **pooler** URI for the
-     serverless app runtime; you can use the direct connection for migrations. Include the password.
-   - `DATABASE_SSL=require` (hosted Postgres needs SSL).
 3. Create a **private** Storage bucket named `files` and set `SUPABASE_STORAGE_BUCKET=files`
    (this value is validated against the `BUCKETS` picklist — keep it `files` unless the code
    changes). Leave `SUPABASE_STORAGE_HOST` empty unless serving via a custom domain/CDN.
 
-Verify: the URL resolves, keys have the right prefixes, and the bucket exists and is private.
+Verify: the URL resolves, keys have the right prefixes, the bucket exists and is private, and
+`grep '^DATABASE_URL=' .env` still shows `localhost` — not a Supabase host.
+
+> Local file uploads therefore land in the same bucket production will use. That is the pragmatic
+> default and keeps the boot contract satisfied. If the user wants hard separation, create a second
+> Supabase project for local and use its keys here — the database story is unchanged either way.
 
 ---
 
@@ -83,8 +101,11 @@ without this **no one can sign in**. Walk the user through it:
    (the code requests these). While in "Testing", add the user's Google account as a test user.
 3. **Credentials → Create credentials → OAuth client ID → Web application.**
 4. **Authorized redirect URIs** — Better Auth mounts at `/auth` (not `/api/auth`), so add:
-   - `http://localhost:3000/auth/callback/google` (local)
-   - the production one is added in Step 6: `https://<prod-domain>/auth/callback/google`
+   - `http://localhost:3000/auth/callback/google` (local — all this step needs)
+   - the production URI is added in Step 7: `https://<prod-domain>/auth/callback/google`
+
+   One OAuth client serves both environments; a redirect URI per environment is what separates
+   them. Don't create a second client.
 5. Copy the client ID and secret. Ask for them **one at a time**:
 
    ```bash
@@ -192,7 +213,7 @@ Fills: `AUTUMN_SECRET_KEY`. Depends on the **billing integration being present i
 entry in `env.ts`). If those aren't there yet, do the billing integration first, then return here.
 
 1. In the Autumn dashboard, **connect Stripe** (Autumn manages Stripe webhooks for you — you do not
-   add Stripe keys to this app). Use Stripe **test mode** for now; switch to live in Step 6.
+   add Stripe keys to this app). Use Stripe **test mode** for now; switch to live in Step 7.
 2. Get the **sandbox** `AUTUMN_SECRET_KEY` (starts `am_sk_test_…`) → write to `.env`.
 3. Push the product/pricing config to Autumn's sandbox:
    ```bash
@@ -200,11 +221,23 @@ entry in `env.ts`). If those aren't there yet, do the billing integration first,
    ```
    (The products/plans live in `autumn.config.ts`. Use the Autumn MCP to inspect/adjust them if the
    user wants different tiers.)
-4. You'll push to **production** and swap in the production key + live Stripe in Step 6.
+4. You'll push to **production** and swap in the production key + live Stripe in Step 7.
 
 ---
 
 ## Done with Step 4
 
 Re-read `.env` against `src/shared/env.ts`: every **required** var populated, formats correct,
-optional ones either set or left as an explicit `# TODO` line. Then move to Step 5 to verify.
+optional ones either set or left as an explicit `# TODO` line.
+
+Then run the local-environment guard one last time:
+
+```bash
+grep -E '^(DATABASE_URL|DATABASE_SSL|NEXT_PUBLIC_APP_URL|BETTER_AUTH_URL)=' .env
+```
+
+All four must describe *local*: a `localhost:5432/<slug>` database, `allow`, and
+`http://localhost:3000` twice. A Supabase host or an `https://` app URL in `.env` means production
+values leaked into the local file — fix before Step 5.
+
+Then move to Step 5 to verify.

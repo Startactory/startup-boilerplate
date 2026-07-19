@@ -5,15 +5,23 @@ The app must run and pass the repo's done-gate before you deploy. `CLAUDE.md` de
 
 ## 5a. Apply the database schema
 
-Migrations are generated and committed under `drizzle/`. Apply them to the Supabase Postgres from
-Step 4:
+Migrations are generated and committed under `drizzle/`. Apply them to the **local** Postgres from
+Step 3b:
 
 ```bash
 pnpm drizzle:migrate
 ```
 
-If it can't connect, re-check `DATABASE_URL` and `DATABASE_SSL=require` (hosted Supabase needs
-SSL). `drizzle.config.ts` reads the same env, so a good `.env` is enough.
+`drizzle.config.ts` reads the same `.env`, so a correct local `DATABASE_URL` is all it needs. This
+runs against localhost — the production database is migrated by the CI `migrate` job once Step 7
+has given it a connection string, not from your machine.
+
+If it can't connect:
+
+- `grep '^DATABASE_URL=' .env` — must be `postgresql://postgres:postgres@localhost:5432/<slug>`.
+- Is the container up and ready? `docker exec "<slug>-postgres" pg_isready -U postgres`
+- Does the database exist? `psql "postgresql://postgres:postgres@localhost:5432/postgres" -c '\l'`
+- `DATABASE_SSL` must be `allow`; `require` fails against local Postgres, which has no TLS.
 
 ## 5b. Early-access code (if the sign-up flow gates on it)
 
@@ -37,7 +45,7 @@ Follow the script's output. Skip only if the user confirms the gate is disabled 
    ZeroEntropy indexing), and send a chat message (OpenAI). Watch the dev logs for errors.
 5. If PostHog was configured, confirm events land in the PostHog project.
 6. If Autumn is wired, open the pricing/paywall surface and confirm the `useCustomer` state loads
-   (a checkout can be tested in Step 6 against Stripe test mode).
+   (a real checkout is exercised against live Stripe in Step 7).
 
 ## 5d. Pass the gate
 
@@ -50,4 +58,5 @@ before deploying. If the domain-boundaries checker complains (e.g. after the Aut
 fix the ownership/edges in `scripts/boundaries/manifest.mjs` rather than working around it — see
 `CLAUDE.md`.
 
-Report what you verified (with evidence — the actual command output), then proceed to Step 6.
+Report what you verified (with evidence — the actual command output), then proceed to Step 6 to
+wire up Vercel and the CI/CD pipeline.
