@@ -1,9 +1,14 @@
 #!/usr/bin/env node
-// Set ONE environment variable in .env, validating it before writing.
+// Set ONE environment variable in an env file, validating it before writing.
 //
 //   printf "Paste OPENAI_API_KEY: "; read -rs V; echo
 //   printf %s "$V" | node scripts/set-env-var.mjs OPENAI_API_KEY
 //   unset V
+//
+// Targets .env by default. --file selects another env file, matching
+// init-env.mjs and push-env-to-vercel.mjs:
+//
+//   ... | node scripts/set-env-var.mjs --file .env.prod DATABASE_URL
 //
 // Reading from stdin keeps the value out of argv (visible in `ps`) and out of
 // shell history. The value is never echoed — only a masked confirmation.
@@ -13,11 +18,25 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
-const KEY = process.argv[2];
-const ENV_PATH = process.argv[3] ?? '.env';
+const args = process.argv.slice(2);
+
+function flagValue(flag) {
+  const i = args.indexOf(flag);
+  return i !== -1 && args[i + 1] ? args[i + 1] : null;
+}
+
+const positional = args.filter(
+  (arg, i) => !arg.startsWith('--') && args[i - 1] !== '--file',
+);
+
+const KEY = positional[0];
+const ENV_PATH = flagValue('--file') ?? positional[1] ?? '.env';
 
 if (!KEY) {
-  console.error('Usage: node scripts/set-env-var.mjs <KEY> [envFile]');
+  console.error(
+    'Usage: node scripts/set-env-var.mjs [--file <envFile>] <KEY>\n' +
+      '       node scripts/set-env-var.mjs <KEY> [envFile]',
+  );
   process.exit(1);
 }
 
