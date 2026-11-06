@@ -198,8 +198,8 @@ entry in `env.ts`). If those aren't there yet, do the billing integration first,
    ```bash
    pnpm dlx atmn push
    ```
-   (The products/plans live in `autumn.config.ts`. Use the Autumn MCP to inspect/adjust them if the
-   user wants different tiers.)
+   (The products/plans live in `autumn.config.ts`; Step 1b already set the `pro` price and trial.
+   If the user wants to change the pricing, go back to `references/01b-set-pricing.md`.)
 4. You'll push to **production** and swap in the production key + live Stripe in Step 6.
 
 ---
