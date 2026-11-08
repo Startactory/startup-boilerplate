@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Set ONE environment variable in .env, validating it before writing.
 //
-//   printf "Paste OPENAI_API_KEY: "; read -rs V; echo
-//   printf %s "$V" | node scripts/set-env-var.mjs OPENAI_API_KEY
+//   printf "Paste GOOGLE_CLIENT_SECRET: "; read -rs V; echo
+//   printf %s "$V" | node scripts/set-env-var.mjs GOOGLE_CLIENT_SECRET
 //   unset V
 //
 // Reading from stdin keeps the value out of argv (visible in `ps`) and out of
@@ -23,14 +23,8 @@ if (!KEY) {
 
 // error: env.ts will reject it. warn: almost certainly wrong, but not fatal.
 const RULES = {
-  SUPABASE_URL: { url: true },
-  SUPABASE_SECRET_KEY: { prefix: 'sb_secret_' },
-  SUPABASE_PUBLISHABLE_KEY: { prefix: 'sb_publishable_' },
   GOOGLE_CLIENT_ID: { warnSuffix: '.apps.googleusercontent.com' },
   GOOGLE_CLIENT_SECRET: { warnPrefix: 'GOCSPX-' },
-  OPENAI_API_KEY: { warnPrefix: 'sk-' },
-  ZEROENTROPY_API_KEY: { minLength: 1 },
-  ZEROENTROPY_API_URL: { url: true },
   AUTUMN_SECRET_KEY: { warnPrefix: 'am_sk_' },
   RESEND_API_KEY: { warnPrefix: 're_' },
   RESEND_FROM_EMAIL: { email: true },
@@ -39,7 +33,6 @@ const RULES = {
   SMTP_PASS: { minLength: 8 },
   BETTER_AUTH_SECRET: { minLength: 32 },
   EARLY_ACCESS_PEPPER: { minLength: 16 },
-  CRON_SECRET: { minLength: 16 },
   DATABASE_URL: { database: true },
 };
 

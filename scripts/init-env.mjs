@@ -6,7 +6,6 @@
 //   node scripts/init-env.mjs                                  # dry run
 //   node scripts/init-env.mjs --apply
 //   node scripts/init-env.mjs --apply --app-url https://acme.com
-//   node scripts/init-env.mjs --apply --supabase-ref abcdefghijklmnop
 //
 // Secret values are generated in-process and written straight to .env. They are
 // never printed, so this is safe to run with output attached to a log.
@@ -25,21 +24,17 @@ function optionValue(flag, fallback) {
 const ENV_PATH = optionValue('--file', '.env');
 const TEMPLATE_PATH = '.env.template';
 const APP_URL = optionValue('--app-url', 'http://localhost:3000');
-const SUPABASE_REF = optionValue('--supabase-ref', null);
 
 // Random secrets. Lengths comfortably exceed the minimums in src/shared/env.ts.
 const SECRETS = {
   BETTER_AUTH_SECRET: () => crypto.randomBytes(32).toString('base64'),
   EARLY_ACCESS_PEPPER: () => crypto.randomBytes(32).toString('hex'),
-  CRON_SECRET: () => crypto.randomBytes(32).toString('hex'),
   ENCRYPTION_KEY: () => crypto.randomBytes(32).toString('hex'),
 };
 
 // Constants that never vary per project, applied only when absent. They already
 // exist in .env.template; this is a safety net for a hand-made .env.
 const CONSTANTS = {
-  ZEROENTROPY_API_URL: 'https://eu-api.zeroentropy.dev/v1',
-  SUPABASE_STORAGE_BUCKET: 'files',
   NEXT_PUBLIC_POSTHOG_HOST: 'https://eu.i.posthog.com',
   EMAIL_PROVIDER: 'smtp',
   SMTP_HOST: 'smtp.gmail.com',
@@ -50,9 +45,6 @@ const CONSTANTS = {
 const DERIVED = {
   NEXT_PUBLIC_APP_URL: APP_URL,
   BETTER_AUTH_URL: APP_URL,
-  ...(SUPABASE_REF
-    ? { SUPABASE_URL: `https://${SUPABASE_REF}.supabase.co` }
-    : {}),
 };
 
 if (!existsSync(ENV_PATH)) {

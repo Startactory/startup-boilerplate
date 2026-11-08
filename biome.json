@@ -51,7 +51,6 @@
       "!drizzle",
       "!.next",
       "!node_modules",
-      "!public/pdf.worker.min.mjs",
       "!next-env.d.ts",
       "!tsconfig.json"
     ]

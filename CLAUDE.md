@@ -7,7 +7,7 @@ This is a real system with real users.
 > **Correctness > cleverness · Simplicity > abstraction · Explicitness > magic · Consistency > preference.**
 
 Single Next.js app. This repo is a **reusable startup boilerplate** — the user-facing brand is per-startup and undecided; **never hard-code a product name in user-visible copy**.
-Included product surface: auth, organizations, file upload + RAG indexing, and an AI chat workspace over uploaded files. Startup-specific features are built on top of this base.
+Included base: auth, organizations, early-access onboarding, paywall + billing, email, rate-limit, i18n. **Everything behind the paywall is the startup's own product** — the dashboard ships as an empty page and features are built on top of this base from the founder's idea. Don't add product features to the boilerplate itself.
 
 ---
 
@@ -37,15 +37,14 @@ Included product surface: auth, organizations, file upload + RAG indexing, and a
 ## Stack — what's actually here
 
 - **Runtime**: Next.js 16 (App Router) · React 19 · TypeScript 6
-- **DB / data**: Drizzle ORM + Postgres · Supabase Storage (file objects) · ZeroEntropy (RAG vector store) · Upstash Redis (rate-limit / cache)
+- **DB / data**: Drizzle ORM + Postgres (hosted on Supabase) · Upstash Redis (rate-limit / cache)
 - **Auth**: Better Auth (Google + Microsoft OAuth)
 - **Validation**: **valibot 1.x** (schemas at every boundary)
 - **Errors**: **neverthrow** `Result<T, AppError>`
 - **i18n**: **next-intl** — keys in `src/i18n/messages/{en,fr}.json`; `t('missing.key')` is a compile error via `IntlMessages` augmentation in `src/global.d.ts`
-- **AI**: **Mastra** agents (`@mastra/core` + `memory` + `pg` + `ai-sdk` + `observability` + `posthog`) on top of Vercel AI SDK v6; **OpenAI-only** (`@ai-sdk/openai`)
-- **UI**: shadcn / Radix / Base UI · Tailwind v4 · `lucide-react` · `motion` · `sonner` · `next-themes`
+- **UI**: shadcn / Radix / Base UI · Tailwind v4 · `lucide-react` · `sonner` · `next-themes`
 - **Email**: provider-switchable (Resend or SMTP), `react-email` for templates
-- **Observability**: OpenTelemetry (OTLP) + PostHog (product analytics + Mastra exporter) · `pino` logger
+- **Observability**: OpenTelemetry (OTLP) + PostHog (product analytics) · `pino` logger
 - **Background work**: `@vercel/functions` `waitUntil` for fire-and-forget; **cron only for retry / stuck-state**, never as a primary work queue
 
 ---
@@ -59,7 +58,7 @@ src/
   core/              Pure domain. NO infra/app/application/shared/i18n imports.
     errors.ts        AppError discriminated union + helper constructors
     ports/           Port interfaces (*.port.ts) the domain depends on
-    <context>/       agents, chat, conversation, file, storage, retrieval, …
+    <context>/       billing, email, … (one folder per bounded context)
     types/           cross-context types
   application/       Use cases — orchestration, called from route handlers
     <feature>/
@@ -68,12 +67,12 @@ src/
   infra/             IO only. Implements core ports. Returns Result.
     database/        Drizzle schema + connection
     data-access/     Repositories — map DB rows → DTOs (never raw rows out)
-    external-apis/   Mastra agents + tools, OpenAI, ZeroEntropy, Brave, …
+    external-apis/   Autumn, Resend, SMTP, Upstash Redis, …
     auth/            Better Auth (server + client)
   app/               Next.js App Router UI
     (public)/        unauthenticated routes
     (app)/           authenticated routes (gated by layout.tsx)
-    api/             route handlers — the ONLY server entry point (chat stream, files, conversations, cron, …)
+    api/             route handlers — the ONLY server entry point (billing, early-access, locale, …)
     auth/[...all]/   Better Auth handler
   shared/            logger, env, telemetry, errors-http, utils
   i18n/              messages + request config
@@ -82,7 +81,7 @@ src/
   lib/               small client-side utilities (cn, etc.)
 
 drizzle/             Generated migrations + meta snapshots (don't hand-edit)
-src/instrumentation.ts          OpenTelemetry + Mastra observability boot
+src/instrumentation.ts          OpenTelemetry boot
 src/instrumentation-client.ts   PostHog client init
 ```
 
@@ -141,11 +140,8 @@ Domains and their tables:
 | `auth` | `user`, `session`, `account`, `verification` | `infra/auth/auth`, `application/me/get-current-user`, `application/me/organization-scope` |
 | `organization` | `organization`, `member`, `invitation` (writes also via better-auth org plugin) | `application/organization/*` use cases |
 | `early-access` | `early_access_code` | `application/early-access/redeem` |
-| `files` | `file` | `application/files/*` use cases, `core/file/types` |
-| `indexing` | `zeroentropy_*`, `failed_sync_operation` | `entity-sync-orchestrator`, `query-snippets` |
-| `chat` | none (Mastra runtime owns its PG tables) | — |
-| `transcription` / `url-fetch` / `web-search` | none | their single `application/<domain>/*` use case |
-| `rate-limit` / `email` | none (platform, open to all) | `apply-rate-limit`, `llm-cost-limiter`, `email-sender` |
+| `billing` | none (Autumn owns billing state) | `application/billing/get-app-entitlement` |
+| `rate-limit` / `email` | none (platform, open to all) | `apply-rate-limit`, `email-sender` |
 
 Rules the checker enforces:
 
@@ -164,23 +160,15 @@ Rules the checker enforces:
 
 ## Stack-specific rules
 
-### LLM / AI
+### Product features (added per startup)
 
-- **OpenAI-only**. Never propose Anthropic / Claude / Mistral / any other LLM. Tier by OpenAI models.
-- Defaults live in `shared/env.ts`:
-  - `CHAT_MODEL` — Generalist + Knowledge agents
-  - `CHEAP_MODEL` — router, post-stream critic, HyDE, retrieval critic, Help agent
-- **Allowed model picklists are pinned** (`core/chat/types.ts`). Adding a model = update the picklist + `core/rate-limit/llm-cost-config.ts` pricing row.
-- **Use Mastra built-ins** before writing custom processors: `TokenLimiterProcessor`, working-memory schema, input/output processors. Don't reinvent.
-- Mastra agents are defined in `src/infra/external-apis/mastra/instance.ts` (definitions in `agent-definitions.ts`). Routing in `src/application/chat/route-agent.ts`. Add a new tool under `mastra/tools/` + register in the right agent's `tools` map.
-- **Prompt caching** is automatic on OpenAI models for stable prefixes ≥ 1024 tokens. Keep system prompt + tool registry stable across turns; observe `cacheHitPct` in `chat.timing/stream_finished` logs.
-- Capture usage via Mastra `onFinish` callback in `defaultOptions` (the `finish` stream chunk does **not** carry usage in this AI-SDK version).
-- Fire-and-forget post-stream critics / cost recording / vision describe → **`waitUntil` from `@vercel/functions`**. Bare `void asyncFn()` dies on Vercel.
+The boilerplate ships no AI, file storage, or RAG. Add them only when the startup's idea needs them, as a new domain registered in `scripts/boundaries/manifest.mjs`:
 
-### RAG
-
-- **ZeroEntropy is locked.** Never propose pgvector / qdrant / Weaviate / any other vector store. Build on top of ZE.
-- Retrieval feature flags live in env: `RETRIEVAL_USE_HYDE`, `RETRIEVAL_USE_CRAG`, `CHAT_POST_STREAM_CRITIC`.
+- **LLM** → OpenAI only, through the Vercel AI SDK (`ai` + `@ai-sdk/openai`). Never propose Anthropic / Claude / Mistral / any other LLM.
+- **RAG / vector search** → ZeroEntropy. Never propose pgvector / qdrant / Weaviate / any other vector store.
+- **File storage** → Supabase Storage (same Supabase project as the database).
+- New env vars go in `shared/env.ts`, `.env.template`, `scripts/set-env-var.mjs` and `scripts/push-env-to-vercel.mjs`.
+- Fire-and-forget work → **`waitUntil` from `@vercel/functions`**. Bare `void asyncFn()` dies on Vercel.
 - **Evals are hard.** Don't require manual golden queries; default to auto-generated evals or skip the eval gate.
 
 ### UI
@@ -196,7 +184,7 @@ Rules the checker enforces:
 
 ### Infra constraints
 
-- **No new infra / SaaS subscriptions.** Stick to the existing stack: OpenAI, ZeroEntropy, Supabase, Upstash, Vercel, PostHog. If you think you need something else, raise it explicitly first.
+- **No new infra / SaaS subscriptions.** Stick to the existing stack: Supabase, Upstash, Vercel, PostHog, Autumn, Resend — plus OpenAI / ZeroEntropy when the idea needs them. If you think you need something else, raise it explicitly first.
 - **Cron is only for retry / stuck-state cleanup.** Primary work runs in-request (or via `waitUntil`).
 
 ---

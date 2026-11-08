@@ -10,7 +10,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { ChatToggleButton } from './chat-toggle-button';
 
 type BreadcrumbItem = {
   label: string;
@@ -21,7 +20,6 @@ type PrimaryActionConfig = {
   label: string;
   onClick: () => void;
   icon?: LucideIcon;
-  dataHelpId?: string;
 };
 
 type Props = {
@@ -64,18 +62,13 @@ export function AppPageHeader({
         <div className="flex flex-shrink-0 items-center gap-2">
           {rightContent}
           {primaryAction && (
-            <Button
-              size="sm"
-              onClick={primaryAction.onClick}
-              data-help-id={primaryAction.dataHelpId}
-            >
+            <Button size="sm" onClick={primaryAction.onClick}>
               {primaryAction.icon && (
                 <primaryAction.icon className="size-3.5" />
               )}
               {primaryAction.label}
             </Button>
           )}
-          <ChatToggleButton />
         </div>
       </div>
     </div>

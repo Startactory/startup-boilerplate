@@ -22,15 +22,15 @@ that failure then surfaces much later as an unexplained build error.
 
 For each credential, in order, do this and nothing more:
 
-1. **Say what you need and why**, in one sentence — "I need your OpenAI API key so chat and RAG
-   can call the model."
+1. **Say what you need and why**, in one sentence — "I need your Google OAuth client ID so users
+   can sign in."
 2. **Give the exact path to get it** — the clicks, not just the site name. Include anything that
    must be configured while they're in there (a redirect URI, a billing card, a verified domain).
 3. **Give the command to set it**, so the secret never passes through the chat:
 
    ```bash
-   printf "Paste OPENAI_API_KEY: "; read -rs V; echo
-   printf %s "$V" | node scripts/set-env-var.mjs OPENAI_API_KEY
+   printf "Paste GOOGLE_CLIENT_ID: "; read -rs V; echo
+   printf %s "$V" | node scripts/set-env-var.mjs GOOGLE_CLIENT_ID
    unset V
    ```
 
@@ -47,28 +47,21 @@ Tell the user where they are — "that's 3 of 5" — so the remaining work is vi
 
 ---
 
-## 4a. Supabase — DB + storage (MCP: `supabase`)
+## 4a. Supabase — database (MCP: `supabase`)
 
-Fills: `DATABASE_URL`, `DATABASE_SSL`, `SUPABASE_URL`, `SUPABASE_SECRET_KEY`,
-`SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_STORAGE_BUCKET`.
+Fills: `DATABASE_URL`, `DATABASE_SSL`. Supabase only hosts Postgres here; the boilerplate uses no
+Supabase Storage or API keys.
 
 Using the Supabase MCP:
 
 1. Create a project named after the `slug` (or reuse one the user picks). Pick a region near the
    user and a strong DB password.
 2. Retrieve and write:
-   - `SUPABASE_URL` = `https://<project-ref>.supabase.co`
-   - `SUPABASE_PUBLISHABLE_KEY` — must start with `sb_publishable_` (the new key format; **not** the
-     legacy `anon`/JWT key). If the MCP/dashboard only shows legacy keys, enable the new API keys.
-   - `SUPABASE_SECRET_KEY` — must start with `sb_secret_` (new format; not the legacy `service_role`).
    - `DATABASE_URL` = the Postgres connection string. Use the connection **pooler** URI for the
      serverless app runtime; you can use the direct connection for migrations. Include the password.
    - `DATABASE_SSL=require` (hosted Postgres needs SSL).
-3. Create a **private** Storage bucket named `files` and set `SUPABASE_STORAGE_BUCKET=files`
-   (this value is validated against the `BUCKETS` picklist — keep it `files` unless the code
-   changes). Leave `SUPABASE_STORAGE_HOST` empty unless serving via a custom domain/CDN.
 
-Verify: the URL resolves, keys have the right prefixes, and the bucket exists and is private.
+Verify: `DATABASE_URL` holds the real password (no `[YOUR-PASSWORD]` placeholder) and uses the pooler host.
 
 ---
 
@@ -105,46 +98,7 @@ without this **no one can sign in**. Walk the user through it:
 
 ---
 
-## 4c. OpenAI — required (manual; the OpenAI MCP is docs-only)
-
-Fills: `OPENAI_API_KEY`. Keep `CHAT_MODEL`/`CHEAP_MODEL` at their pinned defaults
-(`gpt-5.4-mini` / `gpt-5.4-nano` — the picklists are enforced in `core/chat/types.ts`).
-
-1. https://platform.openai.com → **API keys → Create new secret key**, then:
-
-   ```bash
-   printf "Paste OPENAI_API_KEY: "; read -rs V; echo
-   printf %s "$V" | node scripts/set-env-var.mjs OPENAI_API_KEY
-   unset V
-   ```
-
-2. Ensure the account has billing/credits, or chat and RAG calls will 401/429. This is worth
-   checking *now* — an unfunded key passes validation and only fails at first use.
-3. Leave `LLM_DAILY_BUDGET_USD_PER_USER` at the default (`2`) unless the user wants a different cap.
-
-`BRAVE_SEARCH_API_KEY` (web-search chat tool) is optional — leave as a TODO unless requested.
-
----
-
-## 4d. ZeroEntropy — required RAG (manual)
-
-Fills: `ZEROENTROPY_API_KEY`, `ZEROENTROPY_API_URL`. ZeroEntropy is locked in this stack (RAG over
-uploaded files). There is a repo doc — **follow `docs/zeroentropy-deployment.md`** for the exact,
-current provisioning steps rather than improvising.
-
-1. Create a ZeroEntropy account/organization and mint an API key, then:
-
-   ```bash
-   printf "Paste ZEROENTROPY_API_KEY: "; read -rs V; echo
-   printf %s "$V" | node scripts/set-env-var.mjs ZEROENTROPY_API_KEY
-   unset V
-   ```
-2. `ZEROENTROPY_API_URL` defaults to the EU endpoint (`https://eu-api.zeroentropy.dev/v1`); switch
-   to the US endpoint only if that's where the account/data lives.
-
----
-
-## 4e. PostHog — analytics (MCP: `posthog`, chosen optional)
+## 4c. PostHog — analytics (MCP: `posthog`, chosen optional)
 
 Fills: `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`.
 
@@ -160,7 +114,7 @@ their mind — but they opted in.
 
 ---
 
-## 4f. Email — Resend or SMTP (MCP: `resend`, or manual SMTP)
+## 4d. Email — Resend or SMTP (MCP: `resend`, or manual SMTP)
 
 `env.ts` requires the vars of the **selected** provider only. Choose based on whether the user has
 a verified domain (`startup.config.json.domain`):
@@ -185,7 +139,7 @@ a verified domain (`startup.config.json.domain`):
 
 ---
 
-## 4g. Autumn — payments (MCP: `autumn`) — do this last
+## 4e. Autumn — payments (MCP: `autumn`) — do this last
 
 Fills: `AUTUMN_SECRET_KEY`. Depends on the **billing integration being present in the code**
 (`autumn.config.ts`, the `/api/autumn/[...all]` handler, `AutumnProvider`, and the `AUTUMN_SECRET_KEY`

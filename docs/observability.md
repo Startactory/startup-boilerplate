@@ -5,24 +5,15 @@ The app emits OpenTelemetry traces, metrics, and logs via the OTLP/HTTP exporter
 ## What gets traced
 
 Automatic (via `@opentelemetry/auto-instrumentations-node`):
-- HTTP requests to OpenAI, ZeroEntropy, Supabase, Brave Search, Resend
+- Outgoing HTTP requests (Autumn, Resend, Upstash, …)
 - PostgreSQL queries (Drizzle through `postgres-js`)
 - Vercel runtime spans
 
-Custom (via `withSpan` helper):
-- `chat.turn` — outer span around every `POST /api/chat` request. Attrs: `chat.user_id`, `chat.thread_id`, `chat.agent_id`, `chat.routing.source`, `chat.routing.confidence`, `chat.routing.target`, `chat.message.word_count`, `chat.message.has_attachments`.
-- `chat.retrieval` — wraps every ZE-backed search use-case (files / file-text). Attrs: `retrieval.engine`, `retrieval.scope`, `retrieval.query_length`, `retrieval.k_requested`, `retrieval.results_raw`, `retrieval.results_after_postprocess`, `retrieval.top_score`, `retrieval.bottom_score`.
-- `chat.indexing.entity` — wraps `indexEntity` (file sync to ZE). Attrs: `entity.type`, `entity.id`, `indexing.skipped`, `indexing.skip_reason`, `indexing.doc_count`.
-
-Via Vercel AI SDK `experimental_telemetry`:
-- Router `generateObject` call → `gen_ai.*` semconv attrs + `chat.router.has_attachments`, `chat.router.user_text_length`, `functionId='chat.router.classify'`.
-- Image VLM `generateText` call → `vision.image_mime_type`, `vision.image_base64_length`, `functionId='vision.describe'`.
+Custom: wrap any operation worth tracing with the `withSpan` helper (see "Adding spans in new code" below).
 
 ## PII protection
 
-Custom span attributes never include user message text, file content, snippet content, file names, or search queries verbatim. Only counts, sizes, IDs (UUIDs), model names, durations, and error codes.
-
-The ai-sdk `experimental_telemetry` calls explicitly set `recordInputs: false, recordOutputs: false` to keep prompt/completion text out of span events.
+Custom span attributes must never include user-provided content verbatim (free text, file contents, names, search queries). Only counts, sizes, IDs (UUIDs), durations, and error codes.
 
 ## Local dev backends
 
@@ -78,20 +69,4 @@ const result = await withSpan({
 });
 ```
 
-For direct ai-sdk LLM calls, pass `experimental_telemetry`:
-
-```ts
-const result = await generateText({
-  model: openai(env().CHEAP_MODEL),
-  // ...
-  experimental_telemetry: {
-    isEnabled: true,
-    recordInputs: false,
-    recordOutputs: false,
-    functionId: 'my.feature.summarize',
-    metadata: { 'my.input_size': size },
-  },
-});
-```
-
-Never put user content into `metadata` — only size/count/id attrs.
+Never put user content into span attributes — only size/count/id attrs.
