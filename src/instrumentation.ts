@@ -1,4 +1,8 @@
 import { DiagConsoleLogger, DiagLogLevel, diag } from '@opentelemetry/api';
+import {
+  otlpSignalUrl,
+  parseOtlpHeaders,
+} from '@/shared/telemetry/otlp-config';
 
 const isDebugEnabled = process.env.OTEL_LOG_LEVEL === 'debug';
 
@@ -8,15 +12,13 @@ if (isDebugEnabled) {
 
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
-  if (!process.env.OTEL_EXPORTER_OTLP_ENDPOINT) return;
+  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+  if (!endpoint) return;
 
   try {
     const { registerOTel } = await import('@vercel/otel');
     const { getNodeAutoInstrumentations } = await import(
       '@opentelemetry/auto-instrumentations-node'
-    );
-    const { OTLPTraceExporter } = await import(
-      '@opentelemetry/exporter-trace-otlp-http'
     );
     const { OTLPMetricExporter } = await import(
       '@opentelemetry/exporter-metrics-otlp-http'
@@ -29,25 +31,18 @@ export async function register(): Promise<void> {
     );
     const { BatchLogRecordProcessor } = await import('@opentelemetry/sdk-logs');
 
-    const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
     const headers = process.env.OTEL_EXPORTER_OTLP_HEADERS;
-    const parsedHeaders = headers ? parseHeaders(headers) : undefined;
+    const parsedHeaders = headers ? parseOtlpHeaders(headers) : undefined;
     const exporterTimeoutMillis = 5000;
 
-    const traceExporter = new OTLPTraceExporter({
-      url: endpoint ? `${endpoint}/v1/traces` : undefined,
-      headers: parsedHeaders,
-      timeoutMillis: exporterTimeoutMillis,
-    });
-
     const metricExporter = new OTLPMetricExporter({
-      url: endpoint ? `${endpoint}/v1/metrics` : undefined,
+      url: otlpSignalUrl(endpoint, 'metrics'),
       headers: parsedHeaders,
       timeoutMillis: exporterTimeoutMillis,
     });
 
     const logExporter = new OTLPLogExporter({
-      url: endpoint ? `${endpoint}/v1/logs` : undefined,
+      url: otlpSignalUrl(endpoint, 'logs'),
       headers: parsedHeaders,
       timeoutMillis: exporterTimeoutMillis,
     });
@@ -57,7 +52,7 @@ export async function register(): Promise<void> {
       attributes: {
         'service.version': process.env.OTEL_SERVICE_VERSION,
       },
-      traceExporter,
+      // No traceExporter: @vercel/otel already builds one from OTEL_EXPORTER_OTLP_*, and a second one exports every span twice.
       logRecordProcessors: [new BatchLogRecordProcessor(logExporter)],
       metricReaders: [
         new PeriodicExportingMetricReader({
@@ -79,15 +74,4 @@ export async function register(): Promise<void> {
     // shared/logger may not be initialized yet during OTel bootstrap; console is the safe fallback here.
     console.error('[instrumentation] OTel init failed:', error);
   }
-}
-
-function parseHeaders(headersString: string): Record<string, string> {
-  const headers: Record<string, string> = {};
-  for (const pair of headersString.split(',')) {
-    const [key, ...valueParts] = pair.split('=');
-    if (key && valueParts.length > 0) {
-      headers[key.trim()] = valueParts.join('=').trim();
-    }
-  }
-  return headers;
 }
