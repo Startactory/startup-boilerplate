@@ -26,13 +26,15 @@ That's it. The skill walks you through everything: naming the startup, connectin
 
 **Create free accounts:** [Supabase](https://supabase.com) · [Google Cloud](https://console.cloud.google.com) · [Autumn](https://useautumn.com) + [Stripe](https://stripe.com) · [Vercel](https://vercel.com) · [PostHog](https://posthog.com)
 
+**Plus, for logs:** [Dash0](https://www.dash0.com) — no free tier (14-day trial, then usage-based). For a startup with EU users, create the PostHog account and the Dash0 organization in the EU region.
+
 ## What the skill asks you for
 
 Most of the setup is automatic. You only need to:
 
-1. Give your startup a name
+1. Give your startup a name, and say whether it has users (or is based) in the EU
 2. Authenticate the connectors once (`/mcp` → Authenticate)
-3. Paste 2 API keys — Google OAuth, Autumn
+3. Paste 3 secrets — Google OAuth, Autumn, and a Dash0 ingest token
 4. Connect Stripe inside the Autumn dashboard
 
 Everything else — installing dependencies, generating secrets, creating the Supabase project, running migrations, booting the app, and deploying to Vercel — is done for you.
@@ -46,6 +48,7 @@ Everything else — installing dependencies, generating secrets, creating the Su
 | Database | Supabase Postgres + Drizzle |
 | Payments | Autumn |
 | Analytics | PostHog |
+| Logs & traces | Dash0 (OpenTelemetry) |
 | Email | Resend |
 | Hosting | Vercel |
 

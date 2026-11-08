@@ -20,6 +20,10 @@ it (Better Auth `trustedOrigins`, secure cookies, OAuth redirects, email links).
    `vercel link`).
 2. Framework preset is Next.js (auto-detected). `vercel.json` disables auto-deploy on `master`
    (`git.deploymentEnabled.master=false`) — deploys are explicit/promoted, which is intended.
+3. Pin the function region next to the database: add `"regions": ["<region>"]` to `vercel.json`
+   with the Vercel region `references/data-region.md` gives for `dataRegion` (`cdg1` for an EU
+   startup on a Paris database). Without it, functions run in `iad1` (US) — for an EU startup
+   that sends every request's personal data through the US. Commit this change.
 
 ## 6c. Push production environment variables
 
@@ -45,7 +49,8 @@ push those. Everything else comes from `.env`:
 | `AUTUMN_SECRET_KEY` | ✅ **in production** | Autumn production key (6f) — `assertBillingConfigured` fails the build without it |
 | `EMAIL_PROVIDER` + its vars | ✅ | `resend` → `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; `smtp` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` |
 | `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | — | PostHog (4c) |
-| `UPSTASH_*`, `MICROSOFT_*`, `OTEL_*` | — | optional; leave unset to disable |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` / `_HEADERS` / `OTEL_SERVICE_NAME` | — | Dash0 (4f) — without them, production logs only reach Vercel's runtime logs |
+| `UPSTASH_*`, `MICROSOFT_*` | — | optional; leave unset to disable |
 
 ### Push them
 
@@ -142,7 +147,12 @@ already applied. Re-seed any required rows (e.g. an early-access code) for the p
    - Open pricing and run a real checkout in Stripe (a live small charge or a test-clock) to
      confirm Autumn end-to-end.
    - Confirm PostHog receives prod events.
-3. Report the live URL and a final per-service status checklist.
+   - Confirm the Dash0 dataset shows production logs from service `<slug>`, with traces linked.
+     Serverless functions can freeze before a batch is sent: if requests show in Vercel's logs but
+     not in Dash0, report it rather than assume it works.
+3. Report the live URL and a final per-service status checklist. When `gdpr` is `true`, include
+   each item of the "When `gdpr` is `true`" list in `references/data-region.md` as **needs action**
+   until it is built.
 
 ## 6i. Handover
 

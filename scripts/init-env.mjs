@@ -41,10 +41,32 @@ const CONSTANTS = {
   SMTP_PORT: '465',
 };
 
-// Instance-specific values the caller supplies.
+const STARTUP_CONFIG_PATH = 'startup.config.json';
+
+function readStartupConfig() {
+  if (!existsSync(STARTUP_CONFIG_PATH)) return {};
+  try {
+    return JSON.parse(readFileSync(STARTUP_CONFIG_PATH, 'utf8'));
+  } catch {
+    console.error(`${STARTUP_CONFIG_PATH} is not valid JSON — fix it first.`);
+    process.exit(1);
+  }
+}
+
+const startupConfig = readStartupConfig();
+
+const POSTHOG_HOST_BY_REGION = {
+  eu: 'https://eu.i.posthog.com',
+  us: 'https://us.i.posthog.com',
+};
+const posthogHost = POSTHOG_HOST_BY_REGION[startupConfig.dataRegion];
+
+// Instance-specific values the caller supplies or startup.config.json records.
 const DERIVED = {
   NEXT_PUBLIC_APP_URL: APP_URL,
   BETTER_AUTH_URL: APP_URL,
+  ...(startupConfig.slug ? { OTEL_SERVICE_NAME: startupConfig.slug } : {}),
+  ...(posthogHost ? { NEXT_PUBLIC_POSTHOG_HOST: posthogHost } : {}),
 };
 
 if (!existsSync(ENV_PATH)) {
