@@ -5,10 +5,10 @@ description: >-
   production deployment. Use this skill whenever the user wants to start, scaffold, initialize,
   provision, or ship a new startup from this repo — name their company, wire up and configure
   every service (Supabase, Google OAuth, OpenAI, ZeroEntropy, Autumn payments, PostHog, Resend,
-  Vercel), fill the environment, run the app locally, and deploy it live. Trigger on phrases
-  like "set up my startup", "initialize the boilerplate", "create a new startup", "let's start
-  the project", "connect the services", or "deploy it to prod", even when the skill is not
-  named explicitly.
+  Vercel), set the pricing, fill the environment, run the app locally, and deploy it live.
+  Trigger on phrases like "set up my startup", "initialize the boilerplate", "create a new
+  startup", "let's start the project", "connect the services", "set my pricing", or "deploy it
+  to prod", even when the skill is not named explicitly.
 ---
 
 # Create Startup
@@ -72,6 +72,8 @@ reach that step** and follow it; don't run ahead. Keep a todo per step.
 
 1. **Name the startup** → `references/01-name-startup.md`
    Capture the name, derive identifiers, persist `startup.config.json`.
+1b. **Set the pricing** → `references/01b-set-pricing.md`
+   The founder gives the price, or you derive it from the idea; write it to `autumn.config.ts`.
 2. **Connect the connectors** → `references/02-connect-connectors.md`
    Add every service MCP so you can configure them from here; authenticate each.
 3. **Install & bootstrap env** → `references/03-install-and-secrets.md`
