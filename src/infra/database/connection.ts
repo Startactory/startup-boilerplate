@@ -6,9 +6,7 @@ import { env } from '@/shared/env';
 import { DbLogger } from '@/shared/logger';
 import * as authSchema from './schema/auth-schema';
 import * as earlyAccessSchema from './schema/early-access-schema';
-import * as fileSchema from './schema/file-schema';
 import * as organizationSchema from './schema/organization-schema';
-import * as zeroentropySchema from './schema/zeroentropy-schema';
 
 const e = env();
 
@@ -43,7 +41,5 @@ export const db = drizzle(conn, {
     ...authSchema,
     ...organizationSchema,
     ...earlyAccessSchema,
-    ...fileSchema,
-    ...zeroentropySchema,
   },
 });

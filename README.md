@@ -2,7 +2,7 @@
 
 # Startup Boilerplate
 
-Everything a SaaS needs on day one — auth, organizations, database, file storage, AI chat with RAG, payments, analytics — wired up and ready to deploy.
+Everything a SaaS needs on day one — auth, organizations, database, payments, email, analytics — wired up and ready to deploy. The product itself lives behind the paywall and is built on top of this base, around the founder's idea.
 
 ## Setup
 
@@ -24,7 +24,7 @@ That's it. The skill walks you through everything: naming the startup, connectin
 
 **Install:** Node (see `.nvmrc`), pnpm, git.
 
-**Create free accounts:** [Supabase](https://supabase.com) · [Google Cloud](https://console.cloud.google.com) · [OpenAI](https://platform.openai.com) · [ZeroEntropy](https://zeroentropy.dev) · [Autumn](https://useautumn.com) + [Stripe](https://stripe.com) · [Vercel](https://vercel.com) · [PostHog](https://posthog.com)
+**Create free accounts:** [Supabase](https://supabase.com) · [Google Cloud](https://console.cloud.google.com) · [Autumn](https://useautumn.com) + [Stripe](https://stripe.com) · [Vercel](https://vercel.com) · [PostHog](https://posthog.com)
 
 ## What the skill asks you for
 
@@ -32,10 +32,10 @@ Most of the setup is automatic. You only need to:
 
 1. Give your startup a name
 2. Authenticate the connectors once (`/mcp` → Authenticate)
-3. Paste 4 API keys — Google OAuth, OpenAI, ZeroEntropy, Autumn
+3. Paste 2 API keys — Google OAuth, Autumn
 4. Connect Stripe inside the Autumn dashboard
 
-Everything else — installing dependencies, generating secrets, creating the Supabase project and storage bucket, running migrations, booting the app, and deploying to Vercel — is done for you.
+Everything else — installing dependencies, generating secrets, creating the Supabase project, running migrations, booting the app, and deploying to Vercel — is done for you.
 
 ## Stack
 
@@ -44,10 +44,7 @@ Everything else — installing dependencies, generating secrets, creating the Su
 | Framework | Next.js 16 · React 19 · TypeScript · pnpm |
 | Auth | Better Auth (Google OAuth) |
 | Database | Supabase Postgres + Drizzle |
-| Storage | Supabase Storage |
 | Payments | Autumn |
-| AI | OpenAI + Vercel AI SDK + Mastra |
-| RAG | ZeroEntropy |
 | Analytics | PostHog |
 | Email | Resend |
 | Hosting | Vercel |

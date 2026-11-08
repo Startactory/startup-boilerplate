@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_DEPLOYMENT_ID: process.env.VERCEL_DEPLOYMENT_ID ?? '',
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? 'development',
   },
-  serverExternalPackages: ['pino', 'pino-pretty', 'pdfjs-dist'],
+  serverExternalPackages: ['pino', 'pino-pretty'],
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },

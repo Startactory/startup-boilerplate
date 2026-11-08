@@ -131,7 +131,6 @@ export function OrganizationPageContent({
             label: t('inviteButton'),
             onClick: () => setInviteOpen(true),
             icon: Plus,
-            dataHelpId: 'organization.invite',
           }}
         />
       </DashboardPageHeaderBridge>

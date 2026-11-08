@@ -1,9 +1,4 @@
 import * as v from 'valibot';
-import {
-  CHEAP_CHAT_MODELS,
-  VISION_CAPABLE_CHAT_MODELS,
-} from '@/core/chat/types';
-import { BUCKETS } from '@/core/storage/types/bucket';
 
 const NodeEnv = v.picklist(['development', 'test', 'production']);
 const VercelEnv = v.picklist(['development', 'preview', 'production']);
@@ -40,51 +35,6 @@ const EnvSchema = v.object({
   ENCRYPTION_KEY: v.optional(v.string()),
 
   EARLY_ACCESS_PEPPER: v.pipe(v.string(), v.minLength(16)),
-
-  OPENAI_API_KEY: v.pipe(v.string(), v.minLength(1)),
-  CHAT_MODEL: v.optional(
-    v.picklist(VISION_CAPABLE_CHAT_MODELS),
-    'gpt-5.4-mini',
-  ),
-  CHEAP_MODEL: v.optional(v.picklist(CHEAP_CHAT_MODELS), 'gpt-5.4-nano'),
-  LLM_DAILY_BUDGET_USD_PER_USER: v.pipe(
-    v.optional(v.string(), '2'),
-    v.transform((s) => Number.parseFloat(s)),
-    v.number(),
-    v.minValue(0.01),
-  ),
-  RETRIEVAL_USE_HYDE: v.pipe(
-    v.optional(v.string(), 'false'),
-    v.transform((s) => s === 'true' || s === '1'),
-    v.boolean(),
-  ),
-  RETRIEVAL_USE_CRAG: v.pipe(
-    v.optional(v.string(), 'true'),
-    v.transform((s) => s === 'true' || s === '1'),
-    v.boolean(),
-  ),
-  CHAT_POST_STREAM_CRITIC: v.pipe(
-    v.optional(v.string(), 'true'),
-    v.transform((s) => s === 'true' || s === '1'),
-    v.boolean(),
-  ),
-
-  BRAVE_SEARCH_API_KEY: v.optional(v.pipe(v.string(), v.minLength(1))),
-
-  SUPABASE_URL: v.pipe(v.string(), v.url()),
-  SUPABASE_SECRET_KEY: v.pipe(
-    v.string(),
-    v.minLength(1),
-    v.startsWith('sb_secret_'),
-  ),
-  SUPABASE_PUBLISHABLE_KEY: v.pipe(v.string(), v.startsWith('sb_publishable_')),
-  SUPABASE_STORAGE_BUCKET: v.picklist(BUCKETS),
-  SUPABASE_STORAGE_HOST: v.optional(v.pipe(v.string(), v.url())),
-
-  ZEROENTROPY_API_KEY: v.pipe(v.string(), v.minLength(1)),
-  ZEROENTROPY_API_URL: v.pipe(v.string(), v.url()),
-
-  CRON_SECRET: v.pipe(v.string(), v.minLength(16)),
 
   EMAIL_PROVIDER: v.optional(v.picklist(['resend', 'smtp']), 'smtp'),
 
