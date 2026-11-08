@@ -18,8 +18,7 @@ it (Better Auth `trustedOrigins`, secure cookies, OAuth redirects, email links).
 
 1. Create a project named after the `slug` and link this repo to it (via the Vercel MCP, or
    `vercel link`).
-2. Framework preset is Next.js (auto-detected). `vercel.json` already defines the cron
-   (`/api/cron/zeroentropy-retry`, every 5 min) and disables auto-deploy on `master`
+2. Framework preset is Next.js (auto-detected). `vercel.json` disables auto-deploy on `master`
    (`git.deploymentEnabled.master=false`) — deploys are explicit/promoted, which is intended.
 
 ## 6c. Push production environment variables
@@ -41,20 +40,12 @@ push those. Everything else comes from `.env`:
 | `DATABASE_SSL` | — | `require` for hosted Postgres |
 | `BETTER_AUTH_SECRET` | ✅ | generated in step 3 |
 | `EARLY_ACCESS_PEPPER` | ✅ | generated in step 3 |
-| `CRON_SECRET` | ✅ | generated in step 3; Vercel Cron sends it back as a bearer token |
 | `ENCRYPTION_KEY` | — | generated in step 3 |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ✅ | Google Cloud Console (4b) |
-| `OPENAI_API_KEY` | ✅ | platform.openai.com (4c) |
-| `SUPABASE_URL` | ✅ | Supabase project (4a) |
-| `SUPABASE_SECRET_KEY` | ✅ | must start `sb_secret_` |
-| `SUPABASE_PUBLISHABLE_KEY` | ✅ | must start `sb_publishable_` |
-| `SUPABASE_STORAGE_BUCKET` | ✅ | `files` |
-| `ZEROENTROPY_API_KEY` | ✅ | ZeroEntropy (4d) |
-| `ZEROENTROPY_API_URL` | ✅ | e.g. `https://eu-api.zeroentropy.dev/v1` |
 | `AUTUMN_SECRET_KEY` | ✅ **in production** | Autumn production key (6f) — `assertBillingConfigured` fails the build without it |
 | `EMAIL_PROVIDER` + its vars | ✅ | `resend` → `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; `smtp` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` |
-| `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | — | PostHog (4e) |
-| `UPSTASH_*`, `BRAVE_SEARCH_API_KEY`, `MICROSOFT_*`, `OTEL_*` | — | optional; leave unset to disable |
+| `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | — | PostHog (4c) |
+| `UPSTASH_*`, `MICROSOFT_*`, `OTEL_*` | — | optional; leave unset to disable |
 
 ### Push them
 
@@ -147,14 +138,14 @@ already applied. Re-seed any required rows (e.g. an early-access code) for the p
 1. Deploy to production (Vercel MCP deploy, or `vercel --prod`).
 2. Smoke-test on the live URL:
    - Sign in with Google (confirms prod OAuth + secure cookies + `trustedOrigins`).
-   - Upload a file and send a chat message (Supabase + ZeroEntropy + OpenAI in prod).
+   - Create an organization and reach the dashboard (Supabase Postgres in prod).
    - Open pricing and run a real checkout in Stripe (a live small charge or a test-clock) to
      confirm Autumn end-to-end.
-   - Confirm PostHog receives prod events, and that the cron endpoint runs (check logs after 5 min).
+   - Confirm PostHog receives prod events.
 3. Report the live URL and a final per-service status checklist.
 
 ## 6i. Handover
 
-Tell the user what's live, what's still a TODO (Upstash, Microsoft OAuth, Brave, custom domain if
+Tell the user what's live, what's still a TODO (Upstash, Microsoft OAuth, custom domain if
 not set), and where each secret lives (Vercel env + local `.env`). Remind them `.env` is
 git-ignored and must never be committed.

@@ -1,6 +1,6 @@
 # Step 1b — Set the pricing
 
-Decide what the startup charges before any service is provisioned. Step 4g pushes the result to
+Decide what the startup charges before any service is provisioned. Step 4e pushes the result to
 Autumn, so the price must be final in `autumn.config.ts` by then.
 
 The founder either **gives the pricing** or **lets you derive it from the idea**. Ask which, in one
@@ -118,7 +118,7 @@ export const pro = plan({
 });
 ```
 
-Omit `freeTrial` when `trialDays` is `0`. Do not push yet: Step 4g pushes the config to the
+Omit `freeTrial` when `trialDays` is `0`. Do not push yet: Step 4e pushes the config to the
 Autumn sandbox, and Step 6 pushes it to production.
 
 Once saved, tell the founder the pricing is locked in (they can change it any time by editing

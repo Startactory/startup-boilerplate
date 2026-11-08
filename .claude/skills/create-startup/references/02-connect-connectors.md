@@ -23,7 +23,6 @@ servers with a one-time browser OAuth login.
 
 | Service | How to add |
 | --- | --- |
-| OpenAI docs | `claude mcp add --scope project --transport http openaiDeveloperDocs https://developers.openai.com/mcp` |
 | Next.js devtools | stdio server (below) — activates once `pnpm dev` runs |
 
 The Next.js devtools server is local stdio and only connects to a running Next 16+ dev server, so
@@ -47,7 +46,7 @@ Step 4). Mention this so it isn't mistaken for a missing integration.
 ## 2c. Authenticate each connector
 
 1. Tell the user to run `/mcp` in Claude Code.
-2. For each server (`supabase`, `autumn`, `posthog`, `resend`, `vercel`, `openaiDeveloperDocs`),
+2. For each server (`supabase`, `autumn`, `posthog`, `resend`, `vercel`),
    have them select it and choose **Authenticate**, completing the browser sign-in. Each grants
    this session the same access as their own account on that service — approve only what's
    recognized.
@@ -57,7 +56,7 @@ Step 4). Mention this so it isn't mistaken for a missing integration.
 ## 2d. Verify
 
 - Run `claude mcp list` and confirm every server is connected.
-- Confirm `.mcp.json` contains all seven entries (five management + OpenAI docs + next-devtools).
+- Confirm `.mcp.json` contains all six entries (five management + next-devtools).
 - Report a short checklist (connected / needs auth / skipped), then move to Step 3.
 
 > If the user only wants local development for now, Resend and Vercel auth can be deferred — but
