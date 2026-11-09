@@ -82,6 +82,9 @@ reach that step** and follow it; don't run ahead. Keep a todo per step.
    Capture the name, derive identifiers, persist `startup.config.json`.
 1b. **Set the pricing** → `references/01b-set-pricing.md`
    The founder gives the price, or you derive it from the idea; write it to `autumn.config.ts`.
+1c. **Create the startup's repository** → `references/01c-create-repository.md`
+   A private GitHub repo named after the slug becomes `origin`; the boilerplate stays as a
+   fetch-only `upstream`.
 2. **Connect the connectors** → `references/02-connect-connectors.md`
    Add every service MCP so you can configure them from here; authenticate each.
 3. **Install & build the local environment** → `references/03-install-and-secrets.md`

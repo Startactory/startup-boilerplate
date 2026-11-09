@@ -23,7 +23,8 @@ sign-in loops that are hard to debug, so settle it before 6e.
 
 1. Create a project named after the `slug`.
 2. **Connect it to the GitHub repository**: **Project → Settings → Git → Connect Git Repository**,
-   then pick the repo. This is easy to miss. `vercel link` only links the *local directory* to the
+   then pick the startup's repo (`startup.config.json` `repository`, created in Step 1c). Never
+   the boilerplate. This is easy to miss. `vercel link` only links the *local directory* to the
    project: enough to push env vars, but Vercel gets no access to the repo. Without the Git
    connection there is no commit to build, and deploy hooks do not exist (the Deploy Hooks panel
    only appears for Git-connected projects).
@@ -161,6 +162,10 @@ Never paste secrets into `vercel.json` or any committed file — they belong in 
 Vercel and GitHub are **two separate stores holding different things**: the Vercel project env holds
 what the *running app* needs; GitHub Actions secrets hold only what *CI* needs. Do **not** mirror
 the whole env file into GitHub.
+
+Check first that `gh` targets the startup's repo, not the boilerplate:
+`gh repo view --json nameWithOwner -q .nameWithOwner` must print `startup.config.json`
+`repository`. If not, go back to Step 1c.
 
 The workflows reference exactly three secrets (check that nothing was added:
 `grep -roE "secrets\.[A-Z_]+" .github/workflows | sort -u`):
