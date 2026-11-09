@@ -224,7 +224,8 @@ entry in `env.ts`). If those aren't there yet, do the billing integration first,
 
 Fills, in **`.env.prod`**: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`.
 `OTEL_SERVICE_NAME` is already the `slug` in both files (set by `scripts/init-env.mjs`).
-Independent of the other services — order does not matter. No code change: `src/instrumentation.ts`
+Run it after 4a: `set-env-var.mjs --file .env.prod` stops with ".env.prod not found" until 4a has
+created that file. It depends on no other service. No code change: `src/instrumentation.ts`
 exports all three signals over OTLP/HTTP as soon as the endpoint is set, and every `shared/logger`
 line becomes a Dash0 log linked to its trace.
 
