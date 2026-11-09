@@ -71,8 +71,9 @@ founder**, never per startup, and that every startup after that gets its keys wi
 5. No startup runs on the current flow yet (answered 2026-11-09), so this is a clean break: no
    migration command, and no support for plain secret values in `.env.prod`.
 6. Scripts reach 1Password through a **service account** (answered 2026-11-09), because of the
-   desktop-app constraint above. The founder's account is 1Password Business, which includes
-   service accounts. The founder creates it once, in Terminal.app, and stores its token in the
+   desktop-app constraint above. It lives on the founder's own personal 1Password account (the
+   earlier Business account belonged to a company the founder no longer uses and refused service
+   accounts with HTTP 402). The founder creates it once, in Terminal.app, and stores its token in the
    macOS Keychain. Every script reads the token from the Keychain and hands it to `op` only through
    the child process's `OP_SERVICE_ACCOUNT_TOKEN` environment variable. Trade-off accepted: no
    Touch ID per access; the service account can only reach the `startup-*` vaults it is given or
@@ -130,10 +131,8 @@ founder creates the app password and saves it in 1Password once; scripts read it
   env file.
 - Service account access is fixed when the account is created, and it can never reach built-in
   vaults (Personal, Private, Employee, default Shared). It is created with permission to create
-  vaults, so it creates `startup-founder` and each `startup-<slug>` itself. If the spike shows that
-  a service account cannot read and write items in the vaults it creates, the fallback is one vault,
-  `startup-factory`, granted `read_items,write_items` at creation, holding `master-keys` and
-  `<slug>-local`, `<slug>-production`, `<slug>-ci` items. That fallback loses per-startup sharing.
+  vaults, so it creates `startup-founder` and each `startup-<slug>` itself; the spike confirmed it
+  can read and write items in the vaults it creates.
 
 ### 3. How a secret travels — three channels, one rule
 
@@ -219,11 +218,11 @@ None left.
 
 ## Left to the builder (verify before building)
 
-1. **Service account spike (first).** Resolved the app-integration question (decision 6). Confirm
-   live: the token reaches `op` from Claude's shell through the Keychain; the service account can
-   read and write items in a vault it created; `op item create -` and piped `op item edit` work
-   with it; the error strings for a bad token and for the hourly limit (Business: 10,000 reads and
-   1,000 writes per hour per token, 50,000 per day per account).
+1. **Service account spike — done 2026-11-09** (`docs/superpowers/notes/2026-11-09-op-spike.md`).
+   The token reaches `op` from Claude's shell through the Keychain; the service account reads and
+   writes items in vaults it created; `op item create -`, piped `op item edit` (which replaces the
+   whole item), `op inject`, `op run` and `op read` work. Limits on the personal account: 100
+   writes and 1,000 reads per hour per token, 1,000 requests per day per account.
 2. **API coverage.** Confirm the exact endpoints and scopes: Dash0 dataset and auth-token creation,
    Resend API key creation scoped to a domain, PostHog project creation with a personal key,
    Supabase database password reset, Vercel deploy-hook creation. Where one is missing, fall back
