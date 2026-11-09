@@ -30,7 +30,9 @@ OTEL_SERVICE_NAME=<slug>
 - **One organization, many startups** — each startup gets its own dataset (named after its slug) and its own token. Without `Dash0-Dataset`, data lands in the `default` dataset.
 - **Cost** — Dash0 has no free tier (14-day trial, then billed per log record, span and metric data point). Sampling below keeps trace volume in check.
 
-Leave `OTEL_EXPORTER_OTLP_ENDPOINT` empty to disable export entirely; logs still print to stdout (and to Vercel's runtime logs in production).
+- **Production only** — the Dash0 variables live in `.env.prod` (and in the Vercel project's environment). The local `.env` leaves `OTEL_EXPORTER_OTLP_ENDPOINT` empty, so `pnpm dev` exports nothing: local runs would otherwise land in the production dataset, mixed with real traffic and billed like it. `@vercel/otel` tags every resource with `deployment.environment.name` (from `VERCEL_ENV`), so preview deployments that share the token can still be filtered out.
+
+With `OTEL_EXPORTER_OTLP_ENDPOINT` empty, export is off entirely; logs still print to stdout (and to Vercel's runtime logs in production).
 
 ## How each signal is exported
 
@@ -44,7 +46,7 @@ On Vercel, a function can freeze before the last batch is flushed. Check after t
 
 ## Local backends without an account
 
-To inspect telemetry offline, run Phoenix and point the endpoint at it:
+To inspect telemetry from `pnpm dev`, run Phoenix and point the local `.env` endpoint at it (or create a separate `<slug>-dev` Dash0 dataset and token — never reuse the production one):
 
 ```sh
 docker run -p 6006:6006 arizephoenix/phoenix

@@ -8,9 +8,9 @@ required.
 **First**, surface the accounts the user needs (Step "Prerequisites" in SKILL.md) so they can
 create any missing ones before the guided parts.
 
-Every value goes into the local `.env`, **except the Supabase database (4a), which goes into
-`.env.prod` only** — see the two-environment model in Step 3. Shared credentials (Google, PostHog,
-email, Dash0) are copied from `.env` to `.env.prod` in Step 6.
+Every value goes into the local `.env`, **except the Supabase database (4a) and Dash0 (4f), which
+go into `.env.prod` only** — see the two-environment model in Step 3. Shared credentials (Google,
+PostHog, email) are copied from `.env` to `.env.prod` in Step 6.
 
 Order matters a little: do **Supabase** first (project creation takes a few minutes and fixes the
 data region), then the manual keys, then Autumn last (it depends on the billing code being present).
@@ -222,10 +222,16 @@ entry in `env.ts`). If those aren't there yet, do the billing integration first,
 
 ## 4f. Dash0 — logs, traces, metrics (manual, guided)
 
-Fills: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`. `OTEL_SERVICE_NAME` is already
-the `slug` (set by `scripts/init-env.mjs`). Independent of the other services — order does not
-matter. No code change: `src/instrumentation.ts` exports all three signals over OTLP/HTTP as soon
-as the endpoint is set, and every `shared/logger` line becomes a Dash0 log linked to its trace.
+Fills, in **`.env.prod`**: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`.
+`OTEL_SERVICE_NAME` is already the `slug` in both files (set by `scripts/init-env.mjs`).
+Independent of the other services — order does not matter. No code change: `src/instrumentation.ts`
+exports all three signals over OTLP/HTTP as soon as the endpoint is set, and every `shared/logger`
+line becomes a Dash0 log linked to its trace.
+
+Production only: the local `.env` keeps `OTEL_EXPORTER_OTLP_ENDPOINT` empty, so `pnpm dev` prints
+logs to the terminal and sends nothing. Local runs would otherwise land in the production dataset,
+mixed with real traffic and billed like it. To inspect local telemetry, see
+`docs/observability.md`.
 
 The founder keeps **one Dash0 organization** for all their startups; each startup gets its own
 **dataset** and its own **ingest token**. No new Dash0 account per startup.
@@ -241,7 +247,7 @@ The founder keeps **one Dash0 organization** for all their startups; each startu
 
    ```bash
    printf "Paste OTEL_EXPORTER_OTLP_ENDPOINT: "; read -r V; echo
-   printf %s "$V" | node scripts/set-env-var.mjs OTEL_EXPORTER_OTLP_ENDPOINT
+   printf %s "$V" | node scripts/set-env-var.mjs --file .env.prod OTEL_EXPORTER_OTLP_ENDPOINT
    unset V
    ```
 
@@ -249,15 +255,15 @@ The founder keeps **one Dash0 organization** for all their startups; each startu
 
    ```bash
    printf "Paste the Dash0 token (auth_...): "; read -rs T; echo
-   printf %s "Authorization=Bearer $T,Dash0-Dataset=<slug>" | node scripts/set-env-var.mjs OTEL_EXPORTER_OTLP_HEADERS
+   printf %s "Authorization=Bearer $T,Dash0-Dataset=<slug>" | node scripts/set-env-var.mjs --file .env.prod OTEL_EXPORTER_OTLP_HEADERS
    unset T
    ```
 
    Replace `<slug>` before running. The script rejects a header without `Bearer <token>`, and
    warns when the token does not start with `auth_` or the `Dash0-Dataset` header is missing.
 
-Verify after Step 5 boots the app: the dataset shows logs from service `<slug>` in Dash0 within a
-minute. On Vercel Hobby this OTLP export is the only path; Dash0's Vercel log drain (build and
+Verify in Step 6j, after the first production deploy: the dataset shows logs from service
+`<slug>` in Dash0 within a minute. On Vercel Hobby this OTLP export is the only path; Dash0's Vercel log drain (build and
 request logs) needs Vercel Pro.
 
 ---

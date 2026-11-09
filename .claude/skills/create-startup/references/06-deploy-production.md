@@ -82,21 +82,21 @@ node scripts/init-env.mjs --apply --file .env.prod --app-url "https://<prod-doma
 ```
 
 Then copy the credentials that are the same in both environments — the Google OAuth client, the
-PostHog project, the email provider, Dash0 — from `.env`. The loop never prints a value, and
+PostHog project, the email provider — from `.env`. The loop never prints a value, and
 `set-env-var.mjs` validates each one:
 
 ```bash
 for K in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET NEXT_PUBLIC_POSTHOG_KEY NEXT_PUBLIC_POSTHOG_HOST \
   EMAIL_PROVIDER RESEND_API_KEY RESEND_FROM_EMAIL SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS \
-  SMTP_FROM_EMAIL SMTP_FROM_NAME OTEL_EXPORTER_OTLP_ENDPOINT OTEL_EXPORTER_OTLP_HEADERS \
-  OTEL_SERVICE_NAME; do
+  SMTP_FROM_EMAIL SMTP_FROM_NAME OTEL_SERVICE_NAME; do
   V=$(grep "^$K=" .env | cut -d= -f2-); V=${V#\"}; V=${V%\"}
   [ -n "$V" ] && printf %s "$V" | node scripts/set-env-var.mjs --file .env.prod "$K"
 done; unset V
 ```
 
 Do not copy `DATABASE_URL`, `DATABASE_SSL`, the secrets, the app URLs or `AUTUMN_SECRET_KEY`: those
-differ by design. A consequence to expect: the early-access pepper differs, so codes hashed locally
+differ by design. The Dash0 variables are already in `.env.prod` (4f wrote them there) and stay
+empty in `.env`, so local runs never reach the production dataset. A consequence to expect: the early-access pepper differs, so codes hashed locally
 do not work in production (6j seeds production codes).
 
 ## 6f. Switch Autumn + Stripe to live
