@@ -5,6 +5,9 @@
 //   printf %s "$V" | node scripts/set-env-var.mjs GOOGLE_CLIENT_SECRET
 //   unset V
 //
+// Target another file with --file (e.g. the production file):
+//   printf %s "$V" | node scripts/set-env-var.mjs --file .env.prod DATABASE_URL
+//
 // Reading from stdin keeps the value out of argv (visible in `ps`) and out of
 // shell history. The value is never echoed — only a masked confirmation.
 //
@@ -13,11 +16,22 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
-const KEY = process.argv[2];
-const ENV_PATH = process.argv[3] ?? '.env';
+const args = process.argv.slice(2);
+const fileFlagIndex = args.indexOf('--file');
+const fileFlagValue =
+  fileFlagIndex === -1 ? undefined : args[fileFlagIndex + 1];
+const positional =
+  fileFlagIndex === -1
+    ? args
+    : args.filter((_, i) => i !== fileFlagIndex && i !== fileFlagIndex + 1);
+const KEY = positional[0];
+const ENV_PATH = fileFlagValue ?? positional[1] ?? '.env';
+const IS_LOCAL_FILE = ENV_PATH.replace(/^.*\//, '') === '.env';
 
-if (!KEY) {
-  console.error('Usage: node scripts/set-env-var.mjs <KEY> [envFile]');
+if (!KEY || (fileFlagIndex !== -1 && !fileFlagValue)) {
+  console.error(
+    'Usage: node scripts/set-env-var.mjs [--file <envFile>] <KEY>  (default file: .env)',
+  );
   process.exit(1);
 }
 
@@ -108,6 +122,17 @@ function checkDatabaseUrl(value, errors, warnings) {
     return;
   }
   const [, user, password, hostPart] = match;
+  const isLocalHost = /^(localhost|127\.0\.0\.1)(:|\/|$)/.test(hostPart);
+  if (IS_LOCAL_FILE && hostPart.includes('supabase')) {
+    errors.push(
+      '.env is the local environment and must use local Postgres — the Supabase database belongs in .env.prod',
+    );
+  }
+  if (!IS_LOCAL_FILE && isLocalHost) {
+    warnings.push(
+      `${ENV_PATH} points at localhost — a production file should use the Supabase session pooler`,
+    );
+  }
   if (/^\[.*\]$/.test(password)) {
     errors.push(
       'the password is still a placeholder — substitute the real one',
