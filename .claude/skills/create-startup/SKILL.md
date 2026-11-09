@@ -91,8 +91,8 @@ reach that step** and follow it; don't run ahead. Keep a todo per step.
    `pnpm install`, start a local Postgres, create `.env` with local values and secrets.
 4. **Provision & configure services** → `references/04-provision-services.md`
    Supabase production database (automatic, into `.env.prod`), Google OAuth, PostHog, email,
-   Autumn, Dash0 — fill every `.env` value, each service in the region `startup.config.json`
-   records.
+   Autumn, Dash0 (production only, into `.env.prod`) — fill every `.env` value, each service in the
+   region `startup.config.json` records.
 5. **Verify locally** → `references/05-verify-locally.md`
    Migrate the local database, boot `pnpm dev`, sign in, and pass the `pnpm validate` gate.
 6. **Deploy to production** → `references/06-deploy-production.md`

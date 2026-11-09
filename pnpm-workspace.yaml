@@ -1,0 +1,13 @@
+onlyBuiltDependencies:
+  - sharp
+  - esbuild
+  - '@swc/core'
+  - '@parcel/watcher'
+  - unrs-resolver
+  - protobufjs
+
+overrides:
+  lodash: ^4.18.1
+  postcss: ^8.5.10
+  esbuild: ^0.28.0
+  next: ^16.2.6

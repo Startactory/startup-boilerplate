@@ -51,6 +51,7 @@
       "!drizzle",
       "!.next",
       "!node_modules",
+      "!.claude/worktrees",
       "!next-env.d.ts",
       "!tsconfig.json"
     ]

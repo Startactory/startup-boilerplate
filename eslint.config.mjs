@@ -155,6 +155,7 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     'drizzle/**',
     'public/**',
+    '.claude/worktrees/**',
   ]),
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
