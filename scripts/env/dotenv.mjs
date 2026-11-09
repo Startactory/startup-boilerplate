@@ -19,9 +19,14 @@ export function parseEnv(text) {
 }
 
 function formatValue(key, value) {
-  if (/[\n\r"]/.test(value)) {
+  if (/^(["'])(?:.*\1)?$/s.test(value)) {
     throw new Error(
-      `${key} contains a newline or a double quote, which an env file cannot hold`,
+      `${key} is wrapped in quotes, which an env file would strip`,
+    );
+  }
+  if (/[\n\r"$\\]/.test(value)) {
+    throw new Error(
+      `${key} contains a newline, a double quote, a $ or a backslash, which an env file cannot hold`,
     );
   }
   return /[\s#]/.test(value) ? `"${value}"` : value;

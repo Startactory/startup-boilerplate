@@ -44,6 +44,32 @@ describe('renderEnv', () => {
   });
 });
 
+describe('renderEnv unsupported values', () => {
+  const render = (value: string) =>
+    renderEnv({ template, values: new Map([['SMTP_PASS', value]]) });
+
+  it('refuses a value with a double quote', () => {
+    expect(() => render('a"b')).toThrow('SMTP_PASS contains a newline');
+  });
+
+  it('refuses a value with a dollar sign', () => {
+    expect(() => render('pa$word')).toThrow('SMTP_PASS contains a newline');
+  });
+
+  it('refuses a value with a backslash', () => {
+    expect(() => render('a\\nb')).toThrow('SMTP_PASS contains a newline');
+  });
+
+  it('refuses a value wrapped in quotes', () => {
+    expect(() => render("'x'")).toThrow('SMTP_PASS is wrapped in quotes');
+  });
+
+  it('leaves template lines without a value unchanged', () => {
+    const out = renderEnv({ template, values: new Map() });
+    expect(out).toBe(template);
+  });
+});
+
 describe('parseEnv', () => {
   it('skips comments and empty values and strips quotes', () => {
     const parsed = parseEnv('# c\nA=1\nB=\nC="x y"\nD=\'z\'\nnoequals\n');
