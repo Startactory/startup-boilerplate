@@ -46,6 +46,10 @@ export function putValue({ op, vault, item, field, value }) {
   return { warnings };
 }
 
+export function checkFounderVault({ op }) {
+  return `${FOUNDER_VAULT}: ${op.ensureVault(FOUNDER_VAULT)}`;
+}
+
 function parseArgs(argv) {
   let vault;
   let fromClipboard = false;
@@ -58,7 +62,7 @@ function parseArgs(argv) {
   const [item, field] = positional;
   if (!item || !field || positional.length > 2) {
     throw new Error(
-      'usage: node scripts/vault-put.mjs [--vault <name>] [--from-clipboard] <item> <FIELD>',
+      'usage: node scripts/vault-put.mjs --check | [--vault <name>] [--from-clipboard] <item> <FIELD>',
     );
   }
   return { vault, fromClipboard, item, field };
@@ -67,6 +71,10 @@ function parseArgs(argv) {
 function main() {
   let field;
   try {
+    if (process.argv.slice(2).join(' ') === '--check') {
+      console.log(checkFounderVault({ op: createOp() }));
+      return;
+    }
     const args = parseArgs(process.argv.slice(2));
     field = args.field;
     const vault =

@@ -27,5 +27,7 @@ export function readServiceAccountToken({
     '-w',
   ]);
   if (result.status !== 0) throw new Error(MISSING_TOKEN_MESSAGE);
-  return result.stdout.replace(/\r?\n$/, '');
+  const token = result.stdout.trim();
+  if (token === '') throw new Error(MISSING_TOKEN_MESSAGE);
+  return token;
 }

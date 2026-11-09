@@ -50,4 +50,15 @@ describe('service account token', () => {
       expect(message).not.toContain('leaky');
     }
   });
+
+  it('rejects an empty Keychain token', () => {
+    expect(() =>
+      readServiceAccountToken({
+        user: 'founder',
+        run: () => ({ status: 0, stdout: '\n', stderr: '' }),
+      }),
+    ).toThrow(
+      'no 1Password service account token in the Keychain (startup-factory-op) — run step 0, item 2',
+    );
+  });
 });

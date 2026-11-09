@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  checkFounderVault,
   putValue,
   readClipboardOnce,
   ValidationError,
@@ -8,7 +9,7 @@ import {
 const VAULT = 'startup-acme';
 
 function fakeOp() {
-  return { writeFields: vi.fn() };
+  return { writeFields: vi.fn(), ensureVault: vi.fn(() => 'existing') };
 }
 
 describe('putValue', () => {
@@ -60,6 +61,16 @@ describe('readClipboardOnce', () => {
       }),
     ).toThrow(ValidationError);
     expect(run).toHaveBeenLastCalledWith('pbcopy', [], { input: '' });
+    expect(op.writeFields).not.toHaveBeenCalled();
+  });
+});
+
+describe('checkFounderVault', () => {
+  it('--check reports the founder vault without writing', () => {
+    const op = fakeOp();
+    op.ensureVault.mockReturnValue('created');
+    expect(checkFounderVault({ op })).toBe('startup-founder: created');
+    expect(op.ensureVault).toHaveBeenCalledWith('startup-founder');
     expect(op.writeFields).not.toHaveBeenCalled();
   });
 });
