@@ -13,6 +13,7 @@ import { readMasterKeys } from './master-keys.mjs';
 
 const API_HOST = 'https://api.supabase.com';
 const PRODUCTION_ITEM = ITEM_FOR_ENVIRONMENT.production;
+const AUTH_FAILURE_CODES = new Set(['28P01', '28000']);
 
 export async function defaultConnect(url) {
   const client = postgres(url, { ssl: 'require', max: 1 });
@@ -23,12 +24,15 @@ export async function defaultConnect(url) {
   }
 }
 
-async function canConnect({ connect, url }) {
+async function storedUrlStillWorks({ connect, url }) {
   try {
     await connect(url);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (AUTH_FAILURE_CODES.has(error?.code)) return false;
+    throw new Error(
+      `stored DATABASE_URL could not be checked: ${error?.code ?? 'unknown'} — re-run when online, or pass --rotate`,
+    );
   }
 }
 
@@ -39,6 +43,12 @@ function pickPoolerHost(entries) {
     throw new Error('Supabase returned no pooler host for this project');
   }
   return entry.db_host;
+}
+
+function throwIfNotFound({ response, ref }) {
+  if (response.status === 404) {
+    throw new Error(`Supabase project ${ref} not found`);
+  }
 }
 
 export async function provisionSupabaseDatabase({
@@ -54,19 +64,14 @@ export async function provisionSupabaseDatabase({
   const vault = startupVault(slug);
   const stored = op.readFields({ vault, item: PRODUCTION_ITEM });
   const storedUrl = stored?.get('DATABASE_URL');
-  if (storedUrl && !rotate && (await canConnect({ connect, url: storedUrl }))) {
+  if (
+    storedUrl &&
+    !rotate &&
+    (await storedUrlStillWorks({ connect, url: storedUrl }))
+  ) {
     return 'reused';
   }
 
-  const password = randomBytes(24).toString('base64url');
-  await requestJson({
-    provider: 'supabase',
-    fetch,
-    method: 'PATCH',
-    url: `${API_HOST}/v1/projects/${ref}/database/password`,
-    token,
-    body: { password },
-  });
   const pooler = await requestJson({
     provider: 'supabase',
     fetch,
@@ -74,7 +79,9 @@ export async function provisionSupabaseDatabase({
     url: `${API_HOST}/v1/projects/${ref}/config/database/pooler`,
     token,
   });
+  throwIfNotFound({ response: pooler, ref });
   const host = pickPoolerHost(pooler.json);
+  const password = randomBytes(24).toString('base64url');
   const url = `postgresql://postgres.${ref}:${password}@${host}:5432/postgres`;
 
   const { errors } = validateEnvValue('DATABASE_URL', url, {
@@ -83,6 +90,16 @@ export async function provisionSupabaseDatabase({
   if (errors.length > 0) {
     throw new Error(`DATABASE_URL is invalid: ${errors.join('; ')}`);
   }
+
+  const patch = await requestJson({
+    provider: 'supabase',
+    fetch,
+    method: 'PATCH',
+    url: `${API_HOST}/v1/projects/${ref}/database/password`,
+    token,
+    body: { password },
+  });
+  throwIfNotFound({ response: patch, ref });
 
   op.writeFields({
     vault,
@@ -108,7 +125,7 @@ export async function provisionSupabaseDatabase({
 function parseArgs(argv) {
   const index = argv.indexOf('--ref');
   const ref = index === -1 ? undefined : argv[index + 1];
-  if (!ref) {
+  if (!ref || ref.startsWith('--')) {
     throw new Error(
       'usage: node scripts/providers/supabase-database.mjs --ref <ref> [--rotate]',
     );
