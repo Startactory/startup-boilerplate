@@ -48,7 +48,7 @@ export async function register(): Promise<void> {
     });
 
     registerOTel({
-      serviceName: process.env.OTEL_SERVICE_NAME ?? 'startup-boilerplate',
+      serviceName: process.env.OTEL_SERVICE_NAME || 'startup-boilerplate',
       attributes: {
         'service.version': process.env.OTEL_SERVICE_VERSION,
       },

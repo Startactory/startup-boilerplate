@@ -98,9 +98,17 @@ function assertBillingConfigured(parsed: Env): void {
   }
 }
 
-export function env(): Env {
-  if (cached) return cached;
-  const result = v.safeParse(EnvSchema, process.env);
+type EnvSource = Record<string, string | undefined>;
+
+// .env.template keeps optional keys as `KEY=`; an empty value means "unset", not "invalid".
+function withoutEmptyValues(source: EnvSource): EnvSource {
+  return Object.fromEntries(
+    Object.entries(source).filter(([, value]) => value !== ''),
+  );
+}
+
+export function parseEnv(source: EnvSource): Env {
+  const result = v.safeParse(EnvSchema, withoutEmptyValues(source));
   if (!result.success) {
     const issues = result.issues
       .map(
@@ -112,6 +120,11 @@ export function env(): Env {
   }
   assertEmailProviderConfigured(result.output);
   assertBillingConfigured(result.output);
-  cached = result.output;
+  return result.output;
+}
+
+export function env(): Env {
+  if (cached) return cached;
+  cached = parseEnv(process.env);
   return cached;
 }
