@@ -18,7 +18,7 @@ export class ValidationError extends Error {
   }
 }
 
-function cleanValue(raw) {
+export function cleanValue(raw) {
   return raw.replace(/\r?\n$/, '').trim();
 }
 
