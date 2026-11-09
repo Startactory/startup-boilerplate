@@ -195,4 +195,32 @@ describe('op wrapper', () => {
     expect(calls[0]?.args).toEqual(['inject', '-i', '.env.prod']);
     expect(calls[1]?.args).toEqual(['read', 'op://v/i/F']);
   });
+
+  it('throws a clean OpError on unparseable item output', () => {
+    const { op } = fakeOp(() => ok('{"fields":[{"value":"s3cr3t-value"'));
+    try {
+      op.readFields({ vault: 'v', item: 'i' });
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(OpError);
+      expect((error as OpError).kind).toBe('failed');
+      expect((error as OpError).message).not.toContain('s3cr3t');
+    }
+  });
+
+  it('omits stderr from write failures', () => {
+    const { op } = fakeOp((args) =>
+      isGet(args) ? fail(MISSING_ITEM) : fail('[ERROR] bad value s3cr3t-value'),
+    );
+    try {
+      op.writeFields({
+        vault: 'v',
+        item: 'i',
+        fields: new Map([['K', 's3cr3t-value']]),
+      });
+      expect.unreachable();
+    } catch (error) {
+      expect((error as OpError).message).toBe('op item create failed for v/i');
+    }
+  });
 });

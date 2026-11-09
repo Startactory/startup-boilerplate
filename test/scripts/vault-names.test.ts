@@ -59,4 +59,26 @@ describe('vault names', () => {
       'startup.config.json is missing slug or dataRegion — run step 1 first',
     );
   });
+
+  it('rejects a non-string slug', () => {
+    expect(() => startupVault(undefined as unknown as string)).toThrow();
+  });
+
+  it('rejects an invalid data region or non-string slug in the config', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'vault-names-'));
+    const region = join(dir, 'region.json');
+    writeFileSync(region, JSON.stringify({ slug: 'a', dataRegion: 'asia' }));
+    expect(() => readStartupConfig(region)).toThrow(
+      /missing slug or dataRegion/,
+    );
+    const slug = join(dir, 'slug.json');
+    writeFileSync(slug, JSON.stringify({ slug: 5, dataRegion: 'eu' }));
+    expect(() => readStartupConfig(slug)).toThrow(/missing slug or dataRegion/);
+  });
+
+  it('reports a missing config file', () => {
+    expect(() => readStartupConfig('/nonexistent/startup.config.json')).toThrow(
+      'startup.config.json not found — run step 1 first',
+    );
+  });
 });

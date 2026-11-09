@@ -1,6 +1,5 @@
 import { spawnSync } from 'node:child_process';
 
-// Task 0 may refine these against the real CLI; keep every stderr pattern here.
 const FAILURE_PATTERNS = {
   missing: /isn't an item|isn't a vault/i,
   locked:
@@ -35,16 +34,17 @@ function defaultRunner(args, options = {}) {
   };
 }
 
-function failureFrom(args, stderr) {
+function failureFrom(args, stderr, subject) {
   const kind = classifyOpFailure(stderr);
   const command = args.slice(0, 2).join(' ');
+  if (subject) return new OpError(kind, `op ${command} failed for ${subject}`);
   return new OpError(kind, `op ${command} ${kind}: ${stderr.trim()}`);
 }
 
 export function createOp({ run = defaultRunner } = {}) {
-  function exec(args, options) {
+  function exec(args, options, subject) {
     const result = run(args, options);
-    if (result.status !== 0) throw failureFrom(args, result.stderr);
+    if (result.status !== 0) throw failureFrom(args, result.stderr, subject);
     return result.stdout;
   }
 
@@ -60,7 +60,13 @@ export function createOp({ run = defaultRunner } = {}) {
       '--reveal',
     ];
     const result = run(args);
-    if (result.status === 0) return JSON.parse(result.stdout);
+    if (result.status === 0) {
+      try {
+        return JSON.parse(result.stdout);
+      } catch {
+        throw new OpError('failed', 'op item get returned unparseable output');
+      }
+    }
     const error = failureFrom(args, result.stderr);
     if (error.kind === 'missing') return null;
     throw error;
@@ -91,9 +97,11 @@ export function createOp({ run = defaultRunner } = {}) {
           value,
         })),
       };
-      exec(['item', 'create', '--vault', vault, '-'], {
-        input: JSON.stringify(body),
-      });
+      exec(
+        ['item', 'create', '--vault', vault, '-'],
+        { input: JSON.stringify(body) },
+        `${vault}/${item}`,
+      );
       return 'created';
     }
     const merged = [...(existing.fields ?? [])];
@@ -105,9 +113,11 @@ export function createOp({ run = defaultRunner } = {}) {
         merged[index] = { ...merged[index], type: 'CONCEALED', value };
       }
     }
-    exec(['item', 'edit', item, '--vault', vault], {
-      input: JSON.stringify({ ...existing, fields: merged }),
-    });
+    exec(
+      ['item', 'edit', item, '--vault', vault],
+      { input: JSON.stringify({ ...existing, fields: merged }) },
+      `${vault}/${item}`,
+    );
     return 'updated';
   }
 

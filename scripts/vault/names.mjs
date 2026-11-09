@@ -18,7 +18,7 @@ export const ENV_FILE_FOR_ENVIRONMENT = {
 const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export function startupVault(slug) {
-  if (!SLUG_PATTERN.test(slug)) {
+  if (typeof slug !== 'string' || !SLUG_PATTERN.test(slug)) {
     throw new Error(`Invalid startup slug "${slug}"`);
   }
   return `startup-${slug}`;
@@ -29,8 +29,21 @@ export function secretReference({ vault, item, field }) {
 }
 
 export function readStartupConfig(path = 'startup.config.json') {
-  const config = JSON.parse(readFileSync(path, 'utf8'));
-  if (!config.slug || !config.dataRegion) {
+  let text;
+  try {
+    text = readFileSync(path, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      throw new Error('startup.config.json not found — run step 1 first');
+    }
+    throw error;
+  }
+  const config = JSON.parse(text);
+  if (
+    typeof config.slug !== 'string' ||
+    !config.slug ||
+    !['eu', 'us'].includes(config.dataRegion)
+  ) {
     throw new Error(
       'startup.config.json is missing slug or dataRegion — run step 1 first',
     );
