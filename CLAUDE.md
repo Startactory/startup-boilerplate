@@ -44,7 +44,7 @@ Included base: auth, organizations, early-access onboarding, paywall + billing, 
 - **i18n**: **next-intl** — keys in `src/i18n/messages/{en,fr}.json`; `t('missing.key')` is a compile error via `IntlMessages` augmentation in `src/global.d.ts`
 - **UI**: shadcn / Radix / Base UI · Tailwind v4 · `lucide-react` · `sonner` · `next-themes`
 - **Email**: provider-switchable (Resend or SMTP), `react-email` for templates
-- **Observability**: OpenTelemetry (OTLP) + PostHog (product analytics) · `pino` logger
+- **Observability**: OpenTelemetry (OTLP/HTTP) to **Dash0** (logs, traces, metrics) + PostHog (product analytics) · `pino` logger — see `docs/observability.md`
 - **Background work**: `@vercel/functions` `waitUntil` for fire-and-forget; **cron only for retry / stuck-state**, never as a primary work queue
 
 ---
@@ -184,7 +184,8 @@ The boilerplate ships no AI, file storage, or RAG. Add them only when the startu
 
 ### Infra constraints
 
-- **No new infra / SaaS subscriptions.** Stick to the existing stack: Supabase, Upstash, Vercel, PostHog, Autumn, Resend — plus OpenAI / ZeroEntropy when the idea needs them. If you think you need something else, raise it explicitly first.
+- **No new infra / SaaS subscriptions.** Stick to the existing stack: Supabase, Upstash, Vercel, PostHog, Autumn, Resend, Dash0 — plus OpenAI / ZeroEntropy when the idea needs them. If you think you need something else, raise it explicitly first.
+- **One data region per startup.** `startup.config.json` `dataRegion` (`eu` / `us`) decides the region of every service; never pick a region for one service on its own. See `.claude/skills/create-startup/references/data-region.md`.
 - **Cron is only for retry / stuck-state cleanup.** Primary work runs in-request (or via `waitUntil`).
 
 ---

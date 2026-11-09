@@ -54,8 +54,9 @@ Supabase Storage or API keys.
 
 Using the Supabase MCP:
 
-1. Create a project named after the `slug` (or reuse one the user picks). Pick a region near the
-   user and a strong DB password.
+1. Create a project named after the `slug` (or reuse one the user picks), in the region that
+   `references/data-region.md` gives for `startup.config.json` `dataRegion` (it cannot be moved
+   later), with a strong DB password.
 2. Retrieve and write:
    - `DATABASE_URL` = the Postgres connection string. Use the connection **pooler** URI for the
      serverless app runtime; you can use the direct connection for migrations. Include the password.
@@ -106,8 +107,9 @@ Fills: `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`.
    already ran in Step 2; you can also get the project's **Project API key** (`phc_…`) from the MCP
    or Project Settings.
 2. `NEXT_PUBLIC_POSTHOG_KEY` = the `phc_…` key.
-3. `NEXT_PUBLIC_POSTHOG_HOST` = `https://eu.i.posthog.com` (EU) or `https://us.i.posthog.com` (US) —
-   match the region of the account you logged into.
+3. `NEXT_PUBLIC_POSTHOG_HOST` is already set by `scripts/init-env.mjs` from `dataRegion`
+   (`https://eu.i.posthog.com` or `https://us.i.posthog.com`). Use the PostHog account of that
+   region — PostHog regions are separate accounts, so an EU startup must not land in a US account.
 
 Leaving the key empty makes analytics a clean no-op, so this is safe to skip if the user changes
 their mind — but they opted in.
@@ -122,8 +124,9 @@ a verified domain (`startup.config.json.domain`):
 **If they have a domain → Resend** (better for production deliverability):
 
 1. Set `EMAIL_PROVIDER=resend`.
-2. Via the Resend MCP: add the domain, get the DNS records (SPF/DKIM), have the user add them at
-   their registrar, then verify the domain.
+2. Via the Resend MCP: add the domain in the region `references/data-region.md` gives for
+   `dataRegion`, get the DNS records (SPF/DKIM), have the user add them at their registrar, then
+   verify the domain.
 3. Create an API key → `RESEND_API_KEY`. Set `RESEND_FROM_EMAIL` to an address on the verified
    domain (e.g. `noreply@<domain>`).
 
@@ -155,6 +158,48 @@ entry in `env.ts`). If those aren't there yet, do the billing integration first,
    (The products/plans live in `autumn.config.ts`; Step 1b already set the `pro` price and trial.
    If the user wants to change the pricing, go back to `references/01b-set-pricing.md`.)
 4. You'll push to **production** and swap in the production key + live Stripe in Step 6.
+
+---
+
+## 4f. Dash0 — logs, traces, metrics (manual, guided)
+
+Fills: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`. `OTEL_SERVICE_NAME` is already
+the `slug` (set by `scripts/init-env.mjs`). Independent of the other services — order does not
+matter. No code change: `src/instrumentation.ts` exports all three signals over OTLP/HTTP as soon
+as the endpoint is set, and every `shared/logger` line becomes a Dash0 log linked to its trace.
+
+The founder keeps **one Dash0 organization** for all their startups; each startup gets its own
+**dataset** and its own **ingest token**. No new Dash0 account per startup.
+
+1. Use the founder's Dash0 organization in the region `references/data-region.md` gives for
+   `dataRegion`. The region is fixed when the organization is created — an EU startup needs an EU
+   organization. Dash0 has no free tier (14-day trial, then billed per log record, span and metric
+   data point); say so if the founder has no organization yet.
+2. Create a dataset named after the `slug`.
+3. Create an auth token restricted to that dataset, with ingest permission only.
+4. Copy the base endpoint from **Organization Settings → Endpoints → OTLP via HTTP** (EU:
+   `https://ingress.eu-west-1.aws.dash0.com`), without a trailing slash and without `/v1/...`:
+
+   ```bash
+   printf "Paste OTEL_EXPORTER_OTLP_ENDPOINT: "; read -r V; echo
+   printf %s "$V" | node scripts/set-env-var.mjs OTEL_EXPORTER_OTLP_ENDPOINT
+   unset V
+   ```
+
+5. Set the headers. The value holds the token, so it goes through the hidden prompt:
+
+   ```bash
+   printf "Paste the Dash0 token (auth_...): "; read -rs T; echo
+   printf %s "Authorization=Bearer $T,Dash0-Dataset=<slug>" | node scripts/set-env-var.mjs OTEL_EXPORTER_OTLP_HEADERS
+   unset T
+   ```
+
+   Replace `<slug>` before running. The script rejects a header without `Bearer <token>`, and
+   warns when the token does not start with `auth_` or the `Dash0-Dataset` header is missing.
+
+Verify after Step 5 boots the app: the dataset shows logs from service `<slug>` in Dash0 within a
+minute. On Vercel Hobby this OTLP export is the only path; Dash0's Vercel log drain (build and
+request logs) needs Vercel Pro.
 
 ---
 

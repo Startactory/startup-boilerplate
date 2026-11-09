@@ -15,32 +15,46 @@ Custom: wrap any operation worth tracing with the `withSpan` helper (see "Adding
 
 Custom span attributes must never include user-provided content verbatim (free text, file contents, names, search queries). Only counts, sizes, IDs (UUIDs), durations, and error codes.
 
-## Local dev backends
+## Backend: Dash0
 
-Pick one; both are free, OSS, single-container.
+Logs, traces and metrics go to [Dash0](https://www.dash0.com) over OTLP/HTTP. Nothing in the code is Dash0-specific: any OTLP backend works with the same three variables.
 
-### Phoenix (Arize) — simplest
+```
+OTEL_EXPORTER_OTLP_ENDPOINT=https://ingress.eu-west-1.aws.dash0.com
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer auth_<token>,Dash0-Dataset=<slug>
+OTEL_SERVICE_NAME=<slug>
+```
+
+- **Endpoint** — Organization Settings → Endpoints → "OTLP via HTTP". Base URL only: no trailing slash, no `/v1/...`. The region is fixed when the Dash0 organization is created, so an EU startup needs an EU organization (see `.claude/skills/create-startup/references/data-region.md`).
+- **Headers** — a token restricted to the startup's dataset, ingest only. Values may be written literally or percent-encoded (`Bearer%20auth_…`); both parse. The value is a secret: set it with `scripts/set-env-var.mjs`, which also validates its shape.
+- **One organization, many startups** — each startup gets its own dataset (named after its slug) and its own token. Without `Dash0-Dataset`, data lands in the `default` dataset.
+- **Cost** — Dash0 has no free tier (14-day trial, then billed per log record, span and metric data point). Sampling below keeps trace volume in check.
+
+Leave `OTEL_EXPORTER_OTLP_ENDPOINT` empty to disable export entirely; logs still print to stdout (and to Vercel's runtime logs in production).
+
+## How each signal is exported
+
+| Signal | Exporter | Notes |
+| --- | --- | --- |
+| Logs | `OTLPLogExporter` (JSON), batched | Every `shared/logger` call goes through `@opentelemetry/instrumentation-pino`, so it reaches Dash0 with `trace_id` / `span_id` and links to its trace. |
+| Traces | built by `@vercel/otel` from `OTEL_EXPORTER_OTLP_*` (protobuf) | Do not pass a `traceExporter` to `registerOTel`: `@vercel/otel` keeps its own env-based exporter anyway, so every span would be exported twice. |
+| Metrics | `OTLPMetricExporter` (JSON), every 60 s | Node.js runtime and HTTP client metrics. |
+
+On Vercel, a function can freeze before the last batch is flushed. Check after the first production deploy that recent logs reach Dash0. Dash0's Vercel integration (a log drain that also captures build and request logs) needs a Vercel Pro plan; on Hobby, the OTLP export above is the only path.
+
+## Local backends without an account
+
+To inspect telemetry offline, run Phoenix and point the endpoint at it:
 
 ```sh
 docker run -p 6006:6006 arizephoenix/phoenix
 ```
-
-In `.env`:
 
 ```
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:6006
 ```
 
 UI at <http://localhost:6006>.
-
-### Langfuse self-hosted — richer UI for GenAI workflows
-
-```sh
-git clone https://github.com/langfuse/langfuse.git
-cd langfuse && docker compose up
-```
-
-Default OTLP endpoint after setup: `http://localhost:3000/api/public/otel`. Get API headers from Langfuse UI and put into `OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic%20<base64>`.
 
 ## Production sampling
 

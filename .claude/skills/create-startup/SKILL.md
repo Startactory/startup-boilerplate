@@ -44,7 +44,8 @@ Two hard rules that keep this reliable:
 | Database | Supabase Postgres + Drizzle ORM | `DATABASE_URL` |
 | Payments | **Autumn** (over Stripe) — see the billing integration | `AUTUMN_SECRET_KEY`, `autumn.config.ts` |
 | Analytics | PostHog | `NEXT_PUBLIC_POSTHOG_KEY` |
-| Tracing / logs | OpenTelemetry · pino | `OTEL_*` (optional) |
+| Logs / traces / metrics | **Dash0** over OpenTelemetry (OTLP/HTTP) · pino | `OTEL_*` (Step 4f) |
+| Data region | EU or US — one answer for every service, plus GDPR work when EU | `startup.config.json` → `references/data-region.md` |
 | Email | Resend **or** SMTP (provider-switchable) | `EMAIL_PROVIDER` + provider vars |
 | Rate limit / cache | Upstash Redis (optional) | `UPSTASH_*` |
 | Hosting | Vercel | Step 6 |
@@ -65,6 +66,10 @@ ZeroEntropy for RAG, Supabase Storage for files).
   payments configured.
 - **Optional services: PostHog is set up.** Upstash Redis and Microsoft OAuth
   are left as clearly-marked `TODO` lines in `.env` (the app degrades gracefully without them).
+- **Observability: Dash0.** One Dash0 organization per data region for all of the founder's
+  startups; one dataset and one ingest token per startup.
+- **Data region is asked once, in Step 1.** `gdpr` + `dataRegion` in `startup.config.json` decide
+  the region of every service; no later step picks a region on its own.
 
 ## The flow
 
@@ -80,7 +85,8 @@ reach that step** and follow it; don't run ahead. Keep a todo per step.
 3. **Install & bootstrap env** → `references/03-install-and-secrets.md`
    `pnpm install`, generate the local secrets, create `.env` from the template.
 4. **Provision & configure services** → `references/04-provision-services.md`
-   Supabase, Google OAuth, Autumn, PostHog, email — fill every `.env` value.
+   Supabase, Google OAuth, Autumn, PostHog, email, Dash0 — fill every `.env` value, each service
+   in the region `startup.config.json` records.
 5. **Verify locally** → `references/05-verify-locally.md`
    Run migrations, boot `pnpm dev`, sign in, and pass the `pnpm validate` gate.
 6. **Deploy to production** → `references/06-deploy-production.md`
@@ -96,3 +102,7 @@ They'll need accounts (free tiers are fine to start) for: **Supabase, Google Clo
 **Autumn** (+ a **Stripe** account to connect for
 real payments), **Vercel**, and **PostHog**. Everything else is optional. Surface this list at
 the start of Step 4 so they can create any missing accounts before the guided parts.
+
+Logs need a **Dash0** organization too. Dash0 has no free tier: a 14-day trial, then billing per
+log record, span and metric data point. For an EU startup, the PostHog account and the Dash0
+organization must both be in the EU region (see `references/data-region.md`).

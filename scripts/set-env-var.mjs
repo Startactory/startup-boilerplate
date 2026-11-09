@@ -34,7 +34,68 @@ const RULES = {
   BETTER_AUTH_SECRET: { minLength: 32 },
   EARLY_ACCESS_PEPPER: { minLength: 16 },
   DATABASE_URL: { database: true },
+  OTEL_EXPORTER_OTLP_ENDPOINT: { url: true, otlpEndpoint: true },
+  OTEL_EXPORTER_OTLP_HEADERS: { otlpHeaders: true },
+  OTEL_SERVICE_NAME: { minLength: 1 },
 };
+
+function checkOtlpEndpoint(value, errors, warnings) {
+  if (value.endsWith('/')) {
+    errors.push(
+      'remove the trailing slash — the exporters append /v1/<signal> themselves',
+    );
+  }
+  if (/\/v1\/(traces|metrics|logs)\/?$/.test(value)) {
+    errors.push(
+      'use the base endpoint, without /v1/traces, /v1/metrics or /v1/logs',
+    );
+  }
+  if (value.includes('dash0.com') && !/^https:\/\/ingress\./.test(value)) {
+    warnings.push(
+      'Dash0 ingestion endpoints look like https://ingress.<region>.aws.dash0.com — this may be the API or UI host',
+    );
+  }
+}
+
+function decodeOrRaw(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function parseHeaderPairs(value) {
+  const pairs = new Map();
+  for (const entry of value.split(',')) {
+    const separatorIndex = entry.indexOf('=');
+    if (separatorIndex <= 0) continue;
+    const key = entry.slice(0, separatorIndex).trim().toLowerCase();
+    pairs.set(key, decodeOrRaw(entry.slice(separatorIndex + 1).trim()));
+  }
+  return pairs;
+}
+
+function checkOtlpHeaders(value, errors, warnings) {
+  const pairs = parseHeaderPairs(value);
+  const authorization = pairs.get('authorization');
+  if (!authorization) {
+    errors.push('must contain Authorization=Bearer <token>');
+    return;
+  }
+  if (!/^Bearer \S+$/.test(authorization)) {
+    errors.push('the Authorization value must be "Bearer <token>"');
+  } else if (!authorization.startsWith('Bearer auth_')) {
+    warnings.push(
+      'Dash0 tokens usually start with "auth_" — double-check you copied the right value',
+    );
+  }
+  if (!pairs.get('dash0-dataset')) {
+    warnings.push(
+      'no Dash0-Dataset header — telemetry will land in the "default" dataset instead of this startup\'s',
+    );
+  }
+}
 
 function checkDatabaseUrl(value, errors, warnings) {
   if (!/^postgres(ql)?:\/\//.test(value)) {
@@ -110,6 +171,8 @@ function validate(key, value) {
     );
   }
   if (rule.database) checkDatabaseUrl(value, errors, warnings);
+  if (rule.otlpEndpoint) checkOtlpEndpoint(value, errors, warnings);
+  if (rule.otlpHeaders) checkOtlpHeaders(value, errors, warnings);
 
   return { errors, warnings };
 }
