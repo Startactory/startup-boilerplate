@@ -71,12 +71,12 @@ describe('syncEnvFile', () => {
     const fs = fakeFs();
     expect(() =>
       syncEnvFile({
-        op: fakeOp(new OpError('locked')),
+        op: fakeOp(new OpError('unauthorized')),
         vault: VAULT,
         environment: 'local',
         fs,
       }),
-    ).toThrow(/locked/);
+    ).toThrow(/rejected/);
     expect(fs.writeFileSync).not.toHaveBeenCalled();
   });
 

@@ -109,11 +109,11 @@ complete that.
 2. In the Autumn dashboard (the startup's own org), connect that Stripe account in **live mode**.
 3. The founder completes Stripe KYC (business details, bank account). Payouts stay blocked until
    it is done; say so plainly and do not wait on it to continue the deploy.
-4. Push the product config to production. `op run` resolves the reference in the environment of
+4. Push the product config to production. `op run` (through `scripts/with-vault.mjs`, which supplies the service account token) resolves the reference in the environment of
    that one command, which overrides the key in `.env`, so the value is never printed:
 
    ```bash
-   AUTUMN_PROD_SECRET_KEY=op://startup-<slug>/production/AUTUMN_SECRET_KEY op run -- pnpm dlx atmn push -p --yes
+   AUTUMN_PROD_SECRET_KEY=op://startup-<slug>/production/AUTUMN_SECRET_KEY node scripts/with-vault.mjs op run -- pnpm dlx atmn push -p --yes
    ```
 
    (`atmn` 2.x needs `--yes`.) Success ends with the products listed as pushed to production. If
@@ -187,10 +187,10 @@ The workflows reference exactly three secrets (check that nothing was added:
 | `DATABASE_URL` | `ci.yml` → `migrate` job on `master` | now |
 | `DEV_DATABASE_URL` | `ci.yml` → `migrate` job on `dev` | only if a `dev` branch exists |
 
-The GitHub MCP **cannot** write secrets, so use the `gh` CLI, with the value on stdin:
+The GitHub MCP **cannot** write secrets, so use the `gh` CLI, with the value on stdin (`with-vault` supplies the service account token to `op`):
 
 ```bash
-op read op://startup-<slug>/production/DATABASE_URL | gh secret set DATABASE_URL
+node scripts/with-vault.mjs op read op://startup-<slug>/production/DATABASE_URL | gh secret set DATABASE_URL
 ```
 
 Set it **before the first push to `master`**, or the `migrate` job fails its `Verify database url`
@@ -242,7 +242,7 @@ Checklist before the first deploy — every line must be true:
    `Invalid environment variables` means a variable is missing in 6g.
 2. Seed an early-access code for production, hashed with the **production** pepper:
    ```bash
-   op run --env-file=.env.prod -- pnpm tsx scripts/hash-early-access-code.ts <code>
+   node scripts/with-vault.mjs op run --env-file=.env.prod -- pnpm tsx scripts/hash-early-access-code.ts <code>
    ```
    Insert the hash per the script's output, with the Supabase MCP `execute_sql` on the production
    project. Skip only if the user confirms the gate is disabled.

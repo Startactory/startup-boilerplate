@@ -144,19 +144,78 @@ describe('op wrapper', () => {
     expect(op.readFields({ vault: 'startup-acme', item: 'local' })).toBeNull();
   });
 
-  it('classifies a dismissed prompt as locked', () => {
-    expect(classifyOpFailure(DISMISSED)).toBe('locked');
+  it('classifies a rejected token', () => {
+    expect(classifyOpFailure(DISMISSED)).toBe('unauthorized');
+    expect(
+      classifyOpFailure(
+        'failed to DecodeSACredentials: invalid character looking for beginning of value',
+      ),
+    ).toBe('unauthorized');
     const { op } = fakeOp(() => fail(DISMISSED));
     try {
       op.readFields({ vault: 'v', item: 'i' });
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(OpError);
-      expect((error as OpError).kind).toBe('locked');
+      expect((error as OpError).kind).toBe('unauthorized');
       expect((error as OpError).message).toBe(
-        '1Password is locked — approve the prompt and re-run',
+        '1Password rejected the service account token — run step 0, item 2',
       );
     }
+  });
+
+  it('classifies the hourly limit', () => {
+    const limit =
+      "[ERROR] (429) Too Many Requests: You've reached the maximum number of this type of requests";
+    expect(classifyOpFailure(limit)).toBe('rate-limited');
+    const { op } = fakeOp(() => fail(limit));
+    try {
+      op.read('op://v/i/F');
+      expect.unreachable();
+    } catch (error) {
+      expect((error as OpError).kind).toBe('rate-limited');
+      expect((error as OpError).message).toBe(
+        '1Password rate limit reached for the service account — retry in an hour',
+      );
+    }
+  });
+
+  it('passes the token to op only through the environment', () => {
+    const seen: {
+      command: string;
+      args: string[];
+      env?: Record<string, string>;
+    }[] = [];
+    const op = createOp({
+      readToken: () => 'ops_fake-token',
+      spawn: ((
+        command: string,
+        args: string[],
+        options: { env?: Record<string, string> },
+      ) => {
+        seen.push({ command, args, env: options.env });
+        return { status: 0, stdout: 'v', stderr: '' };
+      }) as never,
+    });
+    op.read('op://v/i/F');
+    expect(seen[0]?.command).toBe('op');
+    expect(seen[0]?.env?.OP_SERVICE_ACCOUNT_TOKEN).toBe('ops_fake-token');
+    expect(seen[0]?.args.join(' ')).not.toContain('ops_fake-token');
+  });
+
+  it('reads the token once for several op calls', () => {
+    let reads = 0;
+    const op = createOp({
+      readToken: () => {
+        reads += 1;
+        return 'ops_fake-token';
+      },
+      spawn: (() => ({ status: 0, stdout: 'v', stderr: '' })) as never,
+    });
+    op.read('op://v/i/A');
+    op.read('op://v/i/B');
+    op.inject('.env.prod');
+    expect(reads).toBe(1);
   });
 
   it('does not leak stdin into error messages', () => {

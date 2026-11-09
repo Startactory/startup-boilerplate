@@ -1,36 +1,52 @@
 import { spawnSync } from 'node:child_process';
 
+import { readServiceAccountToken } from './service-account.mjs';
+
 const FAILURE_PATTERNS = {
-  missing: /isn't an item|isn't a vault/i,
-  locked:
-    /not currently signed in|authorization prompt dismissed|authorization timeout|is locked|connecting to desktop app/i,
+  missing: /isn't an item|isn't a vault|does not have a field/i,
+  rateLimited: /\(429\)|Too Many Requests/i,
+  unauthorized:
+    /DecodeSACredentials|\(401\)|unauthorized|invalid token|account is not signed in|connecting to desktop app|desktop app is not running|not currently signed in|authorization prompt dismissed|authorization timeout|is locked/i,
 };
 
-const LOCKED_MESSAGE = '1Password is locked — approve the prompt and re-run';
+const MESSAGES = {
+  unauthorized:
+    '1Password rejected the service account token — run step 0, item 2',
+  'rate-limited':
+    '1Password rate limit reached for the service account — retry in an hour',
+};
 
 export function classifyOpFailure(stderr) {
   if (FAILURE_PATTERNS.missing.test(stderr)) return 'missing';
-  if (FAILURE_PATTERNS.locked.test(stderr)) return 'locked';
+  if (FAILURE_PATTERNS.rateLimited.test(stderr)) return 'rate-limited';
+  if (FAILURE_PATTERNS.unauthorized.test(stderr)) return 'unauthorized';
   return 'failed';
 }
 
 export class OpError extends Error {
   constructor(kind, message) {
-    super(kind === 'locked' ? LOCKED_MESSAGE : (message ?? `op ${kind}`));
+    super(MESSAGES[kind] ?? message ?? `op ${kind}`);
     this.name = 'OpError';
     this.kind = kind;
   }
 }
 
-function defaultRunner(args, options = {}) {
-  const result = spawnSync('op', args, {
-    input: options.input,
-    encoding: 'utf8',
-  });
-  return {
-    status: result.status ?? 1,
-    stdout: result.stdout ?? '',
-    stderr: result.error ? String(result.error.message) : (result.stderr ?? ''),
+function createDefaultRunner({ readToken, spawn }) {
+  let token;
+  return (args, options = {}) => {
+    token ??= readToken();
+    const result = spawn('op', args, {
+      input: options.input,
+      encoding: 'utf8',
+      env: { ...process.env, OP_SERVICE_ACCOUNT_TOKEN: token },
+    });
+    return {
+      status: result.status ?? 1,
+      stdout: result.stdout ?? '',
+      stderr: result.error
+        ? String(result.error.message)
+        : (result.stderr ?? ''),
+    };
   };
 }
 
@@ -41,7 +57,11 @@ function failureFrom(args, stderr, subject) {
   return new OpError(kind, `op ${command} ${kind}: ${stderr.trim()}`);
 }
 
-export function createOp({ run = defaultRunner } = {}) {
+export function createOp({
+  readToken = readServiceAccountToken,
+  spawn = spawnSync,
+  run = createDefaultRunner({ readToken, spawn }),
+} = {}) {
   function exec(args, options, subject) {
     const result = run(args, options);
     if (result.status !== 0) throw failureFrom(args, result.stderr, subject);
