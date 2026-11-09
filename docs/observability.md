@@ -26,11 +26,11 @@ OTEL_SERVICE_NAME=<slug>
 ```
 
 - **Endpoint** — Organization Settings → Endpoints → "OTLP via HTTP". Base URL only: no trailing slash, no `/v1/...`. The region is fixed when the Dash0 organization is created, so an EU startup needs an EU organization (see `.claude/skills/create-startup/references/data-region.md`).
-- **Headers** — a token restricted to the startup's dataset, ingest only. Values may be written literally or percent-encoded (`Bearer%20auth_…`); both parse. The value is a secret: set it with `scripts/set-env-var.mjs`, which also validates its shape.
+- **Headers** — a token restricted to the startup's dataset, ingest only. Values may be written literally or percent-encoded (`Bearer%20auth_…`); both parse. The value is a secret: `scripts/providers/dash0-dataset.mjs` creates and stores it, and validates its shape.
 - **One organization, many startups** — each startup gets its own dataset (named after its slug) and its own token. Without `Dash0-Dataset`, data lands in the `default` dataset.
 - **Cost** — Dash0 has no free tier (14-day trial, then billed per log record, span and metric data point). Sampling below keeps trace volume in check.
 
-- **Production only** — the Dash0 variables live in `.env.prod` (and in the Vercel project's environment). The local `.env` leaves `OTEL_EXPORTER_OTLP_ENDPOINT` empty, so `pnpm dev` exports nothing: local runs would otherwise land in the production dataset, mixed with real traffic and billed like it. `@vercel/otel` tags every resource with `deployment.environment.name` (from `VERCEL_ENV`), so preview deployments that share the token can still be filtered out.
+- **Production only** — the Dash0 variables live in the 1Password item `startup-<slug>/production`, are written by `scripts/providers/dash0-dataset.mjs`, and appear as `op://` references in `.env.prod` (and as values in the Vercel project's environment). The local `.env` leaves `OTEL_EXPORTER_OTLP_ENDPOINT` empty, so `pnpm dev` exports nothing: local runs would otherwise land in the production dataset, mixed with real traffic and billed like it. `@vercel/otel` tags every resource with `deployment.environment.name` (from `VERCEL_ENV`), so preview deployments that share the token can still be filtered out.
 
 With `OTEL_EXPORTER_OTLP_ENDPOINT` empty, export is off entirely; logs still print to stdout (and to Vercel's runtime logs in production).
 

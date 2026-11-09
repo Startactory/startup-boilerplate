@@ -138,7 +138,7 @@ parts are fully automatic and which ask for one click.
 | Variable | How Step 4 gets it | Founder step |
 | --- | --- | --- |
 | production `DATABASE_URL` (4a) | Supabase MCP creates the project; `supabase-database.mjs` resets the password and stores the URL | approve the cost |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (4b) | Claude in Chrome creates two OAuth clients; downloaded JSON or the Copy buttons go to the vault | none |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (4b) | Claude in Chrome creates two OAuth clients; downloaded JSON or the Copy buttons go to the vault | go-ahead |
 | `NEXT_PUBLIC_POSTHOG_KEY` (4c) | PostHog API: two projects, `<name> (local)` and `<name>` | none |
 | `RESEND_API_KEY` (4d) | Resend API: two sending-only keys (needs a domain in Resend); otherwise SMTP from the vault | none |
 | SMTP credentials (4d) | copied from `startup-founder/master-keys` | none (the Gmail app password was created in step 0) |
@@ -148,5 +148,12 @@ parts are fully automatic and which ask for one click.
 ## 3f. Sanity check
 
 The app cannot boot yet (service keys unset) — that is expected. Do **not** run `pnpm dev` here;
-that is Step 5, after provisioning. Confirm `.env` exists, the three secrets are populated, and
-`DATABASE_URL` points at localhost, then move to Step 4.
+that is Step 5, after provisioning. Check names and counts only, never values:
+
+```bash
+cut -d= -f1 .env
+grep -c '^DATABASE_URL=postgresql://postgres:postgres@localhost' .env
+```
+
+The first lists the variable names (the three secrets must be among them); the count must be `1`.
+Then move to Step 4.

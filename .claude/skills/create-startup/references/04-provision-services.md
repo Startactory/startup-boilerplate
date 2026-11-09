@@ -333,15 +333,22 @@ log drain (build and request logs) needs Vercel Pro.
 
 ## Done with Step 4
 
-Regenerate both files and re-read them against `src/shared/env.ts`:
+Regenerate both files and check them against `src/shared/env.ts` by names and counts only:
 
 ```bash
 node scripts/vault-sync.mjs --env local
 node scripts/vault-sync.mjs --env production
+cut -d= -f1 .env
+cut -d= -f1 .env.prod
+grep -c '^DATABASE_URL=postgresql://postgres:postgres@localhost' .env
+grep -c 'op://' .env.prod
 ```
+
+The name lists show which variables exist; the localhost check must print `1` and the `op://`
+count is the number of secrets. No value is printed.
 
 Every **required** var is populated (secret lines in `.env.prod` are `op://` references), formats
 are correct, and optional ones are either set or left as an explicit `# TODO` line. `DATABASE_URL`
 in `.env` still points at localhost, and the `production` item holds the Supabase pooler URL the
-4a script connected to. Do not print or open any secret value to check this; compare names only.
+4a script connected to. Never print or open a secret value to check this.
 Then move to Step 5 to verify.
