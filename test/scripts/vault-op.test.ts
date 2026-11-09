@@ -3,6 +3,7 @@ import {
   classifyOpFailure,
   createOp,
   OpError,
+  PIPE_STDIN_SHELL,
 } from '../../scripts/vault/op.mjs';
 
 type Call = { args: string[]; input?: string };
@@ -15,24 +16,32 @@ const DISMISSED =
 const ok = (stdout = ''): Result => ({ status: 0, stdout, stderr: '' });
 const fail = (stderr: string): Result => ({ status: 1, stdout: '', stderr });
 
-function fakeOp(script: (args: string[]) => Result) {
+function fakeOp(script: (args: string[], input?: string) => Result) {
   const calls: Call[] = [];
   const op = createOp({
     run: (args: string[], options?: { input?: string }) => {
       calls.push({ args, input: options?.input });
-      return script(args);
+      return script(args, options?.input);
     },
   });
   return { op, calls };
+}
+
+function storeScript(initial: object | null) {
+  let stored: object | null = initial;
+  return (args: string[], input?: string): Result => {
+    if (isGet(args))
+      return stored ? ok(JSON.stringify(stored)) : fail(MISSING_ITEM);
+    if (input) stored = JSON.parse(input);
+    return ok();
+  };
 }
 
 const isGet = (args: string[]) => args[0] === 'item' && args[1] === 'get';
 
 describe('op wrapper', () => {
   it('never puts a value in argv', () => {
-    const { op, calls } = fakeOp((args) =>
-      isGet(args) ? fail(MISSING_ITEM) : ok(),
-    );
+    const { op, calls } = fakeOp(storeScript(null));
     op.writeFields({
       vault: 'startup-acme',
       item: 'local',
@@ -44,9 +53,7 @@ describe('op wrapper', () => {
   });
 
   it('sends concealed fields labelled by key on stdin', () => {
-    const { op, calls } = fakeOp((args) =>
-      isGet(args) ? fail(MISSING_ITEM) : ok(),
-    );
+    const { op, calls } = fakeOp(storeScript(null));
     const result = op.writeFields({
       vault: 'startup-acme',
       item: 'local',
@@ -80,9 +87,7 @@ describe('op wrapper', () => {
         { id: 'A', label: 'A', type: 'CONCEALED', value: 'old' },
       ],
     };
-    const { op, calls } = fakeOp((args) =>
-      isGet(args) ? ok(JSON.stringify(existing)) : ok(),
-    );
+    const { op, calls } = fakeOp(storeScript(existing));
     const result = op.writeFields({
       vault: 'startup-acme',
       item: 'local',
@@ -201,6 +206,81 @@ describe('op wrapper', () => {
     expect(seen[0]?.command).toBe('op');
     expect(seen[0]?.env?.OP_SERVICE_ACCOUNT_TOKEN).toBe('ops_fake-token');
     expect(seen[0]?.args.join(' ')).not.toContain('ops_fake-token');
+  });
+
+  it('pipes stdin through a real pipe when input is given', () => {
+    const seen: {
+      command: string;
+      args: string[];
+      input?: string;
+      env?: Record<string, string>;
+    }[] = [];
+    const op = createOp({
+      readToken: () => 'ops_fake-token',
+      spawn: ((
+        command: string,
+        args: string[],
+        options: { input?: string; env?: Record<string, string> },
+      ) => {
+        seen.push({ command, args, input: options.input, env: options.env });
+        if (args.includes('get') && !seen.some((c) => c.input)) {
+          return { status: 1, stdout: '', stderr: MISSING_ITEM };
+        }
+        return { status: 0, stdout: '{}', stderr: '' };
+      }) as never,
+    });
+    op.writeFields({ vault: 'v', item: 'i', fields: new Map() });
+    const create = seen.find((c) => c.args.includes('create'));
+    expect(create?.command).toBe('/bin/sh');
+    expect(create?.args[0]).toBe('-c');
+    expect(create?.args[1]).toBe(PIPE_STDIN_SHELL);
+    expect(create?.args.slice(2)).toEqual([
+      'op',
+      'item',
+      'create',
+      '--vault',
+      'v',
+      '-',
+    ]);
+    expect(create?.input).toBeDefined();
+    expect(create?.env?.OP_SERVICE_ACCOUNT_TOKEN).toBe('ops_fake-token');
+    expect(create?.args.join(' ')).not.toContain('ops_fake-token');
+  });
+
+  it('spawns op directly without input', () => {
+    const seen: { command: string; args: string[] }[] = [];
+    const op = createOp({
+      readToken: () => 'ops_fake-token',
+      spawn: ((command: string, args: string[]) => {
+        seen.push({ command, args });
+        return { status: 0, stdout: 'v', stderr: '' };
+      }) as never,
+    });
+    op.read('op://v/i/F');
+    expect(seen).toEqual([{ command: 'op', args: ['read', 'op://v/i/F'] }]);
+  });
+
+  it('detects an edit that did not apply', () => {
+    const existing = {
+      fields: [{ id: 'A', label: 'A', type: 'CONCEALED', value: 'old-value' }],
+    };
+    const { op } = fakeOp((args) =>
+      isGet(args) ? ok(JSON.stringify(existing)) : ok(),
+    );
+    try {
+      op.writeFields({
+        vault: 'v',
+        item: 'i',
+        fields: new Map([['A', 'new-value']]),
+      });
+      expect.unreachable();
+    } catch (error) {
+      expect((error as OpError).kind).toBe('failed');
+      expect((error as OpError).message).toBe(
+        'op item edit did not apply for v/i',
+      );
+      expect((error as OpError).message).not.toContain('value');
+    }
   });
 
   it('reads the token once for several op calls', () => {

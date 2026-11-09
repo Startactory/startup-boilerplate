@@ -31,11 +31,18 @@ export class OpError extends Error {
   }
 }
 
+// spawnSync hands the child a socketpair; op only reads a template from a real pipe.
+export const PIPE_STDIN_SHELL = 'cat | exec op "$@"';
+
 function createDefaultRunner({ readToken, spawn }) {
   let token;
   return (args, options = {}) => {
     token ??= readToken();
-    const result = spawn('op', args, {
+    const [command, commandArgs] =
+      options.input === undefined
+        ? ['op', args]
+        : ['/bin/sh', ['-c', PIPE_STDIN_SHELL, 'op', ...args]];
+    const result = spawn(command, commandArgs, {
       input: options.input,
       encoding: 'utf8',
       env: { ...process.env, OP_SERVICE_ACCOUNT_TOKEN: token },
@@ -104,6 +111,18 @@ export function createOp({
     return fields;
   }
 
+  function verifyWritten({ vault, item, fields, action }) {
+    const stored = readFields({ vault, item });
+    for (const [key, value] of fields) {
+      if (stored?.get(key) !== value) {
+        throw new OpError(
+          'failed',
+          `op item ${action} did not apply for ${vault}/${item}`,
+        );
+      }
+    }
+  }
+
   function writeFields({ vault, item, fields }) {
     const existing = fetchItem({ vault, item });
     if (!existing) {
@@ -122,6 +141,7 @@ export function createOp({
         { input: JSON.stringify(body) },
         `${vault}/${item}`,
       );
+      verifyWritten({ vault, item, fields, action: 'create' });
       return 'created';
     }
     const merged = [...(existing.fields ?? [])];
@@ -138,6 +158,7 @@ export function createOp({
       { input: JSON.stringify({ ...existing, fields: merged }) },
       `${vault}/${item}`,
     );
+    verifyWritten({ vault, item, fields, action: 'edit' });
     return 'updated';
   }
 
