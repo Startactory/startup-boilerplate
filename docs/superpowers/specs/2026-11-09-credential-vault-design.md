@@ -1,6 +1,8 @@
 # Credential vault and zero copy-paste — design
 
-Status: approved by the founder (2026-11-09). Roadmap item 3 of "a startup from one prompt".
+Status: approved by the founder (2026-11-09); amended the same day after the live 1Password spike:
+the scripts reach 1Password through a service account, not the desktop app (decision 6). Roadmap
+item 3 of "a startup from one prompt".
 
 ## Intent
 
@@ -28,7 +30,7 @@ founder**, never per startup, and that every startup after that gets its keys wi
 - Domain purchase, DNS and Resend domain verification (roadmap item 4).
 - The early-access gate decision, landing page, legal pages (roadmap item 5).
 - Supporting a password manager other than 1Password.
-- Windows or Linux founder machines (macOS only for now: `pbpaste`, Touch ID, Homebrew).
+- Windows or Linux founder machines (macOS only for now: `pbpaste`, the macOS Keychain, Homebrew).
 
 ## Anti-goals (failure even if it works)
 
@@ -51,6 +53,11 @@ founder**, never per startup, and that every startup after that gets its keys wi
 - Google has no API to create an OAuth web client; that step stays browser automation.
 - Data region: every resource created by API follows `startup.config.json` `dataRegion`
   (`references/data-region.md`).
+- The 1Password desktop-app integration refuses every process launched by the Claude desktop app
+  (checked live on 2026-11-09). The CLI fails with `connecting to desktop app`, and the official
+  Environments MCP server (`1password-mcp`) answers `1Password desktop app is not running`, while
+  the same `op vault list` works from macOS Terminal.app. openai/codex#46405 reports the same
+  pattern for Codex Desktop.
 
 ## Decisions taken with the founder
 
@@ -63,6 +70,13 @@ founder**, never per startup, and that every startup after that gets its keys wi
    payment; the article states it as the one per-startup human step.
 5. No startup runs on the current flow yet (answered 2026-11-09), so this is a clean break: no
    migration command, and no support for plain secret values in `.env.prod`.
+6. Scripts reach 1Password through a **service account** (answered 2026-11-09), because of the
+   desktop-app constraint above. The founder's account is 1Password Business, which includes
+   service accounts. The founder creates it once, in Terminal.app, and stores its token in the
+   macOS Keychain. Every script reads the token from the Keychain and hands it to `op` only through
+   the child process's `OP_SERVICE_ACCOUNT_TOKEN` environment variable. Trade-off accepted: no
+   Touch ID per access; the service account can only reach the `startup-*` vaults it is given or
+   creates, never the founder's built-in vaults.
 
 Sign-in options were checked on 2026-11-09 on the live pages: Google is offered by GitHub (sign-up
 too), Vercel, Autumn, Resend, PostHog EU and Dash0. Supabase offers GitHub, ChatGPT, SSO and
@@ -77,9 +91,13 @@ that passes is skipped, so later startups run it in seconds.
 
 1. **Tools.** Install what is missing with Homebrew: `1password-cli`, `vercel`, `supabase`. `gh` and
    `gcloud` are already standard. Ask before each install.
-2. **1Password CLI.** The founder turns on "Integrate with 1Password CLI" in the 1Password app
-   (Settings → Developer). Check with `op whoami`. Create the `startup-founder` vault if it does
-   not exist (§2). Each startup's own vault is created at the start of its run.
+2. **1Password service account.** In macOS Terminal.app (signed in as an owner or admin through
+   the desktop app), the founder runs one command that creates the service account
+   `startup-factory` with permission to create vaults and pipes its token, printed once, straight
+   into the Keychain. The token never passes through Claude. Claude then checks from its own shell
+   that the token works (`op vault list` through the service account) and creates the
+   `startup-founder` vault if it does not exist (§2). Each startup's own vault is created at the
+   start of its run.
 3. **Identity.** The founder creates or picks one Google account. Claude cannot create it.
 4. **Provider accounts.** For each of GitHub, Vercel, Supabase, PostHog (in the account region that
    matches the founder's usual `dataRegion`), Autumn, Stripe, Resend, Dash0 and Google Cloud:
@@ -110,6 +128,12 @@ founder creates the app password and saves it in 1Password once; scripts read it
   named exactly as the variable (`GOOGLE_CLIENT_SECRET`, …). Non-secret values (URLs,
   `EMAIL_PROVIDER`, `NEXT_PUBLIC_POSTHOG_HOST`, …) are stored too, so an item alone can rebuild its
   env file.
+- Service account access is fixed when the account is created, and it can never reach built-in
+  vaults (Personal, Private, Employee, default Shared). It is created with permission to create
+  vaults, so it creates `startup-founder` and each `startup-<slug>` itself. If the spike shows that
+  a service account cannot read and write items in the vaults it creates, the fallback is one vault,
+  `startup-factory`, granted `read_items,write_items` at creation, holding `master-keys` and
+  `<slug>-local`, `<slug>-production`, `<slug>-ci` items. That fallback loses per-startup sharing.
 
 ### 3. How a secret travels — three channels, one rule
 
@@ -195,10 +219,11 @@ None left.
 
 ## Left to the builder (verify before building)
 
-1. **Touch ID frequency (spike first).** With the 1Password app integration, does each `op` call from
-   Claude Code's Bash tool ask for Touch ID, or does one approval cover the session? If every call
-   asks, batch vault access into few script runs, or evaluate a 1Password service account scoped
-   to the startup vaults (check plan availability and where its token would live).
+1. **Service account spike (first).** Resolved the app-integration question (decision 6). Confirm
+   live: the token reaches `op` from Claude's shell through the Keychain; the service account can
+   read and write items in a vault it created; `op item create -` and piped `op item edit` work
+   with it; the error strings for a bad token and for the hourly limit (Business: 10,000 reads and
+   1,000 writes per hour per token, 50,000 per day per account).
 2. **API coverage.** Confirm the exact endpoints and scopes: Dash0 dataset and auth-token creation,
    Resend API key creation scoped to a domain, PostHog project creation with a personal key,
    Supabase database password reset, Vercel deploy-hook creation. Where one is missing, fall back
@@ -224,3 +249,6 @@ None left.
 - Supabase project creation stays on the MCP for its cost approval; the password is reset by script.
 - Clipboard as the channel for dashboards without API, with the "never read a secret page" rule.
 - macOS only for now.
+- The service account token lives in the macOS Keychain (service `startup-factory-op`, account =
+  the macOS user), not in a file and not in 1Password itself, so scripts can read it without the
+  desktop app.

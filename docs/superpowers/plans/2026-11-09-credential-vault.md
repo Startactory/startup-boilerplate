@@ -20,7 +20,8 @@
 - Vault names: `startup-<slug>` per startup, `startup-founder` for the founder. Items: `local`, `production` (plus `ci`, see Task 13) in a startup vault; `master-keys` in the founder vault. Field label = the env variable name, exactly. Field type: concealed.
 - `.env.prod` holds an `op://startup-<slug>/production/<KEY>` reference on every secret line and plain values on the others. `.env` holds real values, local-only, except the stated SMTP exception.
 - Clean break: no support for plain secret values in `.env.prod`, no migration command (spec decision 5).
-- macOS only: `pbpaste` / `pbcopy`, Touch ID, Homebrew.
+- macOS only: `pbpaste` / `pbcopy`, the macOS Keychain, Homebrew.
+- Scripts reach 1Password through the service account `startup-factory` (spec decision 6), never the desktop-app integration, which refuses processes launched by the Claude app. Its token lives in the macOS Keychain (service `startup-factory-op`, account = the macOS user name). It is read with `security find-generic-password -a <user> -s startup-factory-op -w` and passed to `op` only as the child's `OP_SERVICE_ACCOUNT_TOKEN`. It is never printed, never in argv, never in a file.
 - Every region comes from `startup.config.json` `dataRegion` (`eu` / `us`), never chosen per service.
 - 1Password is the one new SaaS; it is added to the `CLAUDE.md` infra list (Task 17).
 - Scripts stay in `scripts/`. Tests go in `test/scripts/*.test.ts` and import the `.mjs` module, as `test/domain-boundaries.test.ts` does. Each CLI keeps its logic in exported functions and runs only behind an entry guard (`process.argv[1]?.endsWith('<file>.mjs')`, as in `scripts/check-domain-boundaries.mjs`), so tests can import it.
@@ -30,7 +31,7 @@
 
 ## Review Focus
 
-1. **1Password locked or the Touch ID prompt dismissed mid-run.** Expect a non-zero exit with "1Password is locked — approve the prompt and re-run", and no env file rewritten. Pinned in Task 3 (`classifies a dismissed prompt as locked`) and Task 4 (`leaves the env file untouched when the vault read fails`).
+1. **Service account token missing from the Keychain, rejected, or rate-limited mid-run.** Expect a non-zero exit with a message that says which (and points at step 0 for a missing or rejected token), never the token, and no env file rewritten. Pinned in Task 19 (`explains a missing Keychain token`, `classifies a rejected token`, `classifies the hourly limit`) and Task 4 (`leaves the env file untouched when the vault read fails`).
 2. **Values with `=`, `,`, spaces, `%` or `#`** (OTLP headers, encoded database URLs) survive vault, then `.env`, then `parseEnv`, unchanged. Pinned in Task 2 (`round-trips awkward values`).
 3. **Wrong or stale clipboard** (the client ID copied instead of the secret, or an empty clipboard). Expect a validation error, and the clipboard cleared in every case. Pinned in Task 5 (`clears the clipboard when validation fails`).
 4. **Provider script re-run, or a remote key that exists while its vault field is missing** (keys are shown once). Expect no duplicate resource, and a rotated key when the vault lost it. Pinned in Tasks 9–13 (`is idempotent on re-run`, `rotates a key the vault does not hold`).
@@ -38,27 +39,27 @@
 
 ---
 
-### Task 0: Spike — 1Password CLI behavior (founder present)
+### Task 0: Spike — 1Password service account (founder present)
 
-Gate for everything else. No production code.
+Gate for everything else. No production code. Amended 2026-11-09: the desktop-app integration was ruled out live (see the spec's constraints), so this spike checks the service account instead.
 
 **Files:**
 - Create: `docs/superpowers/notes/2026-11-09-op-spike.md`
 
-- [ ] **Step 1: Install and connect `op`.** Ask the founder before running `brew install --cask 1password-cli`. The founder turns on 1Password app → Settings → Developer → "Integrate with 1Password CLI". Run `op whoami`. Expected: the founder's account email and URL.
-- [ ] **Step 2: Count Touch ID prompts.** Run `op vault create startup-vault-spike`. Then run `op vault get startup-vault-spike --format json` five times, in five separate Bash tool calls. Then run it five times inside one Bash call. The founder reports how many prompts appeared for each batch.
-  - Docs: a session lasts 10 minutes of inactivity, at most 12 hours, and is keyed on the tty plus its start time.
-  - Claude Code's Bash tool may have no tty. If so, every separate Bash call may prompt again, which is exactly what this step measures.
-- [ ] **Step 3: Probe writes without argv.** Pipe this JSON into `op item create --vault startup-vault-spike -` (docs: `-` reads the template from stdin): `{"title":"spike","category":"SECURE_NOTE","fields":[{"id":"SPIKE_FIELD","label":"SPIKE_FIELD","type":"CONCEALED","value":"spike-value"}]}`. The value is a dummy, so it may sit in argv for this probe only.
+- [ ] **Step 1: Create the service account and store its token (founder, in macOS Terminal.app).** `op` is installed (2.42.0) and `op vault list` works in Terminal.app.
+  - The founder runs: `{ printf 'add-generic-password -U -a %s -s startup-factory-op -w ' "$USER"; op service-account create startup-factory --can-create-vaults --raw; } | security -i`. The token goes from `op` into the Keychain through `security -i`'s stdin, never on screen and never in argv.
+  - If `security -i` rejects the line, the fallback is `security add-generic-password -U -a "$USER" -s startup-factory-op -w "$(op service-account create startup-factory --can-create-vaults --raw)"`. That puts the token in `security`'s argv for a moment on the founder's own machine, a one-time stated exception. Then revoke and recreate if the first attempt left a service account without a stored token.
+- [ ] **Step 2: Check the token from Claude's shell.** Run `OP_SERVICE_ACCOUNT_TOKEN="$(security find-generic-password -a "$USER" -s startup-factory-op -w)" op vault list`. Expected: a list with no built-in vaults (service accounts cannot see them), and no desktop-app error. Record whether the Keychain showed a prompt.
+- [ ] **Step 3: Probe a self-created vault.** With the token in the environment as in Step 2, run `op vault create startup-vault-spike`. Then pipe this JSON into `op item create --vault startup-vault-spike -` (docs: `-` reads the template from stdin): `{"title":"spike","category":"SECURE_NOTE","fields":[{"id":"SPIKE_FIELD","label":"SPIKE_FIELD","type":"CONCEALED","value":"spike-value"}]}`. The value is a dummy, so it may sit in argv for this probe only. If the service account cannot write items in a vault it created, stop: the spec's single-vault fallback (`startup-factory`) applies, and the plan's vault names change before Task 19.
   - Check with `op item get spike --vault startup-vault-spike --fields SPIKE_FIELD --reveal`. It must print `spike-value`.
   - Take the output of `op item get spike --vault startup-vault-spike --format json`, change the value to `spike-value-2`, and pipe it into `op item edit spike --vault startup-vault-spike`. Piped edits need CLI 2.23 or later.
   - Check again. Also check that the default `notesPlain` field survived. That tells whether a piped edit replaces the whole item or merges fields.
   - Check that the JSON from `op item get --format json` holds the concealed value both with and without `--reveal`.
-- [ ] **Step 4: Probe reads.** Write `/private/tmp/op-spike.env` holding `A=op://startup-vault-spike/spike/SPIKE_FIELD` and `B=plain`. `op inject -i /private/tmp/op-spike.env` must print both lines with `A` resolved. `op run --env-file=/private/tmp/op-spike.env -- printenv A` must print `<concealed by 1Password>`.
-- [ ] **Step 5: Record exit codes and stderr** for: a locked app (founder locks 1Password, then `op vault list`), a dismissed Touch ID prompt, a missing item (`op item get nope --vault startup-vault-spike`) and a missing vault.
-- [ ] **Step 6: Write the notes file.** Record prompt counts, the exact create and edit invocations that worked, and the stderr strings from Step 5. These strings drive `classifyOpFailure` in Task 3.
-- [ ] **Step 7: Clean up.** Ask the founder, then run `op vault delete startup-vault-spike` (irreversible) and `rm /private/tmp/op-spike.env`.
-- [ ] **Step 8: Gate.** Continue only if a full startup run can stay under about 10 prompts: one prompt per Bash call is fine, because each script reads and writes in one or two `op` calls. If every `op` call prompts, even inside one process, stop. Report to the founder and re-plan around a 1Password service account (spec, "Left to the builder" 1).
+- [ ] **Step 4: Probe reads** (token in the environment as in Step 2). Write `/private/tmp/op-spike.env` holding `A=op://startup-vault-spike/spike/SPIKE_FIELD` and `B=plain`. `op inject -i /private/tmp/op-spike.env` must print both lines with `A` resolved. `op run --env-file=/private/tmp/op-spike.env -- printenv A` must print `<concealed by 1Password>`.
+- [ ] **Step 5: Record exit codes and stderr** for: a rejected token (`OP_SERVICE_ACCOUNT_TOKEN=ops_invalid op vault list`), a missing item (`op item get nope --vault startup-vault-spike`) and a missing vault. The documented hourly-limit error is `[ERROR] (429) Too Many Requests: You've reached the maximum number of this type of requests this service account is allowed to make...`; do not provoke it.
+- [ ] **Step 6: Write the notes file.** Record the Keychain behavior, the exact create and edit invocations that worked, whether a piped edit replaces or merges, and the stderr strings from Step 5. These strings drive `classifyOpFailure` in Task 19.
+- [ ] **Step 7: Clean up.** Ask the founder, then run `op vault delete startup-vault-spike` with the token (irreversible; a service account can delete only vaults it created) and `rm /private/tmp/op-spike.env`. Keep the service account and its Keychain entry.
+- [ ] **Step 8: Gate.** Continue to Task 19 only if Steps 2–4 passed. If the token cannot be read from Claude's shell, or `op` still needs the desktop app with the token set, stop and report to the founder.
 - [ ] **Step 9: Commit**
 
 ```bash
@@ -597,7 +598,7 @@ Content of `00-founder-setup.md` follows spec §1 items 1–6, in this order, ea
    - `brew install --cask 1password-cli`;
    - `pnpm add -g vercel@latest`; the CLI must know `vercel deploy-hooks`;
    - `brew install supabase/tap/supabase`.
-2. **Vault.** Run `op whoami`, then `node scripts/vault-put.mjs --check`. `--check` is a flag added in this task: it creates `startup-founder` if missing, prints `startup-founder: existing|created`, and writes no field.
+2. **Service account.** Check first: `node scripts/vault-put.mjs --check`. `--check` is a flag added in this task: it reads the token from the Keychain (Task 19), creates `startup-founder` if missing, prints `startup-founder: existing|created`, and writes no field. Only if it reports a missing or rejected token: the founder opens macOS Terminal.app (not a Claude terminal tab: the desktop-app integration refuses processes launched by the Claude app), checks `op vault list` works there, then runs the one-line create-and-store command from Task 0 Step 1. Claude gives the command; the token never passes through Claude. Then re-run `--check`. Say plainly that the service account needs a 1Password Business or Teams account, and that it can never see the founder's built-in vaults.
 3. Identity: the founder's Google account.
 4. Provider accounts: GitHub, Vercel, Supabase, PostHog, Autumn, Stripe, Resend, Dash0, Google Cloud, each in the region of the founder's usual `dataRegion`. Claude opens the page in Chrome, the founder clicks "Continue with Google" (GitHub for Supabase), and Claude reloads the dashboard to confirm the session.
 5. CLI logins: `gh auth status`, `vercel whoami`, `supabase projects list`, `gcloud auth list`.
@@ -737,3 +738,37 @@ Each provider script has been tested against fakes only. This task runs them aga
   - restore `startup.config.json`.
 - [ ] **Step 6: Record each provider's result** in `docs/superpowers/notes/2026-11-09-op-spike.md`, under "Live run". Fix any script that failed (with its test) before claiming done.
 - [ ] **Step 7: Commit** `docs(notes): record live provider verification`.
+
+---
+
+### Task 19: `op` wrapper uses the service account
+
+Added 2026-11-09 with spec decision 6. Runs right after Task 0, before Task 15. Every script already builds its `Op` through `createOp()`, so the token is wired in one place.
+
+**Files:**
+- Create: `scripts/vault/service-account.mjs`, `scripts/with-vault.mjs`
+- Modify: `scripts/vault/op.mjs` (default runner env, failure kinds), the tests that construct `OpError('locked')`
+- Modify: `.claude/skills/create-startup/references/06-deploy-production.md` (the four direct `op` commands in 6f, 6g and 6j)
+- Test: `test/scripts/service-account.test.ts`, `test/scripts/vault-op.test.ts`, `test/scripts/with-vault.test.ts`
+
+**Interfaces:**
+- Consumes: `createOp`, `OpError`, `classifyOpFailure`, `FAILURE_PATTERNS` (Task 3).
+- Produces:
+  - `KEYCHAIN_SERVICE = 'startup-factory-op'`.
+  - `readServiceAccountToken({ run, user }: { run?: Runner; user?: string }): string`: runs `security find-generic-password -a <user> -s startup-factory-op -w`, where `user` defaults to `os.userInfo().username`, and returns stdout without its trailing newline. A non-zero status throws `no 1Password service account token in the Keychain (startup-factory-op) — run step 0, item 2`, which never includes stdout or stderr.
+  - `createOp({ run, readToken })`: when `run` is not injected, the default runner reads the token once, on the first `op` call, through `readToken` (default `readServiceAccountToken`). It passes `env: { ...process.env, OP_SERVICE_ACCOUNT_TOKEN: token }` to `spawnSync`. An injected `run` keeps today's signature, so every existing test stays valid.
+  - `OpError` kinds become `unauthorized | missing | rate-limited | failed`, replacing `locked`. `unauthorized` covers a rejected token and the desktop-app strings, with the message `1Password rejected the service account token — run step 0, item 2`. `rate-limited` matches `(429)` or `Too Many Requests`, with the message `1Password rate limit reached for the service account — retry in an hour`. The exact strings come from the Task 0 notes and live in `FAILURE_PATTERNS`.
+  - CLI `node scripts/with-vault.mjs <command> [args...]`: runs the command with stdio inherited and `OP_SERVICE_ACCOUNT_TOKEN` set from the Keychain, and exits with its status. It is used in docs as, for example, `node scripts/with-vault.mjs op read op://startup-<slug>/production/DATABASE_URL | gh secret set DATABASE_URL`. Export `runWithVault({ command, args, run, readToken }): number`.
+
+- [ ] **Step 1: Write the failing tests:**
+  - `reads the token from the Keychain without a trailing newline`;
+  - `explains a missing Keychain token` (status 44, a message without stdout or stderr);
+  - `passes the token to op only through the environment` (fake `spawnSync` captures `options.env.OP_SERVICE_ACCOUNT_TOKEN` and asserts argv never contains it);
+  - `reads the token once for several op calls`;
+  - `classifies a rejected token`;
+  - `classifies the hourly limit`;
+  - `runs the command with the token in its environment and returns its status` (`with-vault`).
+- [ ] **Step 2: Run to verify failure.** Run `pnpm vitest run test/scripts/service-account.test.ts test/scripts/vault-op.test.ts test/scripts/with-vault.test.ts`. Expected: FAIL.
+- [ ] **Step 3: Implement.** Rename `locked` to `unauthorized` across `op.mjs` and the tests that use it (`grep -rn "'locked'" scripts test`). Rewrite the four `op` commands in `06-deploy-production.md` to go through `node scripts/with-vault.mjs`: 6f becomes `AUTUMN_PROD_SECRET_KEY=op://… node scripts/with-vault.mjs op run -- pnpm dlx atmn push -p --yes`, 6g wraps the `op read`, and 6j wraps `op run --env-file=.env.prod -- …`.
+- [ ] **Step 4: Run** `pnpm test`, then `grep -n "^op \|[^-]op read\|[^-]op run" .claude/skills/create-startup/references/*.md | grep -v with-vault`. Expected: PASS, and no output from the grep.
+- [ ] **Step 5: Commit** `feat(scripts): reach 1Password through the service account token`.
