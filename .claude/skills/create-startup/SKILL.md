@@ -48,7 +48,8 @@ Two hard rules that keep this reliable:
   `.env.prod` is production (Supabase Postgres, the real URL, its own secrets) and is pushed to
   Vercel. The Supabase database never goes in `.env`. Both files are git-ignored. **Never commit a
   key.** The vault (1Password) is the source of truth: `.env` is regenerated from it and holds real
-  values; `.env.prod` holds `op://` references on every secret line. Never edit them by hand. Project-level MCP config (URLs, no secrets) lives in `.mcp.json` and *is* committed.
+  values; `.env.prod` holds `op://` references on every secret line. Never edit them by hand.
+  Project-level MCP config (URLs, no secrets) lives in `.mcp.json` and *is* committed.
   `.env.template` is the committed, empty shape.
 
 ## The stack (what's actually in this repo)

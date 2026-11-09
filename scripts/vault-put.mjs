@@ -50,6 +50,33 @@ export function checkFounderVault({ op }) {
   return `${FOUNDER_VAULT}: ${op.ensureVault(FOUNDER_VAULT)}`;
 }
 
+export function listFieldNames({ op, vault, item }) {
+  const fields = op.readFields({ vault, item });
+  if (!fields || fields.size === 0) return 'none';
+  return [...fields.keys()].sort().join('\n');
+}
+
+function defaultVault(item) {
+  return item === 'master-keys'
+    ? FOUNDER_VAULT
+    : startupVault(readStartupConfig().slug);
+}
+
+function parseListFields(argv) {
+  let vault;
+  const positional = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--vault') vault = argv[++i];
+    else positional.push(argv[i]);
+  }
+  if (positional.length !== 1) {
+    throw new Error(
+      'usage: node scripts/vault-put.mjs --list-fields [--vault <name>] <item>',
+    );
+  }
+  return { vault, item: positional[0] };
+}
+
 function parseArgs(argv) {
   let vault;
   let fromClipboard = false;
@@ -62,7 +89,7 @@ function parseArgs(argv) {
   const [item, field] = positional;
   if (!item || !field || positional.length > 2) {
     throw new Error(
-      'usage: node scripts/vault-put.mjs --check | [--vault <name>] [--from-clipboard] <item> <FIELD>',
+      'usage: node scripts/vault-put.mjs --check | --list-fields | [--vault <name>] [--from-clipboard] <item> <FIELD>',
     );
   }
   return { vault, fromClipboard, item, field };
@@ -75,13 +102,20 @@ function main() {
       console.log(checkFounderVault({ op: createOp() }));
       return;
     }
+    if (process.argv[2] === '--list-fields') {
+      const { vault, item } = parseListFields(process.argv.slice(3));
+      console.log(
+        listFieldNames({
+          op: createOp(),
+          vault: vault ?? defaultVault(item),
+          item,
+        }),
+      );
+      return;
+    }
     const args = parseArgs(process.argv.slice(2));
     field = args.field;
-    const vault =
-      args.vault ??
-      (args.item === 'master-keys'
-        ? FOUNDER_VAULT
-        : startupVault(readStartupConfig().slug));
+    const vault = args.vault ?? defaultVault(args.item);
     const value = args.fromClipboard
       ? readClipboardOnce()
       : cleanValue(readFileSync(0, 'utf8'));

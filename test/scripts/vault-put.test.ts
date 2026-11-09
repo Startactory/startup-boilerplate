@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   checkFounderVault,
+  listFieldNames,
   putValue,
   readClipboardOnce,
   ValidationError,
@@ -72,5 +73,35 @@ describe('checkFounderVault', () => {
     expect(checkFounderVault({ op })).toBe('startup-founder: created');
     expect(op.ensureVault).toHaveBeenCalledWith('startup-founder');
     expect(op.writeFields).not.toHaveBeenCalled();
+  });
+});
+
+describe('listFieldNames', () => {
+  it('--list-fields prints labels only', () => {
+    const readFields = vi.fn(
+      () =>
+        new Map([
+          ['SMTP_PASS', 'secret-value-1'],
+          ['DASH0_AUTH_TOKEN_EU', 'secret-value-2'],
+        ]),
+    );
+    const output = listFieldNames({
+      op: { readFields },
+      vault: 'startup-founder',
+      item: 'master-keys',
+    });
+    expect(output).toBe('DASH0_AUTH_TOKEN_EU\nSMTP_PASS');
+    expect(output).not.toContain('secret-value');
+    expect(readFields).toHaveBeenCalledWith({
+      vault: 'startup-founder',
+      item: 'master-keys',
+    });
+  });
+
+  it('--list-fields reports a missing item', () => {
+    const op = { readFields: vi.fn(() => null) };
+    expect(
+      listFieldNames({ op, vault: 'startup-founder', item: 'master-keys' }),
+    ).toBe('none');
   });
 });

@@ -118,13 +118,14 @@ Vercel token goes in the vault: later steps use the `vercel login` session.
 The master keys live in `startup-founder/master-keys`, one field per key, field label = the name
 below. Later steps use them to create per-startup keys through the provider APIs.
 
-**Check** which fields exist, by name only (this prints labels, never values):
+**Check** which fields exist, by name only (the command prints sorted labels, never values):
 
 ```bash
-node scripts/with-vault.mjs op item get master-keys --vault startup-founder --format json | node -e "const i=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(i.fields.filter(f=>f.value).map(f=>f.label).join('\n'))"
+node scripts/vault-put.mjs --list-fields master-keys
 ```
 
-If the item does not exist yet, every field is missing. Compare with the table, keeping only the
+It prints one field name per line, or `none` when the item does not exist yet (then every field is
+missing). Compare with the table, keeping only the
 rows for the founder's region `<R>` (`EU` or `US`).
 
 | Field | Where (dashboard path) | Permission |
