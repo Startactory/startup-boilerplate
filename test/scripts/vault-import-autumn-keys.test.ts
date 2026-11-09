@@ -20,7 +20,7 @@ function setup(envText: string) {
   const op = {
     writeFields: vi.fn(),
     readFields: vi.fn(
-      ({ item }: { item: string }) =>
+      ({ item }: { item: string }): Map<string, string> | null =>
         new Map([
           [
             'AUTUMN_SECRET_KEY',
@@ -84,5 +84,36 @@ describe('importAutumnKeys', () => {
     expect(() => importAutumnKeys({ op, fs, vault: 'startup-acme' })).toThrow(
       'no Autumn keys in .env — run pnpm dlx atmn login first',
     );
+  });
+
+  it('imports only the production key and still clears it from .env', () => {
+    const { fs, op, written } = setup(
+      `AUTUMN_PROD_SECRET_KEY=${PRODUCTION_KEY}\n`,
+    );
+    const result = importAutumnKeys({ op, fs, vault: 'startup-acme' });
+    expect(result).toEqual({ local: false, production: true });
+    expect(written.get('.env')).not.toContain('AUTUMN_PROD_SECRET_KEY');
+  });
+
+  it('stops before writing when the local item is missing', () => {
+    const { fs, op } = setup(`AUTUMN_SECRET_KEY=${SANDBOX_KEY}\n`);
+    op.readFields.mockImplementation(({ item }: { item: string }) =>
+      item === 'local' ? null : new Map(),
+    );
+    expect(() => importAutumnKeys({ op, fs, vault: 'startup-acme' })).toThrow(
+      'no 1Password item startup-acme/local — run node scripts/init-env.mjs --apply first',
+    );
+    expect(op.writeFields).not.toHaveBeenCalled();
+  });
+
+  it('stops before writing when the production item is missing', () => {
+    const { fs, op } = setup(`AUTUMN_SECRET_KEY=${SANDBOX_KEY}\n`);
+    op.readFields.mockImplementation(({ item }: { item: string }) =>
+      item === 'production' ? null : new Map(),
+    );
+    expect(() => importAutumnKeys({ op, fs, vault: 'startup-acme' })).toThrow(
+      'no 1Password item startup-acme/production — run node scripts/init-env.mjs --apply --file .env.prod first',
+    );
+    expect(op.writeFields).not.toHaveBeenCalled();
   });
 });

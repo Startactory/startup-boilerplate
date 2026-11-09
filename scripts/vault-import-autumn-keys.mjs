@@ -60,6 +60,16 @@ export function importAutumnKeys({
     });
   }
 
+  for (const environment of ['local', 'production']) {
+    const item = ITEM_FOR_ENVIRONMENT[environment];
+    if (!op.readFields({ vault, item })) {
+      const suffix = environment === 'production' ? ' --file .env.prod' : '';
+      throw new Error(
+        `no 1Password item ${vault}/${item} — run node scripts/init-env.mjs --apply${suffix} first`,
+      );
+    }
+  }
+
   const keys = {
     local: sandboxKey,
     production: productionKey,
