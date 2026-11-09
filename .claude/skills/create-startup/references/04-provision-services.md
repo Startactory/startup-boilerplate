@@ -341,7 +341,7 @@ node scripts/vault-sync.mjs --env production
 cut -d= -f1 .env
 cut -d= -f1 .env.prod
 grep -c '^DATABASE_URL=postgresql://postgres:postgres@localhost' .env
-grep -c 'op://' .env.prod
+grep -c '=op://' .env.prod
 ```
 
 The name lists show which variables exist; the localhost check must print `1` and the `op://`

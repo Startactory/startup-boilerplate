@@ -49,8 +49,14 @@ function flagValue(args, flag) {
 
 export function resolveEnvValues({ path, op, fs }) {
   const raw = fs.readFileSync(path, 'utf8');
-  const text = raw.includes(REFERENCE_PREFIX) ? op.inject(path) : raw;
-  const values = parseEnv(text);
+  const values = parseEnv(raw);
+  const referenceLines = [...values]
+    .filter(([, value]) => value.startsWith(REFERENCE_PREFIX))
+    .map(([key, value]) => `${key}=${value}`);
+  if (referenceLines.length > 0) {
+    const resolved = parseEnv(op.injectText(`${referenceLines.join('\n')}\n`));
+    for (const [key, value] of resolved) values.set(key, value);
+  }
   const unresolved = [...values]
     .filter(([, value]) => value.startsWith(REFERENCE_PREFIX))
     .map(([key]) => key);

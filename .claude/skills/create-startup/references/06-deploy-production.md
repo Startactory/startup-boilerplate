@@ -91,7 +91,7 @@ Then regenerate the file from the vault and check names and counts only:
 ```bash
 node scripts/vault-sync.mjs --env production
 cut -d= -f1 .env.prod
-grep -c 'op://' .env.prod
+grep -c '=op://' .env.prod
 ```
 
 The count of `op://` lines is the number of secrets; no value is printed. A consequence to expect:

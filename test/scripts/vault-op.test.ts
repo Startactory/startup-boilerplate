@@ -335,6 +335,13 @@ describe('op wrapper', () => {
     expect(calls[1]?.args).toEqual(['read', 'op://v/i/F']);
   });
 
+  it('injectText sends the template on stdin', () => {
+    const { op, calls } = fakeOp(() => ok('resolved'));
+    expect(op.injectText('A=op://v/i/A\n')).toBe('resolved');
+    expect(calls[0]?.args).toEqual(['inject']);
+    expect(calls[0]?.input).toBe('A=op://v/i/A\n');
+  });
+
   it('throws a clean OpError on unparseable item output', () => {
     const { op } = fakeOp(() => ok('{"fields":[{"value":"s3cr3t-value"'));
     try {

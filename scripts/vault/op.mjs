@@ -177,6 +177,7 @@ export function createOp({
     readFields,
     writeFields,
     inject: (path) => exec(['inject', '-i', path]),
+    injectText: (text) => exec(['inject'], { input: text }),
     read: (reference) => exec(['read', reference]),
   };
 }
