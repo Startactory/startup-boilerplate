@@ -5,15 +5,17 @@ The app must run and pass the repo's done-gate before you deploy. `CLAUDE.md` de
 
 ## 5a. Apply the database schema
 
-Migrations are generated and committed under `drizzle/`. Apply them to the Supabase Postgres from
-Step 4:
+Migrations are generated and committed under `drizzle/`. Apply them to the **local** Postgres from
+Step 3:
 
 ```bash
 pnpm drizzle:migrate
 ```
 
-If it can't connect, re-check `DATABASE_URL` and `DATABASE_SSL=require` (hosted Supabase needs
-SSL). `drizzle.config.ts` reads the same env, so a good `.env` is enough.
+If it can't connect, check that the local Postgres is running and that `.env` has
+`DATABASE_URL=…localhost:5432/<slug>` with `DATABASE_SSL=allow`. `drizzle.config.ts` reads the same
+env, so a good `.env` is enough. The production database is migrated by CI in Step 6, never from
+here.
 
 ## 5b. Early-access code (if the sign-up flow gates on it)
 

@@ -31,9 +31,11 @@ Two hard rules that keep this reliable:
   (e.g. `DATABASE_URL` must be a real `postgresql://` URI, `BETTER_AUTH_SECRET` ≥ 32 chars),
   and cross-field rules (the email provider check). If a value doesn't satisfy `env.ts`, the app
   won't start. Treat that file as the contract, not this skill.
-- **Secrets live in `.env` only, which is git-ignored. Never commit a key.** Project-level MCP
-  config (URLs, no secrets) lives in `.mcp.json` and *is* committed. `.env.template` is the
-  committed, empty shape.
+- **Two environments, two files.** `.env` is local development (local Postgres, localhost URLs).
+  `.env.prod` is production (Supabase Postgres, the real URL, its own secrets) and is pushed to
+  Vercel. The Supabase database never goes in `.env`. Both files are git-ignored. **Never commit a
+  key.** Project-level MCP config (URLs, no secrets) lives in `.mcp.json` and *is* committed.
+  `.env.template` is the committed, empty shape.
 
 ## The stack (what's actually in this repo)
 
@@ -41,7 +43,7 @@ Two hard rules that keep this reliable:
 | --- | --- | --- |
 | Framework | Next.js 16 (App Router) · React 19 · TS 6 · pnpm | — |
 | Auth | Better Auth — Google OAuth (required), Microsoft (optional), org plugin | `src/infra/auth/auth.ts` |
-| Database | Supabase Postgres + Drizzle ORM | `DATABASE_URL` |
+| Database | Drizzle ORM · local Postgres (dev) · Supabase Postgres (prod) | `DATABASE_URL` in `.env` / `.env.prod` |
 | Payments | **Autumn** (over Stripe) — see the billing integration | `AUTUMN_SECRET_KEY`, `autumn.config.ts` |
 | Analytics | PostHog | `NEXT_PUBLIC_POSTHOG_KEY` |
 | Logs / traces / metrics | **Dash0** over OpenTelemetry (OTLP/HTTP) · pino | `OTEL_*` (Step 4f) |
@@ -82,16 +84,18 @@ reach that step** and follow it; don't run ahead. Keep a todo per step.
    The founder gives the price, or you derive it from the idea; write it to `autumn.config.ts`.
 2. **Connect the connectors** → `references/02-connect-connectors.md`
    Add every service MCP so you can configure them from here; authenticate each.
-3. **Install & bootstrap env** → `references/03-install-and-secrets.md`
-   `pnpm install`, generate the local secrets, create `.env` from the template.
+3. **Install & build the local environment** → `references/03-install-and-secrets.md`
+   `pnpm install`, start a local Postgres, create `.env` with local values and secrets.
 4. **Provision & configure services** → `references/04-provision-services.md`
-   Supabase, Google OAuth, Autumn, PostHog, email, Dash0 — fill every `.env` value, each service
-   in the region `startup.config.json` records.
+   Supabase production database (automatic, into `.env.prod`), Google OAuth, PostHog, email,
+   Autumn, Dash0 — fill every `.env` value, each service in the region `startup.config.json`
+   records.
 5. **Verify locally** → `references/05-verify-locally.md`
-   Run migrations, boot `pnpm dev`, sign in, and pass the `pnpm validate` gate.
+   Migrate the local database, boot `pnpm dev`, sign in, and pass the `pnpm validate` gate.
 6. **Deploy to production** → `references/06-deploy-production.md`
-   Create the Vercel project, push production env, set the GitHub Actions secrets CI needs,
-   wire prod OAuth + Autumn + Stripe, deploy.
+   Connect the Vercel project to the GitHub repo, create the deploy hook, finish and push
+   `.env.prod`, set the GitHub Actions secrets, wire prod OAuth + Autumn + Stripe, deploy
+   through CI.
 
 At the end, report a per-service status checklist (configured / needs user action / skipped) and
 the live URL.
@@ -102,6 +106,9 @@ They'll need accounts (free tiers are fine to start) for: **Supabase, Google Clo
 **Autumn** (+ a **Stripe** account to connect for
 real payments), **Vercel**, and **PostHog**. Everything else is optional. Surface this list at
 the start of Step 4 so they can create any missing accounts before the guided parts.
+
+On the machine, local development needs **Postgres or Docker** (Step 3 starts the database). If
+neither is installed, say so at the start.
 
 Logs need a **Dash0** organization too. Dash0 has no free tier: a 14-day trial, then billing per
 log record, span and metric data point. For an EU startup, the PostHog account and the Dash0

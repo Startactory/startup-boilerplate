@@ -22,9 +22,10 @@
 # debug
 pnpm-debug.log*
 
-# local env files
-.env*.local
+# env files: every variant holds secrets, only the empty template is committed
 .env
+.env.*
+!.env.template
 
 # vercel
 .vercel

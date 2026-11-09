@@ -8,8 +8,12 @@ required.
 **First**, surface the accounts the user needs (Step "Prerequisites" in SKILL.md) so they can
 create any missing ones before the guided parts.
 
-Order matters a little: do **Supabase** first (it yields `DATABASE_URL`, needed for migrations),
-then the manual keys, then Autumn last (it depends on the billing code being present).
+Every value goes into the local `.env`, **except the Supabase database (4a), which goes into
+`.env.prod` only** — see the two-environment model in Step 3. Shared credentials (Google, PostHog,
+email, Dash0) are copied from `.env` to `.env.prod` in Step 6.
+
+Order matters a little: do **Supabase** first (project creation takes a few minutes and fixes the
+data region), then the manual keys, then Autumn last (it depends on the billing code being present).
 
 ---
 
@@ -47,22 +51,77 @@ Tell the user where they are — "that's 3 of 5" — so the remaining work is vi
 
 ---
 
-## 4a. Supabase — database (MCP: `supabase`)
+## 4a. Supabase — production database (MCP: `supabase`, fully automatic)
 
-Fills: `DATABASE_URL`, `DATABASE_SSL`. Supabase only hosts Postgres here; the boilerplate uses no
-Supabase Storage or API keys.
+Fills, in **`.env.prod`**: `DATABASE_URL`, `DATABASE_SSL`. Supabase only hosts the production
+Postgres; the boilerplate uses no Supabase Storage or API keys, so the MCP gives you everything and
+the user only approves the cost. Never write this database into `.env`.
 
-Using the Supabase MCP:
+### 1. Pick the organization
 
-1. Create a project named after the `slug` (or reuse one the user picks), in the region that
-   `references/data-region.md` gives for `startup.config.json` `dataRegion` (it cannot be moved
-   later), with a strong DB password.
-2. Retrieve and write:
-   - `DATABASE_URL` = the Postgres connection string. Use the connection **pooler** URI for the
-     serverless app runtime; you can use the direct connection for migrations. Include the password.
-   - `DATABASE_SSL=require` (hosted Postgres needs SSL).
+`list_organizations`. If there is more than one, ask which to use; otherwise take the only one.
 
-Verify: `DATABASE_URL` holds the real password (no `[YOUR-PASSWORD]` placeholder) and uses the pooler host.
+### 2. Get cost approval before creating anything
+
+Creating a project can be billable. Do not skip the MCP's cost-confirmation flow:
+
+1. `get_cost` for a new project in that organization.
+2. **Show the amount to the user and get an explicit yes.** Creating a paid resource on someone's
+   account without asking is not yours to decide.
+3. `confirm_cost`, and keep the returned confirmation id: `create_project` requires it.
+
+### 3. Create the project
+
+`create_project` with:
+
+- `name` — the `slug` from Step 1
+- `region` — the Supabase region `references/data-region.md` gives for `startup.config.json`
+  `dataRegion` (it cannot be moved later)
+- `db_pass` — a strong password you generate (32 random base64url characters, so it needs no URL
+  encoding). You supply it, so you can build `DATABASE_URL` without asking the user. It ends up in
+  `.env.prod`, and Supabase never shows it again.
+- `confirm_cost_id` — from step 2
+
+Then poll `get_project` until `status` is `ACTIVE_HEALTHY`. Provisioning takes a minute or two, and
+every later call fails confusingly if you race it. Note the project `ref` and `region`.
+
+### 4. Seed `.env.prod`
+
+```bash
+node scripts/init-env.mjs --apply --file .env.prod
+```
+
+This creates `.env.prod` from the template with its **own** secrets, generated independently of
+`.env`: a leaked local secret must not forge a production session. Its app URL stays on localhost
+until Step 6 sets the production URL.
+
+### 5. Write `DATABASE_URL` — session pooler
+
+```
+postgresql://postgres.<ref>:<db_pass>@aws-0-<region>.pooler.supabase.com:5432/postgres
+```
+
+- User is **`postgres.<ref>`**, not `postgres`.
+- Port **5432** (session mode). Not `6543`: the transaction pooler breaks `drizzle-kit migrate`.
+- Never the direct host `db.<ref>.supabase.co`: it is IPv6-only and unreachable from IPv4-only CI.
+
+```bash
+printf %s "postgresql://postgres.<ref>:<db_pass>@aws-0-<region>.pooler.supabase.com:5432/postgres" \
+  | node scripts/set-env-var.mjs --file .env.prod DATABASE_URL
+printf %s "require" | node scripts/set-env-var.mjs --file .env.prod DATABASE_SSL
+```
+
+### 6. Verify by connecting
+
+The `aws-0-` prefix is not guaranteed; some projects use `aws-1-`. Connect instead of assuming:
+
+```bash
+node --env-file=.env.prod -e "const p=require('postgres');const s=p(process.env.DATABASE_URL,{ssl:'require',max:1});s\`select 1\`.then(()=>{console.log('OK');process.exit(0)}).catch(e=>{console.error('FAIL',e.code,e.message);process.exit(1)})"
+```
+
+If it fails with `ENOTFOUND`, rewrite `DATABASE_URL` with `aws-1-` and connect again. If that fails
+too, read the exact pooler host from the dashboard (**Connect → Session pooler**). Continue only
+once it prints `OK`.
 
 ---
 
@@ -206,4 +265,6 @@ request logs) needs Vercel Pro.
 ## Done with Step 4
 
 Re-read `.env` against `src/shared/env.ts`: every **required** var populated, formats correct,
-optional ones either set or left as an explicit `# TODO` line. Then move to Step 5 to verify.
+optional ones either set or left as an explicit `# TODO` line. `DATABASE_URL` in `.env` still points
+at localhost, and `.env.prod` holds the Supabase pooler URL that connected in 4a. Then move to
+Step 5 to verify.
