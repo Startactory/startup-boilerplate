@@ -18,11 +18,24 @@ on Vercel — with as little manual dashboard work by the user as possible.
 
 ## How this skill works
 
-Setup is a **hybrid**. Some services expose an MCP that lets you configure them directly
-(create the project, mint keys, push config); others have no MCP and need a short guided
-paste-back where the user creates something in a console and hands you the key. Your job is to
-do everything you can automatically and make the manual parts a tight, well-signposted flow —
-never a vague "go set up X yourself".
+Setup is a **hybrid**. Some services expose an MCP that lets you configure them directly; the
+rest are driven through their provider API with the founder's master keys, or through the founder's
+signed-in Chrome. Your job is to do everything you can automatically and make the manual parts a
+tight, well-signposted flow, never a vague "go set up X yourself".
+
+Secrets live in **1Password** (the source of truth) and reach it through one of three channels:
+
+1. **Script to vault**: a script calls a provider API and writes the key straight into the vault.
+2. **Clipboard**: Claude in Chrome clicks a Copy button; `vault-put.mjs --from-clipboard` stores it
+   and clears the clipboard.
+3. **Downloaded file**: a provider's downloaded JSON goes through an import script into the vault.
+
+**Never read a page that shows a secret.** On such a page use narrow `find` queries only, never
+`get_page_text`, `read_page` or `screenshot`. A secret never appears in a command-line argument,
+and the 1Password service account token never passes through you.
+
+You never create accounts, type passwords or solve CAPTCHAs, and you ask the founder's go-ahead
+before an OAuth consent or before creating a key in a dashboard.
 
 Two hard rules that keep this reliable:
 
@@ -34,7 +47,9 @@ Two hard rules that keep this reliable:
 - **Two environments, two files.** `.env` is local development (local Postgres, localhost URLs).
   `.env.prod` is production (Supabase Postgres, the real URL, its own secrets) and is pushed to
   Vercel. The Supabase database never goes in `.env`. Both files are git-ignored. **Never commit a
-  key.** Project-level MCP config (URLs, no secrets) lives in `.mcp.json` and *is* committed.
+  key.** The vault (1Password) is the source of truth: `.env` is regenerated from it and holds real
+  values; `.env.prod` holds `op://` references on every secret line. Never edit them by hand.
+  Project-level MCP config (URLs, no secrets) lives in `.mcp.json` and *is* committed.
   `.env.template` is the committed, empty shape.
 
 ## The stack (what's actually in this repo)
@@ -51,6 +66,7 @@ Two hard rules that keep this reliable:
 | Email | Resend **or** SMTP (provider-switchable) | `EMAIL_PROVIDER` + provider vars |
 | Rate limit / cache | Upstash Redis (optional) | `UPSTASH_*` |
 | Hosting | Vercel | Step 6 |
+| Secrets | 1Password vault (paid; a personal account works) | Step 0 |
 
 Do **not** hard-code the startup's brand name in user-facing copy — the boilerplate is
 brand-neutral by design (see `CLAUDE.md`). The name captured in Step 1 is for project/config
@@ -78,6 +94,9 @@ ZeroEntropy for RAG, Supabase Storage for files).
 Execute in order. Each step is detailed in its own reference file — **read the file when you
 reach that step** and follow it; don't run ahead. Keep a todo per step.
 
+0. **Founder setup** → `references/00-founder-setup.md`
+   Once per machine, idempotent: tools, the 1Password service account, provider accounts, CLI
+   logins, master keys. Each item is a check that passes silently when already done.
 1. **Name the startup** → `references/01-name-startup.md`
    Capture the name, derive identifiers, persist `startup.config.json`.
 1b. **Set the pricing** → `references/01b-set-pricing.md`
@@ -105,10 +124,11 @@ the live URL.
 
 ## Prerequisites to tell the user up front
 
-They'll need accounts (free tiers are fine to start) for: **Supabase, Google Cloud** (OAuth),
-**Autumn** (+ a **Stripe** account to connect for
-real payments), **Vercel**, and **PostHog**. Everything else is optional. Surface this list at
-the start of Step 4 so they can create any missing accounts before the guided parts.
+They'll need **1Password** (paid, no free tier; a personal account works) and accounts (free tiers
+are fine to start) for: **Supabase, Google Cloud** (OAuth), **Autumn** (+ a **Stripe** account to
+connect for real payments), **Vercel**, **GitHub**, **PostHog** and **Resend**. They sign in to all
+of them with the one Google identity (GitHub for Supabase). Everything else is optional. Step 0
+checks all of this once; if it is incomplete, run it before Step 1.
 
 On the machine, local development needs **Postgres or Docker** (Step 3 starts the database). If
 neither is installed, say so at the start.

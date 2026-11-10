@@ -40,4 +40,4 @@ Autumn account, OAuth app name, email `from`), so capture it first and persist i
    If the file already exists, read it and confirm/update rather than overwriting silently.
 5. Update the `name` field in `package.json` to the slug (it currently reads `startup-boilerplate`).
 
-Once saved, tell the user the name and the data region are locked in and move to Step 1b.
+Once saved, tell the user the name and the data region are final and move to Step 1b.

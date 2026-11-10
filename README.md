@@ -24,7 +24,9 @@ That's it. The skill walks you through everything: naming the startup, connectin
 
 **Install:** Node (see `.nvmrc`), pnpm, git.
 
-**Create free accounts:** [Supabase](https://supabase.com) · [Google Cloud](https://console.cloud.google.com) · [Autumn](https://useautumn.com) + [Stripe](https://stripe.com) · [Vercel](https://vercel.com) · [PostHog](https://posthog.com)
+**Create free accounts:** [Supabase](https://supabase.com) · [Google Cloud](https://console.cloud.google.com) · [Autumn](https://useautumn.com) + [Stripe](https://stripe.com) · [Vercel](https://vercel.com) · [GitHub](https://github.com) · [PostHog](https://posthog.com) · [Resend](https://resend.com)
+
+**Plus, for secrets:** [1Password](https://1password.com) (paid). Every credential the skill creates goes into a vault, never into a chat. Use one Google account: every provider uses Continue with Google, and Supabase uses GitHub. The skill's step 0 (`.claude/skills/create-startup/references/00-founder-setup.md`) walks you through this one-time setup.
 
 **Plus, for logs:** [Dash0](https://www.dash0.com) — no free tier (14-day trial, then usage-based). For a startup with EU users, create the PostHog account and the Dash0 organization in the EU region.
 
@@ -34,8 +36,8 @@ Most of the setup is automatic. You only need to:
 
 1. Give your startup a name, and say whether it has users (or is based) in the EU
 2. Authenticate the connectors once (`/mcp` → Authenticate)
-3. Paste 3 secrets — Google OAuth, Autumn, and a Dash0 ingest token
-4. Connect Stripe inside the Autumn dashboard
+3. Approve a few prompts (the Autumn login, cost approval for Supabase)
+4. Complete Stripe verification (KYC) for the startup's own Stripe account
 
 Everything else — installing dependencies, generating secrets, creating the Supabase project, running migrations, booting the app, and deploying to Vercel — is done for you.
 

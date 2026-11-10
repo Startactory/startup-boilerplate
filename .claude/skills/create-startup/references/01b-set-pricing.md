@@ -121,7 +121,7 @@ export const pro = plan({
 Omit `freeTrial` when `trialDays` is `0`. Do not push yet: Step 4e pushes the config to the
 Autumn sandbox, and Step 6 pushes it to production.
 
-Once saved, tell the founder the pricing is locked in (they can change it any time by editing
+Once saved, tell the founder the pricing is final (they can change it any time by editing
 `autumn.config.ts` and running `pnpm dlx atmn push`) and move to Step 1c.
 
 ---

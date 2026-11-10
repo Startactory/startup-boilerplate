@@ -167,7 +167,7 @@ The boilerplate ships no AI, file storage, or RAG. Add them only when the startu
 - **LLM** → OpenAI only, through the Vercel AI SDK (`ai` + `@ai-sdk/openai`). Never propose Anthropic / Claude / Mistral / any other LLM.
 - **RAG / vector search** → ZeroEntropy. Never propose pgvector / qdrant / Weaviate / any other vector store.
 - **File storage** → Supabase Storage (same Supabase project as the database).
-- New env vars go in `shared/env.ts`, `.env.template`, `scripts/set-env-var.mjs` and `scripts/push-env-to-vercel.mjs`.
+- New env vars go in `shared/env.ts`, `.env.template`, `scripts/env/rules.mjs` (rules and `SECRET_KEYS`), `scripts/set-env-var.mjs` and `scripts/push-env-to-vercel.mjs`.
 - Fire-and-forget work → **`waitUntil` from `@vercel/functions`**. Bare `void asyncFn()` dies on Vercel.
 - **Evals are hard.** Don't require manual golden queries; default to auto-generated evals or skip the eval gate.
 
@@ -184,7 +184,7 @@ The boilerplate ships no AI, file storage, or RAG. Add them only when the startu
 
 ### Infra constraints
 
-- **No new infra / SaaS subscriptions.** Stick to the existing stack: Supabase, Upstash, Vercel, PostHog, Autumn, Resend, Dash0 — plus OpenAI / ZeroEntropy when the idea needs them. If you think you need something else, raise it explicitly first.
+- **No new infra / SaaS subscriptions.** Stick to the existing stack: Supabase, Upstash, Vercel, PostHog, Autumn, Resend, Dash0, 1Password — plus OpenAI / ZeroEntropy when the idea needs them. If you think you need something else, raise it explicitly first.
 - **One data region per startup.** `startup.config.json` `dataRegion` (`eu` / `us`) decides the region of every service; never pick a region for one service on its own. See `.claude/skills/create-startup/references/data-region.md`.
 - **Cron is only for retry / stuck-state cleanup.** Primary work runs in-request (or via `waitUntil`).
 

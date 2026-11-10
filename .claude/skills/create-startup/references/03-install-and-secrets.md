@@ -5,7 +5,10 @@ with local values. Production is a separate environment, finished in Step 6. Do 
 
 **Do this yourself — nothing here requires the user.** No accounts, no keys, no commands handed
 over for someone else to run. Execute it, report what happened, move on. Asking the user to paste
-`openssl` output is a failure of this step.
+anything is a failure of this step.
+
+The vault, the 1Password CLI (`op`) and the service account token come from step 0. If `op` is
+missing, go back to step 0.
 
 ## The two-environment model (read this before touching any env file)
 
@@ -16,13 +19,20 @@ over for someone else to run. Execute it, report what happened, move on. Asking 
 | App / auth URL | `http://localhost:3000` | `https://<prod-domain>` |
 | Secrets | generated for local | generated separately for production |
 | Autumn | sandbox key (`am_sk_test_…`) | production key |
+| Lives in | 1Password `startup-<slug>/local`; the file is regenerated from it | 1Password `startup-<slug>/production`; secret lines are `op://` references |
 | Used by | `pnpm dev` on this machine | pushed to the Vercel project |
+
+The vault is the source of truth. Never edit an env file by hand: write to the vault, then
+regenerate the file with `node scripts/vault-sync.mjs --env local` (`.env`) or
+`node scripts/vault-sync.mjs --env production` (`.env.prod`). It prints
+`<file> regenerated from <vault>/<item> (<n> keys)`.
 
 Both files are git-ignored (`.env`, `.env.*`; `.env.template` is the only committed one).
 
 **The Supabase database never goes in `.env`.** Local development runs against a local database:
 it is free and disposable, and a broken migration or a stray `drizzle:push` cannot damage real
-user data. `scripts/set-env-var.mjs` refuses a Supabase `DATABASE_URL` in `.env`.
+user data. `scripts/set-env-var.mjs` and `scripts/vault-put.mjs` refuse a Supabase `DATABASE_URL`
+in `.env`.
 
 The production file is named `.env.prod`, not `.env.production`: Next.js loads `.env.production`
 automatically during any local `next build`, which would point a local build at the real database.
@@ -70,13 +80,23 @@ host port and use that port in 3d. Do not run two servers silently.
 If neither Postgres nor Docker is installed, tell the user and ask which one to install. This is the
 only local prerequisite the skill cannot set up alone.
 
-## 3c. Create and populate `.env`
+## 3c. Create the vault items and populate `.env`
 
-One command creates `.env` from the template, generates every secret, and fills the constants:
+One command creates the 1Password vault `startup-<slug>` and its `local` item, generates every
+secret straight into that item, fills the constants, and regenerates `.env` from it:
 
 ```bash
 node scripts/init-env.mjs --apply
 ```
+
+Success ends with `startup-<slug>/local updated; .env regenerated (<n> keys). Secret values were
+generated locally and never printed.` and `Remaining variables need an account — see step 4.`
+If it fails, nothing was written. Read the message:
+
+- `no 1Password service account token in the Keychain (startup-factory-op) — run step 0, item 2`
+  or `1Password rejected the service account token — run step 0, item 2`: go back to step 0,
+  item 2, then re-run.
+- `1Password rate limit reached for the service account — retry in an hour`: wait, then re-run.
 
 What it does:
 
@@ -87,10 +107,12 @@ What it does:
 | **Leaves alone** | any key that already holds a real value |
 
 It is **idempotent** — safe to re-run at any point, including after Step 4, because it never
-overwrites a value that is already set. Omit `--apply` to preview first.
+overwrites a value that is already set. Omit `--apply` to preview first. Flags: `--file <path>`
+(default `.env`; `.env.prod` targets the `production` item) and `--app-url <url>` (production
+only).
 
-Secrets are generated in-process and written straight to `.env` — never echoed, so they never reach
-the terminal, the transcript, or shell history.
+Secrets are generated in-process and written to 1Password — never echoed, so they never reach the
+terminal, the transcript, or shell history.
 
 Do **not** pass `--app-url` here. The production URL belongs to `.env.prod` (Step 6).
 
@@ -98,29 +120,44 @@ Do **not** pass `--app-url` here. The production URL belongs to `.env.prod` (Ste
 
 `.env.template` ships `DATABASE_URL` on the generic `postgres` database. Point it at the project's
 own database, and keep `DATABASE_SSL=allow` (local Postgres has no TLS; `require` refuses to
-connect):
+connect). The value holds only the local default credentials:
 
 ```bash
 printf %s "postgresql://postgres:postgres@localhost:5432/<slug>" \
-  | node scripts/set-env-var.mjs DATABASE_URL
+  | node scripts/vault-put.mjs local DATABASE_URL
 grep -E '^(DATABASE_URL|DATABASE_SSL)=' .env
 ```
 
-Expect `localhost:5432/<slug>` and `allow`.
+`vault-put.mjs` prints `OK  DATABASE_URL stored in startup-<slug>/local (<n> chars)` and
+regenerates `.env`. Expect `localhost:5432/<slug>` and `allow` in the grep. If a `WARNING` line
+appears, read it; an `ERROR` line means nothing was written.
 
 ## 3e. What is deliberately *not* done here
 
-These require an external account and cannot be generated. Step 4 obtains them — several
-automatically over MCP, the rest by asking the user once:
+These need an external account. Step 4 obtains every one of them with no paste: a script calls the
+provider API with the founder's master keys (step 0), or Claude in Chrome moves the value through
+the clipboard or a downloaded file straight into the vault. Be honest with the user about which
+parts are fully automatic and which ask for one click.
 
-`GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` · `AUTUMN_SECRET_KEY` · the email provider credentials ·
-the production `DATABASE_URL` (Step 4a, in `.env.prod`)
-
-Be honest with the user about this boundary rather than implying full automation — there is no way
-to mint someone else's OAuth client or API key.
+| Variable | How Step 4 gets it | Founder step |
+| --- | --- | --- |
+| production `DATABASE_URL` (4a) | Supabase MCP creates the project; `supabase-database.mjs` resets the password and stores the URL | approve the cost |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (4b) | Claude in Chrome creates two OAuth clients; downloaded JSON or the Copy buttons go to the vault | go-ahead |
+| `NEXT_PUBLIC_POSTHOG_KEY` (4c) | PostHog API: two projects, `<name> (local)` and `<name>` | none |
+| `RESEND_API_KEY` (4d) | Resend API: two sending-only keys (needs a domain in Resend); otherwise SMTP from the vault | none |
+| SMTP credentials (4d) | copied from `startup-founder/master-keys` | none (the Gmail app password was created in step 0) |
+| `AUTUMN_SECRET_KEY` (4e) | `atmn login`, then moved from `.env` to the vault | approve the Autumn login |
+| `OTEL_EXPORTER_OTLP_*` (4f) | Dash0 API: dataset `<slug>` and a dataset-scoped ingest token | none |
 
 ## 3f. Sanity check
 
 The app cannot boot yet (service keys unset) — that is expected. Do **not** run `pnpm dev` here;
-that is Step 5, after provisioning. Confirm `.env` exists, the three secrets are populated, and
-`DATABASE_URL` points at localhost, then move to Step 4.
+that is Step 5, after provisioning. Check names and counts only, never values:
+
+```bash
+cut -d= -f1 .env
+grep -c '^DATABASE_URL=postgresql://postgres:postgres@localhost' .env
+```
+
+The first lists the variable names (the three secrets must be among them); the count must be `1`.
+Then move to Step 4.

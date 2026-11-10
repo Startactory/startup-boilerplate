@@ -61,57 +61,68 @@ pipeline silently.
 
 ## 6d. Create the deploy hook and give it to CI
 
-**Project → Settings → Git → Deploy Hooks.** Name it `production`, target branch `master`, create.
-
-The hook URL is a bearer credential: anyone who holds it can trigger a production build. Never
-commit it or paste it into chat. Store it straight in GitHub, at a hidden prompt:
+One script creates (or reuses) the `production` hook on `master`, stores the URL in
+`startup-<slug>/ci`, and pipes it to `gh secret set VERCEL_DEPLOY_HOOK_URL`:
 
 ```bash
-gh secret set VERCEL_DEPLOY_HOOK_URL          # paste at the prompt, input is hidden
+node scripts/providers/vercel-deploy-hook.mjs --project <vercel-project>
 ```
 
-If it leaks, revoke it in the same panel and create a new one.
+The Vercel project must be Git-connected (6b) and the Vercel CLI signed in. The hook URL is a
+bearer credential: it never appears in your output or in argv. Success prints names and statuses
+only. Verify with `gh secret list` (names only). If it errors, read the message: `update the
+Vercel CLI: pnpm add -g vercel@latest` means the Vercel CLI is too old to manage deploy hooks, and a missing Git connection
+means go back to 6b. If the hook ever leaks, delete it in **Project → Settings → Git → Deploy
+Hooks** and re-run the script.
 
 ## 6e. Finish `.env.prod`
 
-Step 4a already created `.env.prod` with its own secrets and the Supabase `DATABASE_URL`. Set the
-production URL (an explicit `--app-url` replaces the localhost value; nothing else is overwritten):
+Step 4 already filled the `production` item: its own Google client, PostHog project, Resend key (or
+SMTP), Supabase `DATABASE_URL` and Dash0 variables. Nothing is copied from `.env`: each environment
+got its own Google, PostHog and Resend values in Step 4. Only the production URL is left; an
+explicit `--app-url` replaces the localhost value and nothing else is overwritten:
 
 ```bash
 node scripts/init-env.mjs --apply --file .env.prod --app-url "https://<prod-domain>"
 ```
 
-Then copy the credentials that are the same in both environments — the Google OAuth client, the
-PostHog project, the email provider — from `.env`. The loop never prints a value, and
-`set-env-var.mjs` validates each one:
+Then regenerate the file from the vault and check names and counts only:
 
 ```bash
-for K in GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET NEXT_PUBLIC_POSTHOG_KEY NEXT_PUBLIC_POSTHOG_HOST \
-  EMAIL_PROVIDER RESEND_API_KEY RESEND_FROM_EMAIL SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASS \
-  SMTP_FROM_EMAIL SMTP_FROM_NAME OTEL_SERVICE_NAME; do
-  V=$(grep "^$K=" .env | cut -d= -f2-); V=${V#\"}; V=${V%\"}
-  [ -n "$V" ] && printf %s "$V" | node scripts/set-env-var.mjs --file .env.prod "$K"
-done; unset V
+node scripts/vault-sync.mjs --env production
+cut -d= -f1 .env.prod
+grep -c '=op://' .env.prod
 ```
 
-Do not copy `DATABASE_URL`, `DATABASE_SSL`, the secrets, the app URLs or `AUTUMN_SECRET_KEY`: those
-differ by design. The Dash0 variables are already in `.env.prod` (4f wrote them there) and stay
-empty in `.env`, so local runs never reach the production dataset. A consequence to expect: the early-access pepper differs, so codes hashed locally
-do not work in production (6j seeds production codes).
+The count of `op://` lines is the number of secrets; no value is printed. A consequence to expect:
+the early-access pepper differs from local, so codes hashed locally do not work in production
+(6j seeds production codes).
 
 ## 6f. Switch Autumn + Stripe to live
 
-1. In the Autumn dashboard, connect/enable **Stripe live mode** (real payouts).
-2. Push the product config to production:
+This is the one per-startup human step: Stripe verifies the business, and only the founder can
+complete that.
+
+1. **Ask the founder's go-ahead**, then use Claude in Chrome to create the startup's own Stripe
+   account under the founder's Stripe login (Stripe dashboard → account name → **New account**).
+   Never reuse another startup's account.
+2. In the Autumn dashboard (the startup's own org), connect that Stripe account in **live mode**.
+3. The founder completes Stripe KYC (business details, bank account). Payouts stay blocked until
+   it is done; say so plainly and do not wait on it to continue the deploy.
+4. Push the product config to production. `op run` (through `scripts/with-vault.mjs run`, which supplies the service account token to `op`
+   and strips it from the command) resolves the reference in the environment of that one command,
+   which overrides the key in `.env`, so the value is never printed:
+
    ```bash
-   pnpm dlx atmn push -p
+   AUTUMN_PROD_SECRET_KEY=op://startup-<slug>/production/AUTUMN_SECRET_KEY node scripts/with-vault.mjs run -- pnpm dlx atmn push -p --yes
    ```
-3. Put the **production** `AUTUMN_SECRET_KEY` in `.env.prod`, at a hidden prompt:
-   ```bash
-   printf "Paste the production AUTUMN_SECRET_KEY: "; read -rs V; echo
-   printf %s "$V" | node scripts/set-env-var.mjs --file .env.prod AUTUMN_SECRET_KEY
-   unset V
-   ```
+
+   (`atmn` 2.x needs `--yes`.) Success ends with the products listed as pushed to production. If
+   `atmn` still reads the sandbox key from `.env`, stop and report it rather than pushing to the
+   wrong environment.
+
+The production `AUTUMN_SECRET_KEY` is already in the `production` item (4e); `.env.prod` refers to
+it by reference.
 
 ## 6g. Push the environment to Vercel and the database URL to GitHub
 
@@ -122,29 +133,30 @@ with `Invalid environment variables`. Push the complete set before deploying.
 ### The full inventory
 
 Vercel injects `NODE_ENV`, `VERCEL_ENV`, `VERCEL_URL` and `VERCEL_DEPLOYMENT_ID` itself — never
-push those. Everything else comes from `.env.prod`:
+push those. Everything else comes from `.env.prod`, whose secret lines are `op://` references:
 
 | Variable | Required | Where the value comes from |
 | --- | --- | --- |
 | `NEXT_PUBLIC_APP_URL` | ✅ | the production URL from 6a |
 | `BETTER_AUTH_URL` | ✅ | the same production URL |
-| `DATABASE_URL` | ✅ | Supabase **session pooler**, port 5432 (4a) |
+| `DATABASE_URL` | ✅ | vault `production` item, Supabase **session pooler**, port 5432 (4a) |
 | `DATABASE_SSL` | — | `require` (4a) |
-| `BETTER_AUTH_SECRET` | ✅ | generated for production in 4a |
-| `EARLY_ACCESS_PEPPER` | ✅ | generated for production in 4a |
-| `ENCRYPTION_KEY` | — | generated for production in 4a |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ✅ | Google Cloud Console (4b), copied in 6e |
-| `AUTUMN_SECRET_KEY` | ✅ **in production** | Autumn production key (6f) — `assertBillingConfigured` fails the build without it |
-| `EMAIL_PROVIDER` + its vars | ✅ | `resend` → `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; `smtp` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` |
-| `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | — | PostHog (4c) |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` / `_HEADERS` / `OTEL_SERVICE_NAME` | — | Dash0 (4f) — without them, production logs only reach Vercel's runtime logs |
+| `BETTER_AUTH_SECRET` | ✅ | vault `production` item, generated in Step 4a (`init-env --file .env.prod`) |
+| `EARLY_ACCESS_PEPPER` | ✅ | vault `production` item, generated in Step 4a |
+| `ENCRYPTION_KEY` | — | vault `production` item, generated in Step 4a |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ✅ | vault `production` item, the production OAuth client (4b) |
+| `AUTUMN_SECRET_KEY` | ✅ **in production** | vault `production` item, Autumn production key (4e) — `assertBillingConfigured` fails the build without it |
+| `EMAIL_PROVIDER` + its vars | ✅ | vault `production` item; `resend` → `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; `smtp` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` |
+| `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | — | vault `production` item, the production PostHog project (4c) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` / `_HEADERS` / `OTEL_SERVICE_NAME` | — | vault `production` item, written by `dash0-dataset.mjs` (4f) — without them, production logs only reach Vercel's runtime logs |
 | `UPSTASH_*`, `MICROSOFT_*` | — | optional; leave unset to disable |
 
 ### Push them
 
-Use the bundled script, not the dashboard. It **refuses to run** if anything required is missing or
-still holds a placeholder, skips the Vercel-managed variables, and streams each value over stdin so
-nothing is printed:
+Use the bundled script, not the dashboard. It resolves each `op://` reference through `op inject`,
+**refuses to run** if a reference cannot be resolved or anything required is missing or still holds
+a placeholder (before any `vercel env` call, so Vercel is never half-updated), skips the
+Vercel-managed variables, and streams each value over stdin so nothing is printed:
 
 ```bash
 node scripts/push-env-to-vercel.mjs --file .env.prod             # dry run — lists what would be pushed
@@ -172,14 +184,15 @@ The workflows reference exactly three secrets (check that nothing was added:
 
 | Secret | Used by | Set in |
 | --- | --- | --- |
-| `VERCEL_DEPLOY_HOOK_URL` | `production.yml` — triggers the deploy after CI passes | 6d |
+| `VERCEL_DEPLOY_HOOK_URL` | `production.yml` — triggers the deploy after CI passes | 6d (`vercel-deploy-hook.mjs`) |
 | `DATABASE_URL` | `ci.yml` → `migrate` job on `master` | now |
 | `DEV_DATABASE_URL` | `ci.yml` → `migrate` job on `dev` | only if a `dev` branch exists |
 
-The GitHub MCP **cannot** write secrets, so use the `gh` CLI, with the value on stdin:
+The GitHub MCP **cannot** write secrets, so use the script: it reads the value from the vault,
+refuses an empty one, and hands it to `gh` on stdin without printing it:
 
 ```bash
-grep '^DATABASE_URL=' .env.prod | cut -d= -f2- | gh secret set DATABASE_URL
+node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/DATABASE_URL
 ```
 
 Set it **before the first push to `master`**, or the `migrate` job fails its `Verify database url`
@@ -187,9 +200,11 @@ guard and the release never triggers. Verify with `gh secret list` — it prints
 
 ## 6h. Wire production OAuth
 
-In Google Cloud → Credentials → the OAuth client, add the production redirect URI:
-`https://<prod-domain>/auth/callback/google`. If the consent screen is still in "Testing", either
-add real users as test users or publish the app. (Same for Microsoft if it was enabled:
+Only needed when 4b could not add the production redirect URI (no domain was known then). Ask the
+founder's go-ahead, then use Claude in Chrome: Google Cloud → Credentials → the `<name>` client
+(not the `(local)` one), add `https://<prod-domain>/auth/callback/google`, save. Use narrow `find`
+queries only; the page can show the client secret. If the consent screen is still in "Testing",
+either add real users as test users or publish the app. (Same for Microsoft if it was enabled:
 `/auth/callback/microsoft`.)
 
 ## 6i. Protect `master`
@@ -229,7 +244,7 @@ Checklist before the first deploy — every line must be true:
    `Invalid environment variables` means a variable is missing in 6g.
 2. Seed an early-access code for production, hashed with the **production** pepper:
    ```bash
-   pnpm tsx --env-file=.env.prod scripts/hash-early-access-code.ts <code>
+   node scripts/with-vault.mjs run --env-file .env.prod -- pnpm tsx scripts/hash-early-access-code.ts <code>
    ```
    Insert the hash per the script's output, with the Supabase MCP `execute_sql` on the production
    project. Skip only if the user confirms the gate is disabled.
@@ -248,7 +263,9 @@ Checklist before the first deploy — every line must be true:
 
 ## 6k. Handover
 
-Tell the user what's live, what's still a TODO (Upstash, Microsoft OAuth, custom domain if not set,
-branch protection if the plan refused it), and where each secret lives: local values in `.env`,
-production values in `.env.prod`, the Vercel project env, and the two GitHub secrets. Remind them
-that both env files are git-ignored and must never be committed.
+Tell the user what's live, what's still a TODO (Stripe KYC if not finished, Upstash, Microsoft
+OAuth, custom domain if not set, branch protection if the plan refused it), and where each secret
+lives: every secret is in the 1Password vault `startup-<slug>` (items `local`, `production`, `ci`).
+`.env` holds real values for local use only; `.env.prod` holds `op://` references only, so it
+contains no secret. The same values also sit in the Vercel project env and the two GitHub secrets.
+Remind them that both env files are git-ignored and must never be committed.
