@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { runWithVault } from '../../scripts/with-vault.mjs';
+import { buildRunArgs, runWithVault } from '../../scripts/with-vault.mjs';
 
 type SpawnOptions = { stdio?: string; env?: Record<string, string> };
 
@@ -33,5 +33,37 @@ describe('with-vault', () => {
       run: (() => ({ status: null, error: new Error('ENOENT') })) as never,
     });
     expect(status).toBe(1);
+  });
+});
+
+describe('buildRunArgs', () => {
+  it('run mode strips the token from the child command', () => {
+    expect(buildRunArgs({ command: ['pnpm', 'dlx', 'atmn', 'push'] })).toEqual([
+      'run',
+      '--',
+      'env',
+      '-u',
+      'OP_SERVICE_ACCOUNT_TOKEN',
+      'pnpm',
+      'dlx',
+      'atmn',
+      'push',
+    ]);
+  });
+
+  it('run mode passes --env-file', () => {
+    expect(
+      buildRunArgs({ envFile: '.env.prod', command: ['pnpm', 'dev'] }),
+    ).toEqual([
+      'run',
+      '--env-file',
+      '.env.prod',
+      '--',
+      'env',
+      '-u',
+      'OP_SERVICE_ACCOUNT_TOKEN',
+      'pnpm',
+      'dev',
+    ]);
   });
 });

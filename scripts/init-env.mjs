@@ -35,6 +35,8 @@ const CONSTANTS = {
   SMTP_PORT: '465',
 };
 
+const DEFAULT_APP_URL = 'http://localhost:3000';
+
 const POSTHOG_HOST_BY_REGION = {
   eu: 'https://eu.i.posthog.com',
   us: 'https://us.i.posthog.com',
@@ -50,10 +52,13 @@ function isUnset(value) {
   );
 }
 
-export function planInitialValues({ existing, appUrl, config }) {
+export function planInitialValues({ existing, appUrl = '', config }) {
+  const urlConstants = {
+    NEXT_PUBLIC_APP_URL: DEFAULT_APP_URL,
+    BETTER_AUTH_URL: DEFAULT_APP_URL,
+  };
   const derived = {
-    NEXT_PUBLIC_APP_URL: appUrl,
-    BETTER_AUTH_URL: appUrl,
+    ...(appUrl ? { NEXT_PUBLIC_APP_URL: appUrl, BETTER_AUTH_URL: appUrl } : {}),
     OTEL_SERVICE_NAME: config.slug,
     NEXT_PUBLIC_POSTHOG_HOST: POSTHOG_HOST_BY_REGION[config.dataRegion],
   };
@@ -65,9 +70,13 @@ export function planInitialValues({ existing, appUrl, config }) {
       plan.push({ key, next: null, note: 'kept (already set)' });
     }
   }
-  for (const [key, constant] of Object.entries({ ...CONSTANTS, ...derived })) {
+  for (const [key, constant] of Object.entries({
+    ...CONSTANTS,
+    ...urlConstants,
+    ...derived,
+  })) {
     const value = existing.get(key) ?? null;
-    const isDerived = Object.hasOwn(derived, key) && derived[key] !== undefined;
+    const isDerived = Object.hasOwn(derived, key);
     const next = isDerived ? derived[key] : constant;
     // Derived values are authoritative: an explicit --app-url overrides a stale URL.
     if (isUnset(value) || (isDerived && value !== next)) {
@@ -100,7 +109,7 @@ function main() {
   const apply = args.includes('--apply');
   try {
     const environment = environmentForFile(optionValue(args, '--file', '.env'));
-    const appUrl = optionValue(args, '--app-url', 'http://localhost:3000');
+    const appUrl = optionValue(args, '--app-url', undefined);
     const config = readStartupConfig();
     const vault = startupVault(config.slug);
     const item = ITEM_FOR_ENVIRONMENT[environment];

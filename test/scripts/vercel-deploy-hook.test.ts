@@ -46,6 +46,25 @@ describe('provisionDeployHook', () => {
     expect(gh?.input).toBe(HOOK_URL);
   });
 
+  it('targets the repository from startup.config.json', () => {
+    const { run, op, calls } = setup({ list: emptyList });
+    provisionDeployHook({
+      op,
+      run,
+      vault: 'startup-acme',
+      project: 'acme',
+      repository: 'me/acme',
+    });
+    const gh = calls.find((call) => call.command === 'gh');
+    expect(gh?.args).toEqual([
+      'secret',
+      'set',
+      'VERCEL_DEPLOY_HOOK_URL',
+      '--repo',
+      'me/acme',
+    ]);
+  });
+
   it('is idempotent on re-run', () => {
     const { run, op, calls } = setup({
       list: {

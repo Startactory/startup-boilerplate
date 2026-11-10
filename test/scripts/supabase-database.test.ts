@@ -93,6 +93,52 @@ describe('provisionSupabaseDatabase', () => {
     expect(op.writeFields).not.toHaveBeenCalled();
   });
 
+  it('syncs the env file when reusing', async () => {
+    const { op, fetch, connect, syncEnv } = setup({ existing: STORED });
+    const result = await run({ op, fetch, connect, syncEnv });
+    expect(result).toBe('reused');
+    expect(syncEnv).toHaveBeenCalledOnce();
+  });
+
+  it('retries the connection while the new password propagates', async () => {
+    const { op, fetch, connect, syncEnv } = setup({ existing: null });
+    const authFailure = () => Object.assign(new Error('x'), { code: '28P01' });
+    connect
+      .mockRejectedValueOnce(authFailure())
+      .mockRejectedValueOnce(authFailure());
+    const wait = vi.fn(async (_ms: number) => undefined);
+    const result = await provisionSupabaseDatabase({
+      ...BASE,
+      op,
+      fetch: asFetch(fetch),
+      connect,
+      syncEnv,
+      wait,
+    });
+    expect(result).toBe('created');
+    expect(connect).toHaveBeenCalledTimes(3);
+    expect(wait).toHaveBeenCalledTimes(2);
+    expect(wait).toHaveBeenCalledWith(10_000);
+  });
+
+  it('gives up after six rejected attempts', async () => {
+    const { op, fetch, connect, syncEnv } = setup({ existing: null });
+    connect.mockRejectedValue(Object.assign(new Error('x'), { code: '28P01' }));
+    const wait = vi.fn(async (_ms: number) => undefined);
+    await expect(
+      provisionSupabaseDatabase({
+        ...BASE,
+        op,
+        fetch: asFetch(fetch),
+        connect,
+        syncEnv,
+        wait,
+      }),
+    ).rejects.toThrow('connection failed: 28P01');
+    expect(connect).toHaveBeenCalledTimes(6);
+    expect(wait).toHaveBeenCalledTimes(5);
+  });
+
   it('uses the session pooler host from the API', async () => {
     const { op, fetch, connect, writeFields, syncEnv } = setup({
       existing: null,

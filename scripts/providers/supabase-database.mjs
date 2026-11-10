@@ -13,6 +13,8 @@ import { readMasterKeys } from './master-keys.mjs';
 
 const API_HOST = 'https://api.supabase.com';
 const PRODUCTION_ITEM = ITEM_FOR_ENVIRONMENT.production;
+const CONNECT_ATTEMPTS = 6;
+const CONNECT_WAIT_MS = 10_000;
 const AUTH_FAILURE_CODES = new Set(['28P01', '28000']);
 
 export async function defaultConnect(url) {
@@ -21,6 +23,28 @@ export async function defaultConnect(url) {
     await client`select 1`;
   } finally {
     await client.end({ timeout: 5 });
+  }
+}
+
+function defaultWait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectWhilePasswordPropagates({ connect, url, wait }) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await connect(url);
+      return;
+    } catch (error) {
+      const retryable =
+        AUTH_FAILURE_CODES.has(error?.code) && attempt < CONNECT_ATTEMPTS;
+      if (!retryable) {
+        throw new Error(
+          `database password set but connection failed: ${error?.code ?? 'unknown'}`,
+        );
+      }
+      await wait(CONNECT_WAIT_MS);
+    }
   }
 }
 
@@ -60,6 +84,7 @@ export async function provisionSupabaseDatabase({
   rotate = false,
   token,
   syncEnv = syncEnvFile,
+  wait = defaultWait,
 }) {
   const vault = startupVault(slug);
   const stored = op.readFields({ vault, item: PRODUCTION_ITEM });
@@ -69,6 +94,7 @@ export async function provisionSupabaseDatabase({
     !rotate &&
     (await storedUrlStillWorks({ connect, url: storedUrl }))
   ) {
+    syncEnv({ op, vault, environment: 'production' });
     return 'reused';
   }
 
@@ -110,13 +136,7 @@ export async function provisionSupabaseDatabase({
     ]),
   });
 
-  try {
-    await connect(url);
-  } catch (error) {
-    throw new Error(
-      `database password set but connection failed: ${error?.code ?? 'unknown'}`,
-    );
-  }
+  await connectWhilePasswordPropagates({ connect, url, wait });
 
   syncEnv({ op, vault, environment: 'production' });
   return 'created';

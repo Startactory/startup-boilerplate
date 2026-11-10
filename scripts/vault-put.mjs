@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { assertRenderable } from './env/dotenv.mjs';
 import { validateEnvValue } from './env/rules.mjs';
 import {
   FOUNDER_VAULT,
@@ -42,6 +43,11 @@ export function putValue({ op, vault, item, field, value }) {
   const environment = item === 'local' ? 'local' : 'production';
   const { errors, warnings } = validateEnvValue(field, value, { environment });
   if (errors.length > 0) throw new ValidationError(errors);
+  try {
+    assertRenderable(field, value);
+  } catch (error) {
+    throw new ValidationError([error.message]);
+  }
   op.writeFields({ vault, item, fields: new Map([[field, value]]) });
   return { warnings };
 }

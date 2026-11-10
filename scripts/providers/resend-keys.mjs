@@ -56,6 +56,12 @@ export async function provisionResend({
     );
   }
 
+  if (resendDomain.status !== 'verified') {
+    throw new Error(
+      `domain ${domain} is not verified in Resend yet (status: ${resendDomain.status}) — finish DNS verification first`,
+    );
+  }
+
   const remote = await call({ method: 'GET', url: `${RESEND_HOST}/api-keys` });
   const remoteKeys = remote.json?.data ?? [];
 

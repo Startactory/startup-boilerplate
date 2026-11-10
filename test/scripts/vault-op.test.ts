@@ -144,6 +144,23 @@ describe('op wrapper', () => {
     ]);
   });
 
+  it('ignores fields that are not env variable names', () => {
+    const { op } = fakeOp(() =>
+      ok(
+        JSON.stringify({
+          fields: [
+            { id: 'notesPlain', label: 'notesPlain', value: 'note' },
+            { id: 'x', label: 'my field', value: 'typed' },
+            { id: 'A', label: 'A_B1', value: '1' },
+          ],
+        }),
+      ),
+    );
+    expect(op.readFields({ vault: 'v', item: 'i' })).toEqual(
+      new Map([['A_B1', '1']]),
+    );
+  });
+
   it('returns null for a missing item', () => {
     const { op } = fakeOp(() => fail(MISSING_ITEM));
     expect(op.readFields({ vault: 'startup-acme', item: 'local' })).toBeNull();

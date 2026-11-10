@@ -6,8 +6,10 @@ const FAILURE_PATTERNS = {
   missing: /isn't an item|isn't a vault|does not have a field/i,
   rateLimited: /\(429\)|Too Many Requests/i,
   unauthorized:
-    /DecodeSACredentials|\(401\)|unauthorized|invalid token|account is not signed in|connecting to desktop app|desktop app is not running|not currently signed in|authorization prompt dismissed|authorization timeout|is locked/i,
+    /DecodeSACredentials|\(401\)|unauthorized|invalid token|account is not signed in|connecting to desktop app|desktop app is not running|not currently signed in|authorization prompt dismissed|authorization timeout/i,
 };
+
+const ENV_VARIABLE_NAME = /^[A-Z][A-Z0-9_]*$/;
 
 const MESSAGES = {
   unauthorized:
@@ -104,7 +106,11 @@ export function createOp({
     if (!found) return null;
     const fields = new Map();
     for (const field of found.fields ?? []) {
-      if (field.label && typeof field.value === 'string' && field.value) {
+      if (
+        ENV_VARIABLE_NAME.test(field.label ?? '') &&
+        typeof field.value === 'string' &&
+        field.value
+      ) {
         fields.set(field.label, field.value);
       }
     }

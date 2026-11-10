@@ -3,7 +3,7 @@ import { applyPlan, planInitialValues } from '../../scripts/init-env.mjs';
 
 const CONFIG = { slug: 'acme', dataRegion: 'eu' as const };
 
-function plan(existing: Map<string, string>, appUrl = 'http://localhost:3000') {
+function plan(existing: Map<string, string>, appUrl?: string) {
   return planInitialValues({ existing, appUrl, config: CONFIG });
 }
 
@@ -23,7 +23,6 @@ describe('planInitialValues', () => {
   it('derives the PostHog host from dataRegion', () => {
     const list = planInitialValues({
       existing: new Map(),
-      appUrl: 'http://localhost:3000',
       config: { slug: 'acme', dataRegion: 'us' },
     });
     expect(entry(list, 'NEXT_PUBLIC_POSTHOG_HOST').next).toBe(
@@ -38,6 +37,24 @@ describe('planInitialValues', () => {
       'https://acme.com',
     );
     expect(entry(list, 'NEXT_PUBLIC_APP_URL').next).toBe('https://acme.com');
+  });
+
+  it('keeps a set production URL when no app URL is given', () => {
+    const list = plan(
+      new Map([
+        ['NEXT_PUBLIC_APP_URL', 'https://acme.com'],
+        ['BETTER_AUTH_URL', 'https://acme.com'],
+      ]),
+    );
+    expect(entry(list, 'NEXT_PUBLIC_APP_URL').next).toBeNull();
+    expect(entry(list, 'BETTER_AUTH_URL').next).toBeNull();
+  });
+
+  it('defaults unset URLs to localhost when no app URL is given', () => {
+    const list = plan(new Map());
+    expect(entry(list, 'NEXT_PUBLIC_APP_URL').next).toBe(
+      'http://localhost:3000',
+    );
   });
 });
 

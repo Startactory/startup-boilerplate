@@ -2,6 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { isSecretKey, validateEnvValue } from '../../scripts/env/rules.mjs';
 
 describe('validateEnvValue', () => {
+  it('rejects a client ID pasted into the client secret', () => {
+    const r = validateEnvValue(
+      'GOOGLE_CLIENT_SECRET',
+      '123-abc.apps.googleusercontent.com',
+      { environment: 'local' },
+    );
+    expect(r.errors).toContain('looks like the client ID, not the secret');
+  });
+
+  it('rejects a client secret pasted into the client ID', () => {
+    const r = validateEnvValue('GOOGLE_CLIENT_ID', 'GOCSPX-abcdef', {
+      environment: 'local',
+    });
+    expect(r.errors).toContain(
+      'looks like the client secret, not the client ID',
+    );
+  });
+
   it('rejects a Supabase database in the local environment', () => {
     const r = validateEnvValue(
       'DATABASE_URL',

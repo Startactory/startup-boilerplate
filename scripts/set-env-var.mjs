@@ -2,15 +2,15 @@
 // Store ONE environment variable in the startup's 1Password vault, validating it
 // first, then regenerate the env file from the vault.
 //
-//   printf "Paste GOOGLE_CLIENT_SECRET: "; read -rs V; echo
-//   printf %s "$V" | node scripts/set-env-var.mjs GOOGLE_CLIENT_SECRET
-//   unset V
+//   printf %s "https://acme.com" | node scripts/set-env-var.mjs NEXT_PUBLIC_APP_URL
 //
 // Target the production file with --file:
-//   printf %s "$V" | node scripts/set-env-var.mjs --file .env.prod DATABASE_URL
+//   printf %s "https://acme.com" | node scripts/set-env-var.mjs --file .env.prod NEXT_PUBLIC_APP_URL
 //
-// Reading from stdin keeps the value out of argv (visible in `ps`) and out of
-// shell history. The value is never printed.
+// For secrets use scripts/vault-put.mjs, which takes the value from the
+// clipboard or a pipe and never from a shell variable. Reading from stdin keeps
+// the value out of argv (visible in `ps`) and out of shell history. The value
+// is never printed.
 
 import { readFileSync } from 'node:fs';
 import {

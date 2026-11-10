@@ -18,7 +18,7 @@ export function parseEnv(text) {
   return out;
 }
 
-function formatValue(key, value) {
+export function assertRenderable(key, value) {
   if (/^(["'])(?:.*\1)?$/s.test(value)) {
     throw new Error(
       `${key} is wrapped in quotes, which an env file would strip`,
@@ -29,6 +29,10 @@ function formatValue(key, value) {
       `${key} contains a newline, a double quote, a $ or a backslash, which an env file cannot hold`,
     );
   }
+}
+
+function formatValue(key, value) {
+  assertRenderable(key, value);
   return /[\s#]/.test(value) ? `"${value}"` : value;
 }
 

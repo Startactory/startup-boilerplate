@@ -1,7 +1,19 @@
 // error: env.ts will reject it. warn: almost certainly wrong, but not fatal.
 const RULES = {
-  GOOGLE_CLIENT_ID: { warnSuffix: '.apps.googleusercontent.com' },
-  GOOGLE_CLIENT_SECRET: { warnPrefix: 'GOCSPX-' },
+  GOOGLE_CLIENT_ID: {
+    warnSuffix: '.apps.googleusercontent.com',
+    rejectPrefix: [
+      'GOCSPX-',
+      'looks like the client secret, not the client ID',
+    ],
+  },
+  GOOGLE_CLIENT_SECRET: {
+    warnPrefix: 'GOCSPX-',
+    rejectSuffix: [
+      '.apps.googleusercontent.com',
+      'looks like the client ID, not the secret',
+    ],
+  },
   AUTUMN_SECRET_KEY: { warnPrefix: 'am_sk_' },
   RESEND_API_KEY: { warnPrefix: 're_' },
   RESEND_FROM_EMAIL: { email: true },
@@ -157,6 +169,12 @@ export function validateEnvValue(key, value, options) {
   if (rule.url && !/^https?:\/\/.+/.test(value)) errors.push('must be a URL');
   if (rule.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) {
     errors.push('must be an email address');
+  }
+  if (rule.rejectPrefix && value.startsWith(rule.rejectPrefix[0])) {
+    errors.push(rule.rejectPrefix[1]);
+  }
+  if (rule.rejectSuffix && value.endsWith(rule.rejectSuffix[0])) {
+    errors.push(rule.rejectSuffix[1]);
   }
   if (rule.warnPrefix && !value.startsWith(rule.warnPrefix)) {
     warnings.push(

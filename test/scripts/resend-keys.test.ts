@@ -63,6 +63,17 @@ function run(s: ReturnType<typeof setup>, domain = 'acme.com') {
 }
 
 describe('provisionResend', () => {
+  it('stops when the domain is not verified', async () => {
+    const s = setup({
+      domains: [{ id: 'dom_1', name: 'acme.com', status: 'pending' }],
+    });
+    await expect(run(s)).rejects.toThrow(
+      'domain acme.com is not verified in Resend yet (status: pending) — finish DNS verification first',
+    );
+    expect(s.calls.some((call) => call.method !== 'GET')).toBe(false);
+    expect(s.writeFields).not.toHaveBeenCalled();
+  });
+
   it("scopes each key to the startup's domain", async () => {
     const s = setup();
     const result = await run(s);

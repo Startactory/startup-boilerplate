@@ -33,6 +33,20 @@ describe('putValue', () => {
     expect(warnings[0]).toContain('.apps.googleusercontent.com');
   });
 
+  it('refuses a value an env file cannot hold', () => {
+    const op = fakeOp();
+    expect(() =>
+      putValue({
+        op,
+        vault: VAULT,
+        item: 'production',
+        field: 'SMTP_FROM_NAME',
+        value: 'Acme "Beta"',
+      }),
+    ).toThrow(ValidationError);
+    expect(op.writeFields).not.toHaveBeenCalled();
+  });
+
   it('writes nothing on a validation error', () => {
     const op = fakeOp();
     expect(() =>

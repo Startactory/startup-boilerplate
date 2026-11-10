@@ -70,13 +70,22 @@ function createHook({ run, project }) {
   return match[0];
 }
 
-export function provisionDeployHook({ op, run = defaultRun, vault, project }) {
+export function provisionDeployHook({
+  op,
+  run = defaultRun,
+  vault,
+  project,
+  repository = '',
+}) {
   const existingUrl = findExistingUrl({ run, project });
   const url = existingUrl ?? createHook({ run, project });
 
   op.writeFields({ vault, item: CI_ITEM, fields: new Map([[URL_FIELD, url]]) });
 
-  const gh = run('gh', ['secret', 'set', URL_FIELD], { input: url });
+  const repoArgs = repository ? ['--repo', repository] : [];
+  const gh = run('gh', ['secret', 'set', URL_FIELD, ...repoArgs], {
+    input: url,
+  });
   if (gh.status !== 0) {
     throw new Error(
       `gh secret set ${URL_FIELD} failed — the URL is stored in ${vault}/${CI_ITEM}; re-run to retry`,
@@ -99,9 +108,14 @@ function readProjectArg(argv) {
 function main() {
   try {
     const project = readProjectArg(process.argv.slice(2));
-    const { slug } = readStartupConfig();
+    const { slug, repository } = readStartupConfig();
     const vault = startupVault(slug);
-    const outcome = provisionDeployHook({ op: createOp(), vault, project });
+    const outcome = provisionDeployHook({
+      op: createOp(),
+      vault,
+      project,
+      repository,
+    });
     console.log(
       `OK  deploy hook ${HOOK_NAME} ${outcome}, stored in ${vault}/${CI_ITEM}, set as GitHub secret`,
     );
