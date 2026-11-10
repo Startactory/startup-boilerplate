@@ -70,8 +70,8 @@ node scripts/providers/vercel-deploy-hook.mjs --project <vercel-project>
 
 The Vercel project must be Git-connected (6b) and the Vercel CLI signed in. The hook URL is a
 bearer credential: it never appears in your output or in argv. Success prints names and statuses
-only. Verify with `gh secret list` (names only). If it errors, read the message: an "unknown
-command" means the Vercel CLI is too old to manage deploy hooks, and a missing Git connection
+only. Verify with `gh secret list` (names only). If it errors, read the message: `update the
+Vercel CLI: pnpm add -g vercel@latest` means the Vercel CLI is too old to manage deploy hooks, and a missing Git connection
 means go back to 6b. If the hook ever leaks, delete it in **Project → Settings → Git → Deploy
 Hooks** and re-run the script.
 
@@ -109,11 +109,12 @@ complete that.
 2. In the Autumn dashboard (the startup's own org), connect that Stripe account in **live mode**.
 3. The founder completes Stripe KYC (business details, bank account). Payouts stay blocked until
    it is done; say so plainly and do not wait on it to continue the deploy.
-4. Push the product config to production. `op run` (through `scripts/with-vault.mjs`, which supplies the service account token) resolves the reference in the environment of
-   that one command, which overrides the key in `.env`, so the value is never printed:
+4. Push the product config to production. `op run` (through `scripts/with-vault.mjs run`, which supplies the service account token to `op`
+   and strips it from the command) resolves the reference in the environment of that one command,
+   which overrides the key in `.env`, so the value is never printed:
 
    ```bash
-   AUTUMN_PROD_SECRET_KEY=op://startup-<slug>/production/AUTUMN_SECRET_KEY node scripts/with-vault.mjs op run -- pnpm dlx atmn push -p --yes
+   AUTUMN_PROD_SECRET_KEY=op://startup-<slug>/production/AUTUMN_SECRET_KEY node scripts/with-vault.mjs run -- pnpm dlx atmn push -p --yes
    ```
 
    (`atmn` 2.x needs `--yes`.) Success ends with the products listed as pushed to production. If
@@ -140,9 +141,9 @@ push those. Everything else comes from `.env.prod`, whose secret lines are `op:/
 | `BETTER_AUTH_URL` | ✅ | the same production URL |
 | `DATABASE_URL` | ✅ | vault `production` item, Supabase **session pooler**, port 5432 (4a) |
 | `DATABASE_SSL` | — | `require` (4a) |
-| `BETTER_AUTH_SECRET` | ✅ | vault `production` item, generated in Step 3 |
-| `EARLY_ACCESS_PEPPER` | ✅ | vault `production` item, generated in Step 3 |
-| `ENCRYPTION_KEY` | — | vault `production` item, generated in Step 3 |
+| `BETTER_AUTH_SECRET` | ✅ | vault `production` item, generated in Step 4a (`init-env --file .env.prod`) |
+| `EARLY_ACCESS_PEPPER` | ✅ | vault `production` item, generated in Step 4a |
+| `ENCRYPTION_KEY` | — | vault `production` item, generated in Step 4a |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ✅ | vault `production` item, the production OAuth client (4b) |
 | `AUTUMN_SECRET_KEY` | ✅ **in production** | vault `production` item, Autumn production key (4e) — `assertBillingConfigured` fails the build without it |
 | `EMAIL_PROVIDER` + its vars | ✅ | vault `production` item; `resend` → `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; `smtp` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` |
@@ -187,10 +188,11 @@ The workflows reference exactly three secrets (check that nothing was added:
 | `DATABASE_URL` | `ci.yml` → `migrate` job on `master` | now |
 | `DEV_DATABASE_URL` | `ci.yml` → `migrate` job on `dev` | only if a `dev` branch exists |
 
-The GitHub MCP **cannot** write secrets, so use the `gh` CLI, with the value on stdin (`with-vault` supplies the service account token to `op`):
+The GitHub MCP **cannot** write secrets, so use the script: it reads the value from the vault,
+refuses an empty one, and hands it to `gh` on stdin without printing it:
 
 ```bash
-node scripts/with-vault.mjs op read op://startup-<slug>/production/DATABASE_URL | gh secret set DATABASE_URL
+node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/DATABASE_URL
 ```
 
 Set it **before the first push to `master`**, or the `migrate` job fails its `Verify database url`
@@ -242,7 +244,7 @@ Checklist before the first deploy — every line must be true:
    `Invalid environment variables` means a variable is missing in 6g.
 2. Seed an early-access code for production, hashed with the **production** pepper:
    ```bash
-   node scripts/with-vault.mjs op run --env-file=.env.prod -- pnpm tsx scripts/hash-early-access-code.ts <code>
+   node scripts/with-vault.mjs run --env-file .env.prod -- pnpm tsx scripts/hash-early-access-code.ts <code>
    ```
    Insert the hash per the script's output, with the Supabase MCP `execute_sql` on the production
    project. Skip only if the user confirms the gate is disabled.

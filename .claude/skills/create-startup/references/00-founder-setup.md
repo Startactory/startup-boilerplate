@@ -54,7 +54,8 @@ or `1Password rejected the service account token`), the founder creates it once:
 
 1. The founder opens **macOS Terminal.app** themselves (Spotlight, then "Terminal"). Not a Claude
    terminal tab: processes launched by the Claude app cannot use the desktop-app integration.
-2. In Terminal.app the founder checks that `op vault list` works (Touch ID may appear; an empty
+2. In Terminal.app the founder checks that `op vault list` works (the 1Password app may ask
+   to approve; an empty
    list is fine). If `op` asks for a sign-in address instead, the founder presses Ctrl-C, opens the
    1Password app, Settings, Developer, and ticks "Integrate with 1Password CLI" again (adding a
    second account to the app can switch it off), then retries.

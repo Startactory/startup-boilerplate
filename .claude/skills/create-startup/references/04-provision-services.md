@@ -123,9 +123,14 @@ pooler host itself (user `postgres.<ref>`, port 5432), writes `DATABASE_URL` and
 - It reads `SUPABASE_ACCESS_TOKEN` from `startup-founder/master-keys`. If it reports the key is
   missing, send the user to step 0.
 - On `database password set but connection failed: <code>` the password is already replaced and
-  stored. Wait a few seconds and run the same command again; do not add `--rotate`. It never
-  rotates on a network error.
-- `--rotate` is for a deliberate password rotation only (a leaked password), not for retries.
+  stored. The script already retries the connection for about a minute while the new password
+  propagates. If it still fails, run the same command again: it checks the stored URL, reuses it
+  when it works and re-syncs `.env.prod`, so a re-run after a failed check is safe. Do not add
+  `--rotate`; it never rotates on a network error.
+- `--rotate` is for a deliberate password rotation only (a leaked password), not for retries. On
+  an already deployed startup, re-run the 6g push of `.env.prod` to Vercel and
+  `node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/DATABASE_URL`
+  afterwards, or production and CI keep the old password.
 
 Do not run a manual connection check: the script already connected.
 
@@ -176,7 +181,7 @@ Chrome:
    ```
 
    Repeat with `production` for the other client. Copy the ID first, then the secret; a client ID
-   in the secret slot is rejected by validation.
+   in the secret slot (or the reverse) is rejected by validation.
 
 (Microsoft OAuth is optional and left as a TODO — the code enables it automatically if
 `MICROSOFT_CLIENT_ID/SECRET` are set; redirect URI `/auth/callback/microsoft`.)

@@ -3,12 +3,12 @@
 Build the **local** development environment: dependencies, a local Postgres, and a `.env` filled
 with local values. Production is a separate environment, finished in Step 6. Do not mix them.
 
-**Do this yourself — nothing here requires the user** beyond a possible Touch ID prompt from
-1Password. No accounts, no keys, no commands handed over for someone else to run. Execute it,
-report what happened, move on. Asking the user to paste anything is a failure of this step.
+**Do this yourself — nothing here requires the user.** No accounts, no keys, no commands handed
+over for someone else to run. Execute it, report what happened, move on. Asking the user to paste
+anything is a failure of this step.
 
-The vault and the 1Password CLI (`op`) come from step 0. If `op` is missing or locked, go back to
-step 0.
+The vault, the 1Password CLI (`op`) and the service account token come from step 0. If `op` is
+missing, go back to step 0.
 
 ## The two-environment model (read this before touching any env file)
 
@@ -91,8 +91,12 @@ node scripts/init-env.mjs --apply
 
 Success ends with `startup-<slug>/local updated; .env regenerated (<n> keys). Secret values were
 generated locally and never printed.` and `Remaining variables need an account — see step 4.`
-If it fails with "1Password is locked — approve the prompt and re-run", ask the user to approve
-the Touch ID prompt, then re-run. Nothing was written in that case.
+If it fails, nothing was written. Read the message:
+
+- `no 1Password service account token in the Keychain (startup-factory-op) — run step 0, item 2`
+  or `1Password rejected the service account token — run step 0, item 2`: go back to step 0,
+  item 2, then re-run.
+- `1Password rate limit reached for the service account — retry in an hour`: wait, then re-run.
 
 What it does:
 
