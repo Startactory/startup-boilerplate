@@ -139,5 +139,30 @@
     "preferencesDescription": "Choose which measurements you allow. You can change this at any time.",
     "analyticsLabel": "Audience measurement (PostHog)",
     "save": "Save"
+  },
+  "Storefront": {
+    "defaultName": "Your startup",
+    "home": "Home",
+    "signIn": "Sign in",
+    "cta": "Get started",
+    "hero": {
+      "headline": "Your product starts here",
+      "subheadline": "Sign in to get started in a few minutes."
+    },
+    "priceMonthly": "{price} per month",
+    "priceYearly": "{price} per year",
+    "trial": "{days, plural, one {# day free trial} other {# days free trial}}",
+    "vat": {
+      "franchise": "VAT not applicable, art. 293 B of the CGI",
+      "included": "VAT included"
+    },
+    "footer": {
+      "label": "Legal",
+      "notice": "Legal notice",
+      "terms": "Terms",
+      "privacy": "Privacy policy",
+      "cookies": "Cookie policy",
+      "manageCookies": "Manage cookies"
+    }
   }
 }

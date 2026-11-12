@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { getCurrentUser } from '@/application/me/get-current-user';
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { isMicrosoftAuthEnabled } from '@/infra/auth/auth';
 import { SignInForm } from './components/sign-in-form';
 
@@ -28,5 +29,10 @@ export default async function SignInPage({
     }
     redirect(currentUser.value.organizationId ? '/dashboard' : '/onboarding');
   }
-  return <SignInForm microsoftEnabled={isMicrosoftAuthEnabled} />;
+  return (
+    <SignInForm
+      microsoftEnabled={isMicrosoftAuthEnabled}
+      logo={<BrandLogo />}
+    />
+  );
 }

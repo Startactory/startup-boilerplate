@@ -139,5 +139,30 @@
     "preferencesDescription": "Choisissez les mesures que vous autorisez. Vous pouvez modifier ce choix à tout moment.",
     "analyticsLabel": "Mesure d'audience (PostHog)",
     "save": "Enregistrer"
+  },
+  "Storefront": {
+    "defaultName": "Votre startup",
+    "home": "Accueil",
+    "signIn": "Se connecter",
+    "cta": "Commencer",
+    "hero": {
+      "headline": "Votre produit commence ici",
+      "subheadline": "Connectez-vous pour démarrer en quelques minutes."
+    },
+    "priceMonthly": "{price} par mois",
+    "priceYearly": "{price} par an",
+    "trial": "{days, plural, one {# jour d'essai gratuit} other {# jours d'essai gratuits}}",
+    "vat": {
+      "franchise": "TVA non applicable, art. 293 B du CGI",
+      "included": "TTC"
+    },
+    "footer": {
+      "label": "Informations légales",
+      "notice": "Mentions légales",
+      "terms": "CGU",
+      "privacy": "Politique de confidentialité",
+      "cookies": "Politique de cookies",
+      "manageCookies": "Gérer les cookies"
+    }
   }
 }
