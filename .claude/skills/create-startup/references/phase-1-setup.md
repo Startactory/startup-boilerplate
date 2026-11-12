@@ -67,7 +67,9 @@ is signed in, run `gh api user -q .login` and `gh org list`. When the vault answ
 
 - `slug` (`01-name-startup.md`): 3 to 26 characters matching `^[a-z0-9]+(-[a-z0-9]+)*$` (the
   vault, Dash0 and GitHub rules), and `<owner>/<slug>` not already a GitHub repository
-  (`gh repo view "<owner>/<slug>"`). When it is taken, propose another slug.
+  (`gh repo view "<owner>/<slug>"`) unless `startup.config.json` `repository` already is
+  `<owner>/<slug>` (this startup's own repository, from an interrupted phase 1). When it is taken
+  by anything else, propose another slug.
 - the data region: `eu` by default (`"gdpr": true`, `"dataRegion": "eu"`: the founders are
   established in France); `us` only if the founder says so (`01-name-startup.md` item 3).
 - the pricing: the proposal of `01b-set-pricing.md` sections 1 to 3 (amount, interval, trial,
@@ -83,7 +85,8 @@ follow-up question is allowed only for an asked item the answer leaves empty.
 Then write, exactly as steps 1, 1b and 1d do:
 
 - `startup.config.json`, shape below; `domain` is always `""` in a run, `pricing.source` is
-  `founder` when the founder gave the price, and `googleAccount` records the Google identity;
+  `founder` when the founder gave the price, and `googleAccount` (required: the preflight's
+  `config` check refuses a config without a valid email there) records the Google identity;
 - `package.json` `name` = the slug;
 - the `pro` plan of `autumn.config.ts` (`01b-set-pricing.md` section 5);
 - `Storefront.hero.headline` and `Storefront.hero.subheadline` in `src/i18n/messages/en.json` and
@@ -162,7 +165,8 @@ The run needs neither the `supabase` CLI nor `gcloud`.
 6. **GitHub CLI.** Check: `gh auth status` passes and, when `gh config get git_protocol` prints
    `https`, shows the `workflow` scope. Action: the founder runs `gh auth login --web -s workflow`
    (or `gh auth refresh -s workflow`) in a terminal. If the interview could not check the owner or
-   the slug, check them now; when the slug is taken, pick a free variant, update
+   the slug, check them now; when the slug is taken by a repository that is not this startup's
+   (same exception as in section 2), pick a free variant, update
    `startup.config.json` and `package.json`, and tell the founder.
 7. **Vercel GitHub App** (`vercel-project.mjs` Git-connects the repo through it). Check: in Chrome,
    `https://github.com/settings/installations` (personal owner) or

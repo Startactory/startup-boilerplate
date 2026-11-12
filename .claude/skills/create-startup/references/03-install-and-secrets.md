@@ -64,6 +64,18 @@ Name the database after the `slug` from `startup.config.json`, so several projec
 Postgres server. Phase 1 made sure Postgres or Docker is on the machine (checklist item 5; the
 preflight's `tool:database` check).
 
+`pg_isready -h localhost -p 5432` tells whether a Postgres runs. When it does not but Homebrew
+installed one (after a reboot, for example), start it before anything below:
+
+```bash
+brew services list | grep '^postgresql'
+brew services start <formula>
+until pg_isready -h localhost -p 5432 -q; do sleep 1; done && echo "postgres ready"
+```
+
+`<formula>` is the name the first line prints (for example `postgresql@17`). With no Homebrew
+Postgres, go on to Docker below.
+
 If Postgres already runs locally, create the database (`already exists` on a re-run is fine):
 
 ```bash

@@ -15,14 +15,21 @@ exists.
 
 ## 1. Skip if already done
 
-If `startup.config.json` has a `repository` field and `origin` points at it, this step is done:
+If `startup.config.json` has a `repository` field, the repository exists and `origin` points at
+it, this step is done:
 
 ```bash
 node -p "require('./startup.config.json').repository ?? ''"
-gh repo view --json nameWithOwner -q .nameWithOwner
+gh repo view "<repository>" --json nameWithOwner -q .nameWithOwner
+git remote get-url origin
+gh repo set-default --view
 ```
 
-If both print the same `<owner>/<slug>`, close the step (section 5, last line).
+When the first two print the same `<owner>/<slug>` and the `origin` URL names it, run
+`gh repo set-default "<owner>/<slug>"` if the last line printed anything else (safe to re-run),
+then close the step (section 5, last line). Never rely on `gh` without `--repo` (or the
+repository named in the command) before that default is set: with a second remote, `gh` resolves
+to `upstream`, the boilerplate.
 
 ## 2. Check GitHub access
 
@@ -50,8 +57,14 @@ gh repo view "<owner>/<slug>" --json nameWithOwner 2>/dev/null && echo "TAKEN" |
 `TAKEN` is fine only when it is this startup's repository: `startup.config.json` `repository` is
 already `<owner>/<slug>` (an interrupted run). Then reuse it: do 4.1 if `origin` still points at
 the boilerplate, and replace 4.3 with
-`git remote add origin "$(gh repo view "<owner>/<slug>" --json sshUrl -q .sshUrl)"`
-(use `url` instead of `sshUrl` when `git_protocol` is `https`).
+
+```bash
+git remote get-url origin 2>/dev/null || git remote add origin "$(gh repo view "<owner>/<slug>" --json sshUrl -q .sshUrl)"
+gh repo set-default "<owner>/<slug>"
+```
+
+(use `url` instead of `sshUrl` when `git_protocol` is `https`). The first line adds `origin` only
+when it is missing, so a re-run does not fail on it.
 
 Any other `TAKEN` means the name belongs to something else: never use it. In phase 1, pick a free
 variant of the slug, update `startup.config.json` and `package.json`, and tell the founder
@@ -79,11 +92,19 @@ Work on `master`: the CI workflows, the deploy workflow and `vercel.json` all ke
    git commit -m "chore: start <slug> from the boilerplate"
    ```
 
-3. Create the repository **private** and set it as `origin`, without pushing:
+3. Create the repository **private** and set it as `origin`, without pushing, then make it `gh`'s
+   default for this clone:
 
    ```bash
    gh repo create "<owner>/<slug>" --private --source=. --remote=origin
+   gh repo set-default "<owner>/<slug>"
    ```
+
+   `gh repo create --source --remote` sets no default, and with `upstream` present every later
+   `gh` command without `--repo` (`gh pr`, `gh run`, `gh api repos/{owner}/{repo}`) would target
+   the boilerplate. `gh repo set-default` records the startup's repository for this clone
+   (`remote.origin.gh-resolved`) and is safe to re-run. Secrets are the exception: `gh` never uses
+   the default for them, so every `gh secret` command passes `--repo` (the scripts do).
 
    The first push (6j) keeps the boilerplate history: merging `upstream/master` later needs it.
 
@@ -92,10 +113,12 @@ Work on `master`: the CI workflows, the deploy workflow and `vercel.json` all ke
 ```bash
 git remote -v
 gh repo view "<owner>/<slug>" --json nameWithOwner,visibility -q '"\(.nameWithOwner) \(.visibility)"'
+gh repo set-default --view
 ```
 
-Expect `origin` on `<owner>/<slug>`, `upstream` on the boilerplate with a `DISABLED` push URL, and
-`<owner>/<slug> PRIVATE`. The repository stays empty until 6j pushes `master`.
+Expect `origin` on `<owner>/<slug>`, `upstream` on the boilerplate with a `DISABLED` push URL,
+`<owner>/<slug> PRIVATE`, and `<owner>/<slug>` as the default. The repository stays empty until 6j
+pushes `master`.
 
 Later, to take boilerplate fixes:
 

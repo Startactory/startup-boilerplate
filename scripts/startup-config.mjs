@@ -25,10 +25,12 @@ export const Legal = v.object({
 });
 
 // A single-prompt run always starts before the company exists.
+const email = v.pipe(text, v.email('must be an email address'));
+
 const RunLegal = v.object({
   ...Legal.entries,
   founderName: requiredText,
-  contactEmail: v.pipe(text, v.email('must be an email address')),
+  contactEmail: email,
   company: v.null('must be null until the company exists'),
 });
 
@@ -71,6 +73,7 @@ export const RunConfig = v.looseObject({
   dataRegion: v.picklist(['eu', 'us']),
   idea: requiredText,
   githubOwner: requiredText,
+  googleAccount: email,
   pricing: Pricing,
   brand: Brand,
   legal: RunLegal,

@@ -10,6 +10,7 @@ function validConfig() {
     dataRegion: 'eu',
     idea: 'Contract review assistant for freelance designers',
     githubOwner: 'ada',
+    googleAccount: 'ada@example.com',
     pricing: {
       source: 'derived',
       customer: 'individual',
@@ -56,6 +57,18 @@ describe('validateRunConfig', () => {
   it('reports a missing idea', () => {
     const { idea: _idea, ...config } = validConfig();
     expect(issuesOf(config)).toEqual([expect.stringMatching(/^idea:/)]);
+  });
+
+  it('reports a missing googleAccount', () => {
+    const { googleAccount: _googleAccount, ...config } = validConfig();
+    expect(issuesOf(config)).toEqual([
+      expect.stringMatching(/^googleAccount:/),
+    ]);
+  });
+
+  it('reports a googleAccount that is not an email address', () => {
+    const issues = issuesOf({ ...validConfig(), googleAccount: 'ada' });
+    expect(issues).toEqual([expect.stringMatching(/^googleAccount:/)]);
   });
 
   it('reports a non-empty domain', () => {

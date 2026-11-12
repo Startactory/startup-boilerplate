@@ -11,10 +11,13 @@ its one message. This file holds the derivation rules and the JSON they write; i
    - `slug`: lowercase, hyphenated, safe for package names and project refs (e.g.
      `acme-analytics`). 3 to 26 characters matching `^[a-z0-9]+(-[a-z0-9]+)*$`, which fits the
      vault, Dash0 and GitHub rules, and `<githubOwner>/<slug>` must not already be a GitHub
-     repository (`gh repo view "<githubOwner>/<slug>"`). When it is taken, propose another slug.
+     repository (`gh repo view "<githubOwner>/<slug>"`) unless `startup.config.json`
+     `repository` already is `<githubOwner>/<slug>` (an interrupted phase 1: the repository is
+     this startup's). When it is taken by anything else, propose another slug.
    - `githubOwner`: the GitHub account that owns the repository. Default: the personal account
      (`gh api user -q .login`); the interview asks only when `gh org list` shows organizations.
-   - `googleAccount`: the Google identity Chrome is signed in to (`00-founder-setup.md` item 3).
+   - `googleAccount` (required, an email address): the Google identity Chrome is signed in to
+     (`00-founder-setup.md` item 3). The preflight's `config` check refuses a config without it.
    - `domain`: always `""` in a run. A custom domain comes after the run (`after-the-run.md`).
 3. Derive the data region. GDPR applies when the company is established in the EU, the EEA or the
    UK **or** offers its service to people there (GDPR art. 3), not because of where servers sit.

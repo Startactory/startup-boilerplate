@@ -13,7 +13,8 @@ Where each part runs:
   then 6i. 6j item 2 is the `smoke-test` step.
 - 6a and 6c explain; 6f (going live) is after the run.
 
-Nothing in this step touches `.env`: production values go in `.env.prod`.
+Nothing in this step touches `.env`: production values go in `.env.prod`. Below, `<repository>` is
+`startup.config.json` `repository` (`<owner>/<slug>`) and `<slug>` its `slug`.
 
 ## 6a. The production URL
 
@@ -93,7 +94,8 @@ node scripts/providers/vercel-deploy-hook.mjs --project <slug>
 
 The Vercel project must be Git-connected (6b) and the Vercel CLI signed in. The hook URL is a
 bearer credential: it never appears in your output or in argv. Success prints names and statuses
-only. Verify with `gh secret list` (names only). If it errors, read the message: `update the
+only. Verify with `gh secret list --repo "<repository>"` (names only). If it errors, read the
+message: `update the
 Vercel CLI: npm i -g vercel@latest` means the Vercel CLI is too old to manage deploy hooks, and a
 missing Git connection means 6b did not finish (run it again). If the hook URL ever reaches the
 transcript or printed output, that is a block: the founder decides whether to delete the hook
@@ -177,9 +179,12 @@ Vercel and GitHub are **two separate stores holding different things**: the Verc
 what the *running app* needs; GitHub Actions secrets hold only what *CI* needs. Do **not** mirror
 the whole env file into GitHub.
 
-Check first that `gh` targets the startup's repo, not the boilerplate:
-`gh repo view --json nameWithOwner -q .nameWithOwner` must print `startup.config.json`
-`repository`. If not, run the `repository` step again (`01c-create-repository.md`).
+Every `gh` command in this step names the startup's repository (`--repo "<repository>"`, or the
+literal path in 6i): with the boilerplate kept as `upstream`,
+`gh` without it can resolve to the boilerplate, and `gh secret` never uses the clone's default.
+Check also that the clone's default is the startup's repo, not the boilerplate:
+`gh repo set-default --view` must print `<repository>`. If not, run
+`gh repo set-default "<repository>"` (`01c-create-repository.md` section 4.3).
 
 The workflows reference exactly three secrets (check that nothing was added:
 `grep -roE "secrets\.[A-Z_]+" .github/workflows | sort -u`):
@@ -198,17 +203,18 @@ node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/D
 ```
 
 Set it **before the first push to `master`** (6j), or the `migrate` job fails its
-`Verify database url` guard and the release never triggers. Verify with `gh secret list` — it
-prints names only.
+`Verify database url` guard and the release never triggers. Verify with
+`gh secret list --repo "<repository>"` — it prints names only.
 
 ## 6i. Protect `master`
 
 Run it right after the first push (6j item 1): `master` does not exist on GitHub before.
 `CLAUDE.md` calls branch protection the only gate a developer cannot bypass locally. Require the CI
-jobs:
+jobs, on the startup's repository written out literally (`<repository>` is `<owner>/<slug>` from
+`startup.config.json`; never `{owner}/{repo}`, which `gh` can fill in with the boilerplate):
 
 ```bash
-gh api -X PUT "repos/{owner}/{repo}/branches/master/protection" \
+gh api -X PUT "repos/<repository>/branches/master/protection" \
   --input - <<'JSON'
 {
   "required_status_checks": { "strict": true, "contexts": ["boundaries", "test", "type-check"] },
@@ -227,7 +233,7 @@ end-of-run report as a follow-up: it does not block deployment.
 Checklist before the first deploy — every line must be true:
 
 - [ ] the Vercel project is **connected to the GitHub repo** (6b, not only `vercel link`)
-- [ ] `gh secret list` shows `VERCEL_DEPLOY_HOOK_URL` and `DATABASE_URL`
+- [ ] `gh secret list --repo "<repository>"` shows `VERCEL_DEPLOY_HOOK_URL` and `DATABASE_URL`
 - [ ] the env push in 6g succeeded with no missing variable
 
 1. **The first push.** On `master`, with everything committed:
@@ -242,8 +248,8 @@ Checklist before the first deploy — every line must be true:
    without a prompt:
 
    ```bash
-   gh run list --branch master --workflow ci.yml --limit 1 --json databaseId -q '.[0].databaseId'
-   gh run watch <id> --exit-status
+   gh run list --repo "<repository>" --branch master --workflow ci.yml --limit 1 --json databaseId -q '.[0].databaseId'
+   gh run watch <id> --repo "<repository>" --exit-status
    ```
 
    A run takes a few seconds to appear after the push: when the first command prints nothing,

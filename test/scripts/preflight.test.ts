@@ -21,6 +21,7 @@ function validConfig() {
     dataRegion: 'eu',
     idea: 'Contract review assistant for freelance designers',
     githubOwner: 'ada',
+    googleAccount: 'ada@example.com',
     pricing: {
       source: 'derived',
       customer: 'individual',

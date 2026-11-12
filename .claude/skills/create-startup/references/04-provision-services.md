@@ -194,11 +194,18 @@ Auth Platform setup, and create only a client whose item still lacks it:
 
    Fallback when no Download JSON button is offered: the ID and secret must be copied by hand,
    which only the founder can do without the secret reaching you (`phase-2-run.md`, closed list:
-   "copy a secret by hand"). In phase 2 that is a block, with an action such as
-   `copy the <client> Google client ID, run node scripts/vault-put.mjs --from-clipboard <env> GOOGLE_CLIENT_ID in the repo; same for the secret and GOOGLE_CLIENT_SECRET`.
-   The founder runs both commands before copying the `/goal` line, which overwrites the clipboard.
-   On resume, `node scripts/vault-put.mjs --list-fields <env>` must list both names. A client ID
-   in the secret slot (or the reverse) is rejected by validation.
+   "copy a secret by hand"). In phase 2 that is a block. Google shows a new client's secret only
+   in its creation dialog, so **leave that dialog open** in its Chrome tab when you block, with an
+   action such as
+   `in the open Google client dialog in Chrome, copy the ID, run node scripts/vault-put.mjs --from-clipboard <env> GOOGLE_CLIENT_ID; same for the secret, GOOGLE_CLIENT_SECRET`.
+   If the dialog was closed, the secret cannot be shown again, so the founder adds a new secret to
+   that client and copies that one; the action is then
+   `Google Cloud: open the <env> OAuth client, Add secret; copy the ID, then the secret, each into node scripts/vault-put.mjs --from-clipboard <env> GOOGLE_CLIENT_ID (then _SECRET)`.
+   `<env>` is `local` or `production`, never the startup name, so both actions stay under the
+   200-character push limit (at most 186 characters filled in). The founder
+   runs the commands in a terminal in the repo before copying the `/goal` line, which overwrites
+   the clipboard. On resume, `node scripts/vault-put.mjs --list-fields <env>` must list both
+   names. A client ID in the secret slot (or the reverse) is rejected by validation.
 
    If a secret did reach the transcript, that is a block too: the founder decides whether to
    delete that client (never you). Once they did, create a new one. A client from an earlier
