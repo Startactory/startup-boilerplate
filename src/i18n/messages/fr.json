@@ -164,5 +164,172 @@
       "cookies": "Politique de cookies",
       "manageCookies": "Gérer les cookies"
     }
+  },
+  "Legal": {
+    "common": {
+      "backHome": "Retour à l'accueil",
+      "version": "Version {version}",
+      "fields": {
+        "status": "Statut",
+        "name": "Nom",
+        "legalForm": "Forme juridique",
+        "address": "Siège social",
+        "siren": "SIREN",
+        "rcs": "RCS",
+        "vatNumber": "Numéro de TVA",
+        "shareCapital": "Capital social",
+        "publicationDirector": "Directeur de la publication",
+        "contactEmail": "E-mail de contact"
+      },
+      "individualStatus": "Personne physique (aucune société immatriculée)",
+      "contactFallback": "l'adresse de contact indiquée dans les mentions légales"
+    },
+    "notice": {
+      "title": "Mentions légales",
+      "intro": "Conformément à l'article 6 de la loi n° 2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique (LCEN), les informations suivantes sont portées à la connaissance des utilisateurs de {name}.",
+      "publisher": {
+        "title": "Éditeur",
+        "individual": "Ce site est édité par une personne physique, fondatrice ou fondateur du projet, qui n'a pas encore immatriculé de société.",
+        "company": "Ce site est édité par la société suivante."
+      },
+      "director": {
+        "title": "Directeur de la publication",
+        "body": "{director}"
+      },
+      "host": {
+        "title": "Hébergeur",
+        "body": "Ce site est hébergé par Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "Pour toute question relative à ce site, écrivez à {email}."
+      }
+    },
+    "terms": {
+      "title": "Conditions générales de vente",
+      "intro": "Les présentes conditions générales de vente régissent l'abonnement au service en ligne proposé sur ce site (le « Service ») par le vendeur identifié ci-dessous (le « Vendeur »), et s'appliquent à tout client qui y souscrit (le « Client »).",
+      "seller": {
+        "title": "Vendeur",
+        "individual": "Le Service est vendu par une personne physique, fondatrice ou fondateur du projet, qui n'a pas encore immatriculé de société.",
+        "company": "Le Service est vendu par la société suivante."
+      },
+      "service": {
+        "title": "Le Service",
+        "body": "{name} est un service en ligne accessible après connexion avec un compte Google ou Microsoft. Les fonctionnalités du Service sont celles présentées sur le site au jour de la souscription."
+      },
+      "price": {
+        "title": "Prix et paiement",
+        "monthly": "Le Service est proposé sous forme d'abonnement au prix de {price} par mois.",
+        "yearly": "Le Service est proposé sous forme d'abonnement au prix de {price} par an.",
+        "franchise": "TVA non applicable, art. 293 B du CGI.",
+        "included": "Le prix s'entend toutes taxes comprises (TTC).",
+        "payment": "Le paiement s'effectue en ligne par carte bancaire via le prestataire de paiement Stripe, au moyen du service de facturation Autumn. L'abonnement se renouvelle automatiquement à la fin de chaque période jusqu'à sa résiliation, et le prix est prélevé à chaque renouvellement."
+      },
+      "trial": {
+        "title": "Essai gratuit",
+        "body": "{days, plural, one {Un essai gratuit de # jour est proposé.} other {Un essai gratuit de # jours est proposé.}} Sauf résiliation par le Client avant la fin de l'essai, l'abonnement devient payant au prix indiqué ci-dessus et le premier paiement est prélevé à la fin de l'essai."
+      },
+      "cancellation": {
+        "title": "Résiliation",
+        "body": "Le Client peut résilier son abonnement à tout moment depuis les paramètres de facturation du Service. La résiliation prend effet à la fin de la période de facturation en cours : le Client conserve l'accès au Service jusqu'à cette date et aucun nouveau paiement n'est prélevé."
+      },
+      "refunds": {
+        "title": "Remboursements",
+        "body": "Sous réserve du droit de rétractation ci-dessous et des dispositions légales impératives, toute période commencée est due et n'est pas remboursée. Le Vendeur peut, à sa discrétion, accorder un geste commercial sur demande."
+      },
+      "withdrawal": {
+        "title": "Droit de rétractation",
+        "body": "Le Client agissant en qualité de consommateur dispose d'un délai de 14 jours à compter de la conclusion du contrat pour se rétracter sans avoir à justifier de motif (articles L221-18 et suivants du Code de la consommation). Pour exercer ce droit, le Client doit notifier clairement sa décision de se rétracter en écrivant à {email}, ou par toute autre déclaration dénuée d'ambiguïté."
+      },
+      "waiver": {
+        "title": "Exécution immédiate et renonciation au droit de rétractation",
+        "body": "Avant de souscrire, le Client est invité à demander expressément que le Service commence immédiatement, avant la fin du délai de rétractation, et à en reconnaître les conséquences. S'il se rétracte après le début du Service, il paie un montant proportionnel à ce qui lui a été fourni jusqu'à la rétractation (article L221-25 du Code de la consommation). Une fois le Service pleinement exécuté, le Client perd son droit de rétractation, y ayant expressément consenti au préalable (article L221-28, 1° du Code de la consommation)."
+      },
+      "availability": {
+        "title": "Disponibilité et responsabilité",
+        "body": "Le Vendeur met en œuvre des moyens raisonnables pour maintenir le Service disponible mais ne peut garantir un accès ininterrompu. Aucune stipulation des présentes ne limite la responsabilité qui ne peut être exclue par la loi."
+      },
+      "data": {
+        "title": "Données personnelles",
+        "body": "Les données personnelles sont traitées comme indiqué dans la politique de confidentialité."
+      },
+      "mediation": {
+        "title": "Litiges et médiation",
+        "body": "Avant toute action en justice, le Client peut contacter le Vendeur ({email}) afin de rechercher une solution amiable. Le Client agissant en qualité de consommateur peut également recourir gratuitement à un médiateur de la consommation (article L612-1 du Code de la consommation) ; le Vendeur communique les coordonnées de son médiateur sur demande."
+      },
+      "law": {
+        "title": "Droit applicable",
+        "body": "Les présentes conditions sont soumises au droit français. En cas de litige, les juridictions françaises compétentes sont seules compétentes, sans préjudice des règles protectrices des consommateurs, qui peuvent saisir le tribunal de leur lieu de résidence."
+      }
+    },
+    "privacy": {
+      "title": "Politique de confidentialité",
+      "intro": "Cette politique explique comment les données personnelles sont traitées lorsque vous utilisez {name}, conformément au Règlement général sur la protection des données (RGPD) et à la loi Informatique et Libertés.",
+      "controller": {
+        "title": "Responsable du traitement",
+        "individual": "Le responsable du traitement est une personne physique, fondatrice ou fondateur du projet, qui n'a pas encore immatriculé de société.",
+        "company": "Le responsable du traitement est la société suivante."
+      },
+      "collected": {
+        "title": "Données collectées",
+        "intro": "Les données suivantes sont traitées :",
+        "account": "Données de compte : le nom et l'adresse e-mail fournis par votre compte Google ou Microsoft lors de la connexion.",
+        "organization": "Données d'organisation : le nom de votre organisation, ses membres et ses invitations.",
+        "billing": "Données de facturation : l'état de votre abonnement et de vos paiements. Les données de carte sont saisies chez Stripe et ne sont jamais conservées par nos soins ; la facturation est assurée par Autumn et Stripe.",
+        "technical": "Données techniques : journaux serveur, traces et métriques nécessaires à la sécurité et au fonctionnement du service.",
+        "analytics": "Données d'usage : mesure d'audience du produit, collectée uniquement si vous l'acceptez dans le bandeau de cookies."
+      },
+      "purposes": {
+        "title": "Finalités et bases légales",
+        "intro": "Vos données sont utilisées pour les finalités suivantes :",
+        "contract": "Créer votre compte, fournir le Service et gérer votre abonnement (exécution du contrat).",
+        "security": "Sécuriser le service, prévenir les abus et diagnostiquer les incidents (intérêt légitime).",
+        "legal": "Respecter les obligations comptables et fiscales (obligation légale).",
+        "analytics": "Mesurer l'audience et améliorer le produit (consentement, que vous pouvez retirer à tout moment)."
+      },
+      "retention": {
+        "title": "Durées de conservation",
+        "account": "Les données de compte et d'organisation sont conservées tant que votre compte existe, puis supprimées.",
+        "billing": "Les pièces de facturation sont conservées pendant la durée prévue par le droit comptable, soit actuellement dix ans.",
+        "analytics": "Les données de mesure d'audience sont conservées 25 mois au plus.",
+        "technical": "Les journaux techniques sont conservés pendant la courte durée nécessaire à la sécurité et au dépannage."
+      },
+      "processors": {
+        "title": "Destinataires et sous-traitants",
+        "intro": "Vos données sont traitées pour notre compte par les prestataires suivants :",
+        "supabase": "Supabase : hébergement de la base de données.",
+        "vercel": "Vercel : hébergement de l'application.",
+        "posthog": "PostHog : mesure d'audience du produit, uniquement avec votre consentement.",
+        "dash0": "Dash0 : journaux, traces et métriques.",
+        "email": "Resend, ou le fournisseur SMTP configuré par l'éditeur : envoi des e-mails transactionnels.",
+        "autumn": "Autumn : gestion des abonnements et de la facturation.",
+        "stripe": "Stripe : traitement des paiements.",
+        "google": "Google et Microsoft : connexion avec votre compte."
+      },
+      "transfers": {
+        "title": "Transferts hors de l'Union européenne",
+        "body": "Certains prestataires ci-dessus peuvent traiter des données hors de l'Union européenne, notamment aux États-Unis. Ces transferts reposent sur une décision d'adéquation de la Commission européenne ou sur des clauses contractuelles types."
+      },
+      "rights": {
+        "title": "Vos droits",
+        "intro": "Vous disposez d'un droit d'accès, de rectification et d'effacement de vos données, d'un droit à la limitation et d'opposition au traitement, ainsi que d'un droit à la portabilité. Lorsque le traitement repose sur votre consentement, vous pouvez le retirer à tout moment.",
+        "contact": "Pour exercer vos droits, écrivez à {email}.",
+        "complaint": "Si vous estimez que vos droits ne sont pas respectés, vous pouvez introduire une réclamation auprès de la CNIL (Commission Nationale de l'Informatique et des Libertés), www.cnil.fr."
+      }
+    },
+    "cookies": {
+      "title": "Politique de cookies",
+      "intro": "Ce site utilise un petit nombre de cookies et de traceurs similaires. Seuls ceux qui sont strictement nécessaires sont déposés sans votre consentement.",
+      "list": {
+        "title": "Ce qui est déposé",
+        "session": "Cookie de session (strictement nécessaire) : vous maintient connecté. Il est déposé à la connexion et ne nécessite pas de consentement.",
+        "consent": "Cookie de consentement cookie_consent (strictement nécessaire) : mémorise votre choix pendant 180 jours.",
+        "analytics": "PostHog (mesure d'audience) : déposé uniquement après votre acceptation. Si vous refusez ou n'avez pas encore choisi, PostHog ne démarre pas et ne dépose rien."
+      },
+      "manage": {
+        "title": "Vos choix",
+        "body": "Vous pouvez accepter, refuser ou personnaliser vos choix à tout moment. Refuser est aussi simple qu'accepter. Pour modifier votre choix, utilisez le bouton ci-dessous."
+      }
+    }
   }
 }

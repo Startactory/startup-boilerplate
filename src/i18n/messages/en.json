@@ -164,5 +164,172 @@
       "cookies": "Cookie policy",
       "manageCookies": "Manage cookies"
     }
+  },
+  "Legal": {
+    "common": {
+      "backHome": "Back to home",
+      "version": "Version {version}",
+      "fields": {
+        "status": "Status",
+        "name": "Name",
+        "legalForm": "Legal form",
+        "address": "Registered office",
+        "siren": "SIREN",
+        "rcs": "RCS",
+        "vatNumber": "VAT number",
+        "shareCapital": "Share capital",
+        "publicationDirector": "Publication director",
+        "contactEmail": "Contact email"
+      },
+      "individualStatus": "Individual (no registered company)",
+      "contactFallback": "the contact address given in the legal notice"
+    },
+    "notice": {
+      "title": "Legal notice",
+      "intro": "In accordance with article 6 of French law no. 2004-575 of 21 June 2004 on confidence in the digital economy (LCEN), the following information is provided about {name}.",
+      "publisher": {
+        "title": "Publisher",
+        "individual": "This site is published by an individual, the founder of the project, who has not registered a company yet.",
+        "company": "This site is published by the following company."
+      },
+      "director": {
+        "title": "Publication director",
+        "body": "{director}"
+      },
+      "host": {
+        "title": "Host",
+        "body": "This site is hosted by Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, United States."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "For any question about this site, write to {email}."
+      }
+    },
+    "terms": {
+      "title": "Terms of sale",
+      "intro": "These terms of sale govern the subscription to the online service offered through this site (the \"Service\") by the seller identified below (the \"Seller\"), and apply to any customer who subscribes to it (the \"Customer\").",
+      "seller": {
+        "title": "Seller",
+        "individual": "The Service is sold by an individual, the founder of the project, who has not registered a company yet.",
+        "company": "The Service is sold by the following company."
+      },
+      "service": {
+        "title": "The Service",
+        "body": "{name} is an online service accessed after signing in with a Google or Microsoft account. The features of the Service are those presented on the site on the day of subscription."
+      },
+      "price": {
+        "title": "Price and payment",
+        "monthly": "The Service is offered by subscription at {price} per month.",
+        "yearly": "The Service is offered by subscription at {price} per year.",
+        "franchise": "VAT not applicable, art. 293 B of the CGI.",
+        "included": "The price includes all taxes (VAT included).",
+        "payment": "Payment is made online by bank card through the payment provider Stripe, via the billing service Autumn. The subscription renews automatically at the end of each period until it is cancelled, and the price is charged at each renewal."
+      },
+      "trial": {
+        "title": "Free trial",
+        "body": "{days, plural, one {A free trial of # day is offered.} other {A free trial of # days is offered.}} Unless the Customer cancels before the end of the trial, the subscription becomes paid at the price above and the first payment is charged at the end of the trial."
+      },
+      "cancellation": {
+        "title": "Cancellation",
+        "body": "The Customer can cancel the subscription at any time from their billing settings in the Service. Cancellation takes effect at the end of the current billing period: the Customer keeps access to the Service until then and no further payment is charged."
+      },
+      "refunds": {
+        "title": "Refunds",
+        "body": "Subject to the right of withdrawal below and to mandatory legal provisions, any period that has started is due and is not refunded. The Seller may, at its discretion, grant a commercial refund on request."
+      },
+      "withdrawal": {
+        "title": "Right of withdrawal",
+        "body": "A Customer acting as a consumer has 14 days from the conclusion of the contract to withdraw without giving any reason (articles L221-18 et seq. of the French Consumer Code). To exercise this right, the Customer must clearly state their decision to withdraw by writing to {email}, or by any other unambiguous statement."
+      },
+      "waiver": {
+        "title": "Immediate start and waiver of the right of withdrawal",
+        "body": "Before subscribing, the Customer is asked to expressly request that the Service starts immediately, before the end of the withdrawal period, and to acknowledge the consequences. If the Customer withdraws after the Service has started, they pay an amount proportionate to what has been provided up to the withdrawal (article L221-25 of the Consumer Code). Once the Service has been fully performed, the Customer loses the right of withdrawal, having expressly agreed to it beforehand (article L221-28, 1° of the Consumer Code)."
+      },
+      "availability": {
+        "title": "Availability and liability",
+        "body": "The Seller makes reasonable efforts to keep the Service available but cannot guarantee uninterrupted access. Nothing in these terms limits the liability that cannot be excluded by law."
+      },
+      "data": {
+        "title": "Personal data",
+        "body": "Personal data is processed as described in the privacy policy."
+      },
+      "mediation": {
+        "title": "Disputes and mediation",
+        "body": "Before any court action, the Customer can contact the Seller ({email}) to find an amicable solution. A Customer acting as a consumer may also use, free of charge, a consumer mediator (article L612-1 of the Consumer Code); the Seller provides the contact details of its mediator on request."
+      },
+      "law": {
+        "title": "Governing law",
+        "body": "These terms are governed by French law. In case of dispute, the competent French courts apply, without prejudice to the rules protecting consumers, who may bring the case before the court of their place of residence."
+      }
+    },
+    "privacy": {
+      "title": "Privacy policy",
+      "intro": "This policy explains how personal data is processed when you use {name}, in accordance with the General Data Protection Regulation (GDPR) and the French Data Protection Act.",
+      "controller": {
+        "title": "Data controller",
+        "individual": "The data controller is an individual, the founder of the project, who has not registered a company yet.",
+        "company": "The data controller is the following company."
+      },
+      "collected": {
+        "title": "Data collected",
+        "intro": "The following data is processed:",
+        "account": "Account data: the name and email address provided by your Google or Microsoft account when you sign in.",
+        "organization": "Organization data: the name of your organization, its members and invitations.",
+        "billing": "Billing data: your subscription and payment status. Card details are entered with Stripe and are never stored by us; billing is handled by Autumn and Stripe.",
+        "technical": "Technical data: server logs, traces and metrics needed to secure and operate the service.",
+        "analytics": "Usage data: product analytics, collected only if you accept it in the cookie banner."
+      },
+      "purposes": {
+        "title": "Purposes and legal bases",
+        "intro": "Your data is used for the following purposes:",
+        "contract": "To create your account, provide the Service and manage your subscription (performance of the contract).",
+        "security": "To secure the service, prevent abuse and diagnose incidents (legitimate interest).",
+        "legal": "To meet accounting and tax obligations (legal obligation).",
+        "analytics": "To measure the audience and improve the product (consent, which you can withdraw at any time)."
+      },
+      "retention": {
+        "title": "Retention",
+        "account": "Account and organization data is kept as long as your account exists, then deleted.",
+        "billing": "Billing records are kept for the period required by accounting law, currently ten years.",
+        "analytics": "Analytics data is kept for 25 months at most.",
+        "technical": "Technical logs are kept for the short period needed for security and troubleshooting."
+      },
+      "processors": {
+        "title": "Recipients and sub-processors",
+        "intro": "Your data is processed on our behalf by the following providers:",
+        "supabase": "Supabase: database hosting.",
+        "vercel": "Vercel: application hosting.",
+        "posthog": "PostHog: product analytics, only with your consent.",
+        "dash0": "Dash0: logs, traces and metrics.",
+        "email": "Resend, or the SMTP provider configured by the publisher: sending transactional emails.",
+        "autumn": "Autumn: subscription and billing management.",
+        "stripe": "Stripe: payment processing.",
+        "google": "Google and Microsoft: sign-in with your account."
+      },
+      "transfers": {
+        "title": "Transfers outside the European Union",
+        "body": "Some providers above may process data outside the European Union, in particular in the United States. Such transfers rely on an adequacy decision of the European Commission or on standard contractual clauses."
+      },
+      "rights": {
+        "title": "Your rights",
+        "intro": "You have the right to access, rectify and erase your data, to restrict or object to its processing, and to data portability. Where processing is based on consent, you can withdraw it at any time.",
+        "contact": "To exercise your rights, write to {email}.",
+        "complaint": "If you consider that your rights are not respected, you can lodge a complaint with the CNIL (Commission Nationale de l'Informatique et des Libertés), www.cnil.fr."
+      }
+    },
+    "cookies": {
+      "title": "Cookie policy",
+      "intro": "This site uses a small number of cookies and similar technologies. Only the ones strictly necessary are set without your consent.",
+      "list": {
+        "title": "What is set",
+        "session": "Session cookie (strictly necessary): keeps you signed in. It is set when you sign in and needs no consent.",
+        "consent": "Consent cookie cookie_consent (strictly necessary): remembers your choice for 180 days.",
+        "analytics": "PostHog (audience measurement): set only after you accept. If you refuse or have not chosen, PostHog does not start and sets nothing."
+      },
+      "manage": {
+        "title": "Your choices",
+        "body": "You can accept, refuse or customize your choices at any time. Refusing is as easy as accepting. To change your choice, use the button below."
+      }
+    }
   }
 }
