@@ -1,4 +1,5 @@
 import './globals.css';
+import './brand.css';
 
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
