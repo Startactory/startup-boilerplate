@@ -128,5 +128,16 @@
     "notFoundDescription": "The page you're looking for doesn't exist or has moved.",
     "backDashboard": "Back to dashboard",
     "backHome": "Back to home"
+  },
+  "CookieConsent": {
+    "bannerLabel": "Cookie consent",
+    "bannerMessage": "We use an audience measurement tool (PostHog) to understand how the site is used. It only runs if you accept.",
+    "refuse": "Refuse",
+    "accept": "Accept",
+    "customize": "Customize",
+    "preferencesTitle": "Cookie preferences",
+    "preferencesDescription": "Choose which measurements you allow. You can change this at any time.",
+    "analyticsLabel": "Audience measurement (PostHog)",
+    "save": "Save"
   }
 }

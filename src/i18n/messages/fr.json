@@ -128,5 +128,16 @@
     "notFoundDescription": "La page que vous recherchez n'existe pas ou a été déplacée.",
     "backDashboard": "Retour au tableau de bord",
     "backHome": "Retour à l'accueil"
+  },
+  "CookieConsent": {
+    "bannerLabel": "Consentement aux cookies",
+    "bannerMessage": "Nous utilisons un outil de mesure d'audience (PostHog) pour comprendre l'usage du site. Il ne s'active que si vous acceptez.",
+    "refuse": "Refuser",
+    "accept": "Accepter",
+    "customize": "Personnaliser",
+    "preferencesTitle": "Préférences de cookies",
+    "preferencesDescription": "Choisissez les mesures que vous autorisez. Vous pouvez modifier ce choix à tout moment.",
+    "analyticsLabel": "Mesure d'audience (PostHog)",
+    "save": "Enregistrer"
   }
 }

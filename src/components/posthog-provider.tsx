@@ -3,16 +3,18 @@
 import posthog from 'posthog-js';
 import { PostHogProvider as PostHogContextProvider } from 'posthog-js/react';
 import { type ReactNode, useEffect, useRef } from 'react';
+import { useConsent } from '@/components/cookie-consent/consent-store';
 import { authClient } from '@/shared/auth-client';
 
 function PostHogIdentity(): null {
   const { data: session } = authClient.useSession();
   const { data: activeOrganization } = authClient.useActiveOrganization();
+  const consent = useConsent();
   const identifiedUserId = useRef<string | null>(null);
   const groupedOrganizationId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!posthog.__loaded) return;
+    if (consent !== 'granted' || !posthog.__loaded) return;
 
     const user = session?.user;
     if (!user) {
@@ -28,10 +30,10 @@ function PostHogIdentity(): null {
       posthog.identify(user.id, { email: user.email, name: user.name });
       identifiedUserId.current = user.id;
     }
-  }, [session]);
+  }, [session, consent]);
 
   useEffect(() => {
-    if (!posthog.__loaded) return;
+    if (consent !== 'granted' || !posthog.__loaded) return;
     const organizationId = activeOrganization?.id;
     if (!organizationId || groupedOrganizationId.current === organizationId)
       return;
@@ -39,7 +41,7 @@ function PostHogIdentity(): null {
       name: activeOrganization.name,
     });
     groupedOrganizationId.current = organizationId;
-  }, [activeOrganization]);
+  }, [activeOrganization, consent]);
 
   return null;
 }
