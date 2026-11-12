@@ -13,7 +13,14 @@ its one message. This file holds the derivation rules and the JSON they write; i
      vault, Dash0 and GitHub rules, and `<githubOwner>/<slug>` must not already be a GitHub
      repository (`gh repo view "<githubOwner>/<slug>"`) unless `startup.config.json`
      `repository` already is `<githubOwner>/<slug>` (an interrupted phase 1: the repository is
-     this startup's). When it is taken by anything else, propose another slug.
+     this startup's). No Vercel project may hold the name unless it is this startup's:
+     `node scripts/providers/vercel-project.mjs --check-name <slug> --repository <githubOwner>/<slug>`
+     must print `OK  Vercel name <slug> is free` or `OK  Vercel project <slug> is this startup's`
+     (the reuse rule of `vercel-project.mjs`: Git-linked to that repository, or never linked nor
+     deployed). It needs `vercel whoami` to work; otherwise `phase-1-setup.md` checklist item 9
+     runs it after `vercel login`. Never read the project with `vercel api /v9/projects/<slug>`:
+     its JSON can hold deploy hook URLs, which are secrets. When the slug is taken by anything
+     else, on GitHub or Vercel, propose another slug.
    - `githubOwner`: the GitHub account that owns the repository. Default: the personal account
      (`gh api user -q .login`); the interview asks only when `gh org list` shows organizations.
    - `googleAccount` (required, an email address): the Google identity Chrome is signed in to

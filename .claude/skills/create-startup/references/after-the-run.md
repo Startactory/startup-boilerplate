@@ -42,7 +42,9 @@ review of the generated templates. Until then production stays on the Autumn san
    with `--apply`.
 7. **Redeploy**: commit the item 1 changes (`startup.config.json` and the synced profile) on a
    branch and merge its PR; CI migrates and deploys. With nothing to commit, redeploy the current
-   production deployment from the Vercel dashboard. Then `node scripts/smoke-test.mjs`.
+   production deployment from the Vercel dashboard. Then run the smoke test as
+   `06-deploy-production.md` 6j item 2 says: `git switch master && git pull --ff-only`, wait for
+   the build, then `node scripts/smoke-test.mjs`.
 8. **Live checks**, with the founder present. The founder runs a real checkout on the live URL with
    their own card (a small live charge, or a Stripe test clock) to confirm Autumn end-to-end; you
    never enter a card. Then confirm that PostHog receives production events, and that the Dash0
@@ -68,8 +70,9 @@ The founder buys the domain (a purchase: theirs). Then, with the founder's go-ah
    wait for "verified". Then `node scripts/providers/resend-keys.mjs`, which prints
    `OK  Resend local <state>, production <state>, scoped to <domain>, stored in …` and switches
    `EMAIL_PROVIDER` to `resend` in both items: the Gmail app password is no longer used.
-6. Push the env (item 6 of "Go live"), merge a PR to redeploy, then
-   `node scripts/smoke-test.mjs --url https://<domain>`.
+6. Push the env (item 6 of "Go live"), merge a PR to redeploy, then, as
+   `06-deploy-production.md` 6j item 2 says, `git switch master && git pull --ff-only`, wait for
+   the build, and `node scripts/smoke-test.mjs --url https://<domain>`.
 
 ## Changing the price of an existing startup
 

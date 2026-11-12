@@ -4,8 +4,11 @@
 account, provider accounts, CLI logins, and the master keys that let later steps create
 per-startup keys on their own. The founder-only checklist of `phase-1-setup.md` (section 3) runs
 these checks and acts on a failing one only after the founder's consent (section 4). Phase 2 uses
-only item 1 (install a missing tool) and item 5 (`vercel login` again), under the consent in the
-`/goal` line.
+only item 1 (install a missing tool), item 4 (sign in again with "Continue with Google"), item 5
+(`vercel login` again) and item 6 (create a missing or wrong master key), under the consent in
+the `/goal` line. The rest is the founder's, so in phase 2 a block: item 2 (the service account,
+in Terminal.app), item 3 (a Chrome with no Google sign-in) and the SMTP part of item 6 (the Gmail
+app password).
 
 **Each item is "check, then act only if the check fails".** Run the check, and do nothing else when
 it passes. Never redo an item that already passes.
@@ -192,8 +195,8 @@ if a page asks for a password or a 2FA code):
    Success: `OK  <FIELD> stored in startup-founder/master-keys (<n> chars)`. An `ERROR` line means
    nothing was written (wrong or empty clipboard): go back to the page and copy again. If the
    provider showed the key only once and it is lost, create a new key and store it. Never delete
-   the lost one (deleting is the founder's); the end-of-run report lists it under old keys left
-   for cleanup.
+   the lost one (deleting is the founder's); the end-of-run report lists it under "left for
+   cleanup".
 
 The two Dash0 endpoints are not secret; copy each the same way, one command per field.
 

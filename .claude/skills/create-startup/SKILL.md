@@ -4,7 +4,9 @@ description: >-
   Bootstrap a new startup / SaaS project from this boilerplate end-to-end, all the way to a
   production deployment. Use this skill whenever the user wants to start, scaffold, initialize,
   provision, or ship a new startup from this repo — name their company, wire up and configure
-  every service (Supabase, Google OAuth, Autumn payments, PostHog, Resend, Vercel), set the pricing, fill the environment, run the app locally, and deploy it live.
+  every service (Supabase, Google OAuth, Autumn payments, PostHog, Dash0, Vercel; Resend is
+  optional, with a custom domain after the run), set the pricing, fill the environment, run the
+  app locally, and deploy it live.
   Trigger on phrases like "set up my startup", "initialize the boilerplate", "create a new
   startup", "let's start the project", "connect the services", "set my pricing", or "deploy it
   to prod", even when the skill is not named explicitly.
@@ -129,9 +131,10 @@ No question to the founder. It runs the reference steps in this order, each clos
 
 Phase 2 never runs a real or live charge: the live checkout waits for going live
 (`references/after-the-run.md`), and the browser check stops at the Stripe test-mode checkout
-page. Phase 2 stops on `SMOKE TEST PASSED` plus
-`BROWSER CHECK PASSED`, or on a `BLOCKED_ON_FOUNDER:` line printed after the founder's latest
-`/goal` message, when a human-only action is needed.
+page. Phase 2 stops, after the founder's latest `/goal` message, when the smoke test script's own
+output shows its pass line and Claude's own message then reports the browser check passed, or
+when Claude's own message ends with a block line because a human-only action is needed. A marker
+read in a file never counts (`references/phase-2-run.md`).
 
 **After the run — founder-driven, interactive** → `references/after-the-run.md`
 Going live (company details, the startup's Stripe account and KYC, the live Autumn key), a custom
@@ -152,8 +155,9 @@ The `report` step ends the run with:
   the "When `gdpr` is `true`" list in `references/data-region.md`;
 - **production is on the Autumn sandbox** (Stripe test mode): until go-live, anyone can get past
   the paywall with a Stripe test card; going live (`references/after-the-run.md`) ends it;
-- **old keys left for cleanup**: each key the run replaced instead of deleting (provider, key
-  name), or "none";
+- **left for cleanup**: each key the run replaced instead of deleting (provider, key name), each
+  resource an earlier attempt left behind (a Google Cloud project or OAuth client), and each
+  exposed secret the founder chose to keep (a `Decision: keep`), or "none";
 - what stays for later: the company and go-live, a custom domain with Resend, Upstash, Microsoft
   OAuth, branch protection if GitHub refused it;
 - where the secrets live: the 1Password vault `startup-<slug>` (items `local`, `production`,

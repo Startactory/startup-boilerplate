@@ -38,7 +38,9 @@ node scripts/providers/vercel-project.mjs
 
 It does, idempotently:
 
-1. Creates the Vercel project named after the `slug`, or reuses it.
+1. Creates the Vercel project named after the `slug`, or reuses it only when it is this
+   startup's: Git-linked to `repository`, or not linked and never deployed (an earlier attempt of
+   this step). Any other project of that name stops it (below).
 2. Links the local directory to it (`vercel link`), so the env push and the CLI know the project.
 3. **Connects it to the GitHub repository** `repository` (never the boilerplate). `vercel link`
    only links the *local directory*: enough to push env vars, but Vercel gets no access to the
@@ -47,17 +49,21 @@ It does, idempotently:
 4. Gives the project its free domain `<slug>.vercel.app`, or `<slug>-<4 random lowercase
    alphanumerics>.vercel.app` when someone else holds that name, and reuses the one it already
    has on a re-run.
-5. Writes `productionUrl` into `startup.config.json`, and pins the function region next to the
-   database: `"regions": ["<region>"]` in `vercel.json`, with the Vercel region
-   `references/data-region.md` gives for `dataRegion` (`cdg1` for `eu`, `iad1` for `us`). Without
-   it, functions run in `iad1` (US) — for an EU startup that sends every request's personal data
-   through the US.
+5. Writes `productionUrl` into `startup.config.json`, and two settings into `vercel.json`:
+   `"framework": "nextjs"` (a project created by the CLI can keep the "Other" preset, and a
+   Next.js build then serves 404s), and the function region next to the database,
+   `"regions": ["<region>"]`, with the Vercel region `references/data-region.md` gives for
+   `dataRegion` (`cdg1` for `eu`, `iad1` for `us`). Without the region, functions run in `iad1`
+   (US) — for an EU startup that sends every request's personal data through the US. The `git`
+   block stays as it is, and a re-run writes the same file.
 
 Success prints `OK  Vercel project <slug> <created|reused>, production URL <url>`. On failure it
 prints one line naming the call that failed: `vercel git connect failed: …` means the Vercel
 GitHub App cannot see the repository (checklist item 7); `no free *.vercel.app name for <slug>
-after 3 tries` means run it again. The framework preset is Next.js (auto-detected); leave the build
-command alone.
+after 3 tries` means run it again; `Vercel project <slug> already exists and belongs to something
+else — pick another slug (founder decision)` means the slug check of `phase-1-setup.md` section 2
+missed a project of the founder's: choose another slug with the founder (in phase 2, a block).
+Leave the build command alone.
 
 Then commit `startup.config.json` and `vercel.json` on `master` (nothing is pushed yet: the first
 push is 6j) and run `node scripts/run-ledger.mjs done vercel-project`.
@@ -98,8 +104,13 @@ only. Verify with `gh secret list --repo "<repository>"` (names only). If it err
 message: `update the
 Vercel CLI: npm i -g vercel@latest` means the Vercel CLI is too old to manage deploy hooks, and a
 missing Git connection means 6b did not finish (run it again). If the hook URL ever reaches the
-transcript or printed output, that is a block: the founder decides whether to delete the hook
-(**Project → Settings → Git → Deploy Hooks**); once they did, re-run the script.
+transcript or printed output, that is a decision block (`phase-2-run.md`, "Block protocol"): the
+founder decides whether to delete the hook (**Project → Settings → Git → Deploy Hooks**). The
+action is
+`the Vercel deploy hook URL reached the transcript: delete the hook in Vercel and answer Decision: revoked, or answer Decision: keep`.
+On resume, `revoked`: re-run the script, which creates a new hook and gives it to CI; `keep`: go
+on, and the end-of-run report lists the hook as exposed. Never print the project JSON
+(`vercel api /v9/projects/<slug>`): its `link.deployHooks` holds the hook URL.
 
 ## 6e. Finish `.env.prod`
 
@@ -253,14 +264,39 @@ Checklist before the first deploy — every line must be true:
    ```
 
    A run takes a few seconds to appear after the push: when the first command prints nothing,
-   wait and retry a few times. Once CI is green, do the same with `--workflow production.yml` for
-   the deploy run, which starts when CI completes. A red `migrate` job usually means a wrong
-   `DATABASE_URL` secret; a failed Vercel build with `Invalid environment variables` means a
-   variable is missing in 6g.
-2. **Smoke test** (the `smoke-test` step): `node scripts/smoke-test.mjs` plus the browser check of
-   `phase-2-run.md` ("Smoke test"). It never runs a real or live charge: the browser check stops at
-   the Stripe test-mode checkout page. The live checkout waits for going live (`after-the-run.md`,
-   "Go live").
+   wait and retry a few times. A CI run can outlast a Bash call's 2-minute default: give
+   `gh run watch` the longest timeout (10 minutes) or run it in the background, and run it again
+   when it is cut off (it only reads). Once CI is green, do the same with
+   `--workflow production.yml` for the deploy run, which starts when CI completes. A red `migrate`
+   job usually means a wrong `DATABASE_URL` secret; a failed Vercel build with
+   `Invalid environment variables` means a variable is missing in 6g.
+2. **Smoke test** (the `smoke-test` step), every time on the deployed commit:
+   1. `git switch master && git pull --ff-only`: after a PR merged on GitHub, the local `HEAD` is
+      not the deployed commit. `git rev-parse HEAD` is then the commit `/api/version` must return.
+   2. Wait for the Vercel build of that commit. `production.yml` is green as soon as its call to
+      the deploy hook returns, while Vercel is still building, so a smoke test right away gets
+      404s. List the commit's production deployments (the table shows no secret; do not print
+      deployment JSON instead, whose metadata can name the deploy hook):
+
+      ```bash
+      vercel ls <slug> --environment production --meta githubCommitSha="$(git rev-parse HEAD)"
+      ```
+
+      The hook's deployment can take a few seconds to appear: retry every 10 seconds for up to 2
+      minutes; if none appears, leave out `--meta …` and take the newest. Then wait on the
+      deployment URL it lists first (`https://<slug>-<hash>-<scope>.vercel.app`), at most 15
+      minutes, in the background (longer than a Bash call can wait):
+
+      ```bash
+      vercel inspect <deployment url> --wait --timeout 15m
+      ```
+
+      It exits 0 once the deployment is ready. A timeout (exit 1) or an `Error` status is a failed
+      or stuck build: read `vercel inspect <deployment url> --logs`, fix the cause on a branch,
+      merge its PR, and start this item again.
+   3. `node scripts/smoke-test.mjs` plus the browser check of `phase-2-run.md` ("Smoke test"). It
+      never runs a real or live charge: the browser check stops at the Stripe test-mode checkout
+      page. The live checkout waits for going live (`after-the-run.md`, "Go live").
 3. **Report** (the `report` step): the "End-of-run report" of `SKILL.md` — the live URL, the
    per-service checklist (with each item of the "When `gdpr` is `true`" list of
    `references/data-region.md` when `gdpr` is `true`), what stays for later, and where each secret

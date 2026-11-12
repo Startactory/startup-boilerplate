@@ -93,19 +93,34 @@ node scripts/providers/supabase-project.mjs
 
 It finds the organization `startup-factory`, reuses a project named after the `slug` or creates
 one in the Supabase region `references/data-region.md` gives for `dataRegion` (it cannot be moved
-later), and waits until it is `ACTIVE_HEALTHY` (up to 10 minutes). The project's first password is
-random and never leaves the script; step 3 replaces it. Success prints
-`OK  Supabase project <ref> <created|reused> in <region>`. Note the `ref`.
+later), and waits until it is `ACTIVE_HEALTHY` (up to 10 minutes). That wait outlasts a Bash
+call's 2-minute default: run the script in the background and read its output when it exits. The
+project's first password is random and never leaves the script; step 3 replaces it. Success
+prints `OK  Supabase project <ref> <created|reused> in <region>`. Note the `ref`.
 
 Failures:
 
 - `Supabase project <ref> still <status> after 10 minutes — re-run to keep waiting`: run it again;
   it reuses that project and never creates a second one.
+- `Supabase project <ref> is <status> — the founder restores or deletes it in the Supabase
+  dashboard`: the project named after the slug is paused (`INACTIVE`: free projects pause after a
+  week without activity) or failed (`INIT_FAILED`, `RESTORE_FAILED`, `PAUSE_FAILED`) and will
+  never become healthy. Restoring it uses a free-project slot and deleting it is on the closed
+  list, so in phase 2 it is a `BLOCKED_ON_FOUNDER` case, with an action such as
+  `in the Supabase dashboard, restore project <ref> or delete it`. On resume,
+  run the script again: it reuses a restored project or creates a new one.
 - `Supabase organization "startup-factory" not found — run step 0`, `… is on a paid plan — the run
   creates free projects only`, or `Supabase Free plan allows 2 active projects and startup-factory
   has <n> — pause one or upgrade (founder action)`: the founder's (an organization, a plan, a
   pause or a deletion), so in phase 2 a block. The preflight's `supabase-quota` check normally
   catches these first.
+- Supabase refuses the creation itself with its own message, which starts with `The following
+  organization members have reached their maximum limits for the number of active free projects`
+  (or any refusal naming the free project limit). Supabase counts free projects per member across
+  every organization where the founder is an owner or admin, not in `startup-factory` alone, so
+  the preflight's count can pass while the creation fails. The fix is the founder's (pause a
+  project, in any of their organizations, or upgrade), so in phase 2 it is a `BLOCKED_ON_FOUNDER`
+  case; on resume, run the script again.
 
 ### 2. Seed `.env.prod`
 
@@ -155,13 +170,20 @@ mounts at `/auth` (not `/api/auth`). One pass: the production URL is already kno
 set now.
 
 Load the Chrome tools in one ToolSearch call and read the `chrome-browser` skill first. Check that
-Chrome is signed in to Google as `googleAccount`. On a re-run, reuse the Google project and its
-Auth Platform setup, and create only a client whose item still lacks it:
-`node scripts/vault-put.mjs --list-fields local` (or `production`) lists `GOOGLE_CLIENT_ID` and
-`GOOGLE_CLIENT_SECRET` by name once they are stored. Then in Chrome:
+Chrome is signed in to Google as `googleAccount`. On a re-run, reuse the Google project recorded
+in `googleCloudProject` and its Auth Platform setup, and create only a client whose item still
+lacks it: `node scripts/vault-put.mjs --list-fields local` (or `production`) lists
+`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` by name once they are stored. Then in Chrome:
 
-1. https://console.cloud.google.com → create a project named after the startup (or select it when
-   it already exists).
+1. **The Google Cloud project.** When `startup.config.json` has `googleCloudProject`, open
+   `https://console.cloud.google.com/auth/overview?project=<googleCloudProject>` and work in that
+   project. Otherwise create a new one at `https://console.cloud.google.com/projectcreate`, named
+   after the startup, and keep the project ID Google proposes (unique across Google Cloud). Right
+   after the creation, write that ID to `startup.config.json` as `googleCloudProject` and commit it
+   (on `master` before the first push, through a PR after it), so a re-run finds it. Never select an existing project because it has the
+   startup's name: it may belong to something else, and step 5 would publish its OAuth app. A
+   project created by an attempt that never recorded its ID stays; the end-of-run report lists it
+   for cleanup.
 2. **Google Auth Platform → Get started** (`console.cloud.google.com/auth/overview`): app name
    (startup name), user support email `googleAccount`, audience **External**, contact email
    `googleAccount`, tick the Google API Services User Data Policy (covered by the consent to
@@ -207,10 +229,13 @@ Auth Platform setup, and create only a client whose item still lacks it:
    the clipboard. On resume, `node scripts/vault-put.mjs --list-fields <env>` must list both
    names. A client ID in the secret slot (or the reverse) is rejected by validation.
 
-   If a secret did reach the transcript, that is a block too: the founder decides whether to
-   delete that client (never you). Once they did, create a new one. A client from an earlier
-   attempt whose file never reached the vault stays; the end-of-run report lists it under old
-   keys left for cleanup.
+   If a secret did reach the transcript, that is a decision block (`phase-2-run.md`, "Block
+   protocol"): the founder decides whether to delete that client (never you). The action is
+   `a Google <env> client secret reached the transcript: delete that client in Google Cloud and answer Decision: revoked, or answer Decision: keep`.
+   On resume, `revoked`: create a new `<env>` client and import its Download JSON; `keep`: go on
+   with that client (import its file if it is still in `~/Downloads`), and the end-of-run report
+   lists its secret as exposed. A client from an earlier attempt whose file never reached the vault
+   stays; the end-of-run report lists it under "left for cleanup".
 5. **Publish the app** so anyone can sign in to the live site (covered by the consent):
    **Audience → Publish app**, from "Testing" to "In production". When Google requires a home page
    and a privacy policy (**Branding**), give `<productionUrl>` and `<productionUrl>/legal/privacy`.

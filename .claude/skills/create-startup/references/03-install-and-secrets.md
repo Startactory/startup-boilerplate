@@ -70,11 +70,14 @@ installed one (after a reboot, for example), start it before anything below:
 ```bash
 brew services list | grep '^postgresql'
 brew services start <formula>
-until pg_isready -h localhost -p 5432 -q; do sleep 1; done && echo "postgres ready"
+for try in $(seq 60); do pg_isready -h localhost -p 5432 -q && break; sleep 1; done
+pg_isready -h localhost -p 5432 -q && echo "postgres ready" || echo "postgres not ready after 60 s"
 ```
 
-`<formula>` is the name the first line prints (for example `postgresql@17`). With no Homebrew
-Postgres, go on to Docker below.
+`<formula>` is the name the first line prints (for example `postgresql@17`). The wait stops after
+60 tries of 1 second. On `postgres not ready after 60 s`, read
+`brew services info <formula>` and the log it names, fix the cause, and run the wait again. With
+no Homebrew Postgres, go on to Docker below.
 
 If Postgres already runs locally, create the database (`already exists` on a re-run is fine):
 
@@ -93,7 +96,10 @@ psql -d postgres -c "ALTER ROLE postgres PASSWORD 'postgres'"
 
 Otherwise start one with Docker, with the credentials the connection string expects
 (`postgres` / `postgres` on port 5432). When `docker info` fails because Docker Desktop is not
-running, open it (`open -a Docker`) and wait until `docker info` succeeds.
+running, open it (`open -a Docker`) and wait until `docker info` succeeds, at most 100 seconds
+(`for try in $(seq 50); do docker info >/dev/null 2>&1 && break; sleep 2; done`, then
+`docker info` once more). When it still does not answer, look at Docker Desktop with computer use
+(phase 1 granted it); a macOS password prompt there is a block.
 
 ```bash
 docker run -d --name "<slug>-postgres" \
@@ -109,8 +115,12 @@ On a re-run, a container named `<slug>-postgres` may already exist: `docker star
 instead. Wait until it accepts connections. A running container is not necessarily ready:
 
 ```bash
-until docker exec "<slug>-postgres" pg_isready -U postgres -q; do sleep 1; done && echo "postgres ready"
+for try in $(seq 60); do docker exec "<slug>-postgres" pg_isready -U postgres -q && break; sleep 1; done
+docker exec "<slug>-postgres" pg_isready -U postgres -q && echo "postgres ready" || echo "postgres not ready after 60 s"
 ```
+
+The wait stops after 60 tries of 1 second. On `postgres not ready after 60 s`, read
+`docker logs "<slug>-postgres"`, fix the cause, and run the wait again.
 
 If port 5432 is taken by another Postgres, reuse that server (`createdb "<slug>"`) or map another
 host port and use that port in 3d. Do not run two servers silently.
