@@ -7,6 +7,7 @@ import {
   readConsentFromCookieString,
   serializeConsentCookie,
 } from '@/lib/consent';
+import { createConsentSync } from '@/lib/consent-sync';
 
 const listeners = new Set<() => void>();
 let preferencesOpen = false;
@@ -15,13 +16,35 @@ function notify(): void {
   for (const listener of listeners) listener();
 }
 
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
 function readConsent(): Consent {
   return readConsentFromCookieString(document.cookie);
+}
+
+const syncAnalyticsWithConsent = createConsentSync({
+  read: readConsent,
+  analytics,
+});
+
+// Cookie changes fire no event, so a choice made in another tab is picked up when this tab regains attention.
+function handleRegainedAttention(): void {
+  if (document.visibilityState === 'hidden') return;
+  syncAnalyticsWithConsent();
+  notify();
+}
+
+function subscribe(listener: () => void): () => void {
+  if (listeners.size === 0) {
+    window.addEventListener('focus', handleRegainedAttention);
+    document.addEventListener('visibilitychange', handleRegainedAttention);
+  }
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) {
+      window.removeEventListener('focus', handleRegainedAttention);
+      document.removeEventListener('visibilitychange', handleRegainedAttention);
+    }
+  };
 }
 
 export function setConsent(choice: 'granted' | 'denied'): void {
@@ -29,8 +52,7 @@ export function setConsent(choice: 'granted' | 'denied'): void {
   document.cookie = serializeConsentCookie(choice, {
     secure: window.location.protocol === 'https:',
   });
-  if (choice === 'granted') analytics.start();
-  else analytics.stop();
+  syncAnalyticsWithConsent();
   notify();
 }
 
