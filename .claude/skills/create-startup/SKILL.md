@@ -107,9 +107,11 @@ Read each reference file when you reach it and follow it; don't run ahead. Keep 
 
 **Phase 1 — with the founder, in one sitting** → `references/phase-1-setup.md`
 Briefing, one interview (written to `startup.config.json`, `autumn.config.ts` and the landing
-copy), the founder-only checklist, one blanket consent, `node scripts/preflight.mjs` until
-`PREFLIGHT OK`, then the `/goal` line the founder pastes after switching to bypass permissions
-mode.
+copy), the founder-only checklist, one blanket consent, then the first two ledger steps while the
+founder is present: `repository` (`references/01c-create-repository.md`, no push) and
+`vercel-project` (`references/06-deploy-production.md` 6b, which gives the production URL). Then
+`node scripts/preflight.mjs` until `PREFLIGHT OK`, and the `/goal` line the founder pastes after
+switching to bypass permissions mode.
 
 **Phase 2 — Claude alone** → `references/phase-2-run.md`
 No question to the founder. It runs the reference steps in this order, each closed with
@@ -118,17 +120,17 @@ No question to the founder. It runs the reference steps in this order, each clos
 | id | Reference |
 | --- | --- |
 | `preflight` | `node scripts/preflight.mjs` |
-| `repository` | `references/01c-create-repository.md` |
-| `vercel-project` | `references/06-deploy-production.md` 6b |
 | `local-env` | `references/03-install-and-secrets.md` |
 | `supabase`, `google-oauth`, `posthog`, `smtp`, `autumn`, `dash0` | `references/04-provision-services.md` 4a to 4f |
 | `verify-local` | `references/05-verify-locally.md` |
-| `deploy` | `references/06-deploy-production.md` |
+| `deploy` | `references/06-deploy-production.md` 6d, 6e, 6g, 6i and 6j item 1 only |
 | `smoke-test` | `node scripts/smoke-test.mjs` and the browser check |
 | `report` | the end-of-run report below |
 
-It stops on `SMOKE TEST PASSED` plus `BROWSER CHECK PASSED`, or on a `BLOCKED_ON_FOUNDER:` line
-when a human-only action is needed.
+Phase 2 never runs a real or live charge: the 6j checkout is replaced by the browser check, which
+stops at the Stripe test-mode checkout page. Phase 2 stops on `SMOKE TEST PASSED` plus
+`BROWSER CHECK PASSED`, or on a `BLOCKED_ON_FOUNDER:` line printed after the founder's latest
+`/goal` message, when a human-only action is needed.
 
 **After the run — founder-driven, interactive** → `references/after-the-run.md`
 Going live (company details, the startup's Stripe account and KYC, the live Autumn key), a custom

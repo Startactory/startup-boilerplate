@@ -14,8 +14,9 @@ Order of work:
 3. Run every check of the founder-only checklist. Checks change nothing.
 4. Consent (one message, one "yes").
 5. Work through the failing checklist items, in order.
-6. Preflight until `PREFLIGHT OK`.
-7. Print the `/goal` line and hand over.
+6. The `repository` and `vercel-project` steps, and the production host's permission.
+7. Preflight until `PREFLIGHT OK`.
+8. Print the `/goal` line and hand over.
 
 Say nothing about an item whose check passes. For a returning founder (second startup), most
 items pass and this phase is short.
@@ -36,8 +37,8 @@ One message that tells the founder:
 - **Phase 2 runs in bypass permissions mode**, so no tool approval stops it. What still guards
   it: Claude acts only within the consent given here; it calls the founder only for a human-only
   action (an account, a password, a 2FA code, a CAPTCHA, a payment or card, a KYC, a consent not
-  given here, a deletion, a leaked secret); it never deletes a cloud resource; it uses free plans
-  only (Dash0 excepted); and no secret reaches the transcript.
+  given here, a deletion, a leaked secret, a secret to copy by hand); it never deletes a cloud
+  resource; it uses free plans only (Dash0 excepted); and no secret reaches the transcript.
 - **What stays for later** (`after-the-run.md`): the company, Stripe live and its KYC, a custom
   domain with Resend. Until go-live, production uses the Autumn sandbox: anyone can get past the
   paywall with a Stripe test card. The legal texts are templates to have reviewed before selling
@@ -47,9 +48,10 @@ One message that tells the founder:
 
 First gather what the machine can tell, with no question. Load the Chrome tools in one ToolSearch
 call and read the `chrome-browser` skill, then read the Google account Chrome is signed in to
-(`https://myaccount.google.com`). When `gh` is signed in, run `gh api user -q .login` and
-`gh org list`. When the vault answers, run `node scripts/vault-put.mjs --list-fields master-keys`.
-If `startup.config.json` already exists (an interrupted phase 1), propose its values.
+(`https://myaccount.google.com`): it is the founder's Google identity for the whole run. When `gh`
+is signed in, run `gh api user -q .login` and `gh org list`. When the vault answers, run
+`node scripts/vault-put.mjs --list-fields master-keys`. If `startup.config.json` already exists
+(an interrupted phase 1), propose its values.
 
 **Ask** only what Claude cannot infer:
 
@@ -58,7 +60,8 @@ If `startup.config.json` already exists (an interrupted phase 1), propose its va
 - the Gmail address for SMTP (default: the Google identity), only when `SMTP_USER` is not in the
   master keys;
 - the GitHub owner, only when `gh org list` shows organizations or `gh` is not signed in yet
-  (default: the personal account).
+  (default: the personal account);
+- the Google identity itself, only when Chrome is signed in to none.
 
 **Derive and show for review**, as the reference steps derive them:
 
@@ -79,8 +82,8 @@ follow-up question is allowed only for an asked item the answer leaves empty.
 
 Then write, exactly as steps 1, 1b and 1d do:
 
-- `startup.config.json`, shape below; `domain` is always `""` in a run, and `pricing.source` is
-  `founder` when the founder gave the price;
+- `startup.config.json`, shape below; `domain` is always `""` in a run, `pricing.source` is
+  `founder` when the founder gave the price, and `googleAccount` records the Google identity;
 - `package.json` `name` = the slug;
 - the `pro` plan of `autumn.config.ts` (`01b-set-pricing.md` section 5);
 - `Storefront.hero.headline` and `Storefront.hero.subheadline` in `src/i18n/messages/en.json` and
@@ -95,6 +98,7 @@ Then write, exactly as steps 1, 1b and 1d do:
   "dataRegion": "eu",
   "idea": "Contract review assistant for freelance designers",
   "githubOwner": "ada-lovelace",
+  "googleAccount": "ada@example.com",
   "pricing": {
     "source": "derived",
     "customer": "individual",
@@ -116,8 +120,8 @@ Then write, exactly as steps 1, 1b and 1d do:
 }
 ```
 
-Phase 2 adds `repository` and `productionUrl`. Do not run the profile sync, commit or push here:
-phase 2 does.
+Section 6 adds `repository` and `productionUrl`. Do not run the profile sync here (phase 2 does),
+and do not commit yet (section 6 does).
 
 ## 3. Founder-only checklist
 
@@ -134,9 +138,12 @@ The run needs neither the `supabase` CLI nor `gcloud`.
    of `00-founder-setup.md` item 2.
 2. **Provider accounts and Chrome sessions**: Google, GitHub, Vercel, Supabase, PostHog (the
    region's account), Autumn, Dash0. Check: open each dashboard; a dashboard, not a login page,
-   passes (`00-founder-setup.md` item 4). Action: open the sign-in page and use "Continue with
-   Google" (GitHub for Supabase); the founder acts only for a password, a 2FA code, a CAPTCHA or an
-   account creation. Once per founder: a Supabase organization `startup-factory` on the Free plan,
+   passes (`00-founder-setup.md` item 4). Action: ask the founder once, for all the signed-out
+   providers together, at which of them they already have an account. For a confirmed existing
+   account, open its sign-in page, click "Continue with Google" (GitHub for Supabase) and pick
+   `googleAccount` on the account chooser. For any other provider the founder clicks it and
+   finishes the sign-up: creating an account is theirs. The founder also types any password, 2FA
+   code or CAPTCHA. Once per founder: a Supabase organization `startup-factory` on the Free plan,
    and a Dash0 organization in the region's data location, which the founder creates at sign-up
    (it starts the trial).
 3. **Master keys.** Check: `node scripts/vault-put.mjs --list-fields master-keys` lists
@@ -157,19 +164,22 @@ The run needs neither the `supabase` CLI nor `gcloud`.
    (or `gh auth refresh -s workflow`) in a terminal. If the interview could not check the owner or
    the slug, check them now; when the slug is taken, pick a free variant, update
    `startup.config.json` and `package.json`, and tell the founder.
-7. **Site and app permissions.** Open once in Chrome every site phase 2 drives:
+7. **Vercel GitHub App** (`vercel-project.mjs` Git-connects the repo through it). Check: in Chrome,
+   `https://github.com/settings/installations` (personal owner) or
+   `https://github.com/organizations/<githubOwner>/settings/installations` (organization) lists
+   Vercel. Action: the founder installs it for `githubOwner` from `https://github.com/apps/vercel`,
+   for all repositories (or adds the new repository to its selection right after the `repository`
+   step); for an organization, an organization owner must approve it.
+8. **Site and app permissions.** Open once in Chrome every site phase 2 drives:
    `console.cloud.google.com`, `accounts.google.com`, the Supabase, PostHog, Autumn, Dash0 and
-   Vercel dashboards, `http://localhost:3000`, `https://<slug>.vercel.app` and
-   `checkout.stripe.com`. The founder picks "always allow" for each (if `vercel-project.mjs` later
-   falls back to a suffixed `*.vercel.app` name, Chrome asks again there and phase 2 blocks on
-   it). Then call `request_access`
-   for the native apps phase 2 may drive (Docker Desktop). Never change your own permission
-   settings.
-8. **Vercel CLI.** Check: `vercel whoami` prints the username. Action: `vercel login` as
+   Vercel dashboards, and `checkout.stripe.com`. The founder picks "always allow" for each; the
+   production host and `http://localhost:3000` follow in section 6. Then call `request_access` for
+   the native apps phase 2 may drive (Docker Desktop). Never change your own permission settings.
+9. **Vercel CLI.** Check: `vercel whoami` prints the username. Action: `vercel login` as
    `00-founder-setup.md` item 5 describes (you click "Allow Access"; the founder types a 2FA code
-   if asked). It comes last because its device code expires in minutes and its session must still
-   be valid in phase 2.
-9. **Bypass permissions mode**: section 7, together with the `/goal` line.
+   if asked). It is the last sign-in because its device code expires in minutes and its session
+   must still be valid in phase 2.
+10. **Bypass permissions mode**: section 9, right after the `/goal` line.
 
 ## 4. Consent
 
@@ -180,10 +190,16 @@ answers once:
 - accept the providers' terms of service and CLI consent pages (the founder chose this stack);
 - give OAuth consent and create keys for Google, GitHub, Vercel, Supabase, PostHog, Autumn and
   Dash0;
+- download the two Google `client_secret_*.json` files, which go straight into the vault;
+- enter the founder's email (`googleAccount`) as the Google Auth Platform support and contact
+  email;
 - publish the startup's Google OAuth app (from "Testing" to "In production"), so anyone can sign
   in to the live site;
 - create the cloud projects for this startup, on free plans only, with one exception: the Dash0
   dataset (Dash0 has no free tier: a 14-day trial, then billing per record);
+- change the Autumn organization's default currency to `pricing.currency` when it differs;
+- create the Vercel Git connection and the Vercel deploy hook;
+- set the GitHub Actions secrets and the branch protection of `master`;
 - create the private GitHub repo, push to `master`, merge its own PRs, deploy;
 - during the local browser check and the smoke test, sign in to the app with the founder's Google
   account, create the founder's organization and accept the startup's own terms on the founder's
@@ -195,12 +211,41 @@ at about 500 emails a day), and until go-live any visitor can get past the paywa
 test card.
 
 Never write the consent to a file: it travels in the `/goal` line. If the founder strikes a
-clause, leave it out of the line; phase 2 then blocks where it needs it.
+clause, leave it out of the line; phase 2 then blocks where it needs it and offers the line with
+that clause added, which the founder pastes to consent.
 
-## 5. Preflight
+## 5. Act on the failing items
+
+Work through the failing checklist items in order, items 1 to 9. Re-run each check after its
+action; it must pass before the next item.
+
+## 6. Repository and Vercel project
+
+These two phase 2 steps run here, with the founder present: the Vercel Git connection is easier to
+fix in person, and the production URL is then known, so the founder can allow its exact host.
+Keep their ledger ids. Run `pnpm install` first when `node_modules` is missing: the commit hooks
+and the preflight need it.
+
+1. **`repository`** (`01c-create-repository.md`): the private repo `<githubOwner>/<slug>`, the
+   boilerplate kept as a fetch-only `upstream`, `repository` written to `startup.config.json`, and
+   one commit on `master` of what section 2 wrote (`startup.config.json`, `package.json`,
+   `autumn.config.ts`, the two messages files). Set `origin` without pushing
+   (`gh repo create … --private --source=. --remote=origin`, no `--push`): the first push of
+   `master` is phase 2's `deploy`. Done when `gh repo view "<githubOwner>/<slug>"` answers and
+   `git remote -v` shows `origin` on it. Then `node scripts/run-ledger.mjs done repository`.
+2. **`vercel-project`** (`06-deploy-production.md` 6b): when the Vercel GitHub App is limited to
+   selected repositories, the founder first adds `<githubOwner>/<slug>` to it (item 7). Then
+   `node scripts/providers/vercel-project.mjs`.
+   It creates or reuses the Vercel project `<slug>`, links and Git-connects it, gives it its free
+   domain, and writes `productionUrl` into `startup.config.json` and `"regions"` into
+   `vercel.json`. Success: `OK  Vercel project <slug> <created|reused>, production URL <url>`.
+   Commit both files on `master`, then `node scripts/run-ledger.mjs done vercel-project`.
+3. Open `productionUrl` and `http://localhost:3000` once in Chrome; the founder picks "always
+   allow" for each exact host.
+
+## 7. Preflight
 
 ```bash
-pnpm install    # only when node_modules is missing: the preflight loads valibot
 node scripts/preflight.mjs
 ```
 
@@ -214,25 +259,25 @@ It prints `OK  <name>` or `MISSING  <name>: <fix>` per check, then `PREFLIGHT OK
 | `vault` | item 1 |
 | `master-keys` | items 3 and 4 |
 | `gh-session` | item 6 |
-| `vercel-session` | item 8 |
+| `vercel-session` | item 9 |
 | `supabase-quota` | `startup-factory` already has 2 other active projects: the founder pauses or deletes one (never you) |
-| `github-repo` | another slug, as in item 6 |
+| `github-repo` | the repository exists and is not this startup's: another slug, as in item 6, then section 6 again |
 | `dash0` | the Dash0 trial ended or the token was revoked: the founder renews the subscription, or item 3 replaces the token |
 
-## 6. The `/goal` line
+## 8. The `/goal` line
 
 Fill the placeholders (`<slug>`, `<name>`, `<owner>`) and change nothing else, except leaving out
 a clause the founder struck. Print it alone in a code block so the founder copies it whole. It
-must stay under 4,000 characters; filled with long values it is about 1,200.
+must stay under 4,000 characters; filled with long values it is about 1,500.
 
 ```text
-/goal Run phase 2 of the create-startup skill for <slug> (.claude/skills/create-startup/SKILL.md, startup.config.json) without asking me anything. I consent to: install the missing tools; accept the providers' terms of service and CLI consent pages; give OAuth consent and create keys for Google, GitHub, Vercel, Supabase, PostHog, Autumn and Dash0; publish the <name> Google OAuth app to "In production" so anyone can sign in; create this startup's cloud projects on free plans only, except the Dash0 dataset (14-day trial, then billed per record); create the private GitHub repo <owner>/<slug>, push to master, merge your own PRs and deploy; during the local browser check and the smoke test, sign in to the app with my Google account, create my organization and accept the startup's terms on my behalf. Done when scripts/smoke-test.mjs printed "SMOKE TEST PASSED" for the production URL and the browser check printed "BROWSER CHECK PASSED", or when you printed a line starting with "BLOCKED_ON_FOUNDER:", or after 200 turns.
+/goal Run phase 2 of the create-startup skill for <slug> (.claude/skills/create-startup/SKILL.md, startup.config.json) without asking me anything. I consent to: install the missing tools; accept the providers' terms of service and CLI consent pages; give OAuth consent and create keys for Google, GitHub, Vercel, Supabase, PostHog, Autumn and Dash0; download the two Google client_secret JSON files into the vault; enter my email as the Google Auth Platform support and contact email; publish the <name> Google OAuth app to "In production" so anyone can sign in; create this startup's cloud projects on free plans only, except the Dash0 dataset (14-day trial, then billed per record); change the Autumn organization's default currency to match the pricing; create the Vercel Git connection and deploy hook; set the GitHub Actions secrets and branch protection; create the private GitHub repo <owner>/<slug>, push to master, merge your own PRs and deploy; during the local browser check and the smoke test, sign in to the app with my Google account, create my organization and accept the startup's terms on my behalf. Done when scripts/smoke-test.mjs printed "SMOKE TEST PASSED" for the production URL and the browser check printed "BROWSER CHECK PASSED", or when you printed a line starting with "BLOCKED_ON_FOUNDER:" after my most recent message that set this goal, or after 200 turns.
 ```
 
 The pasted line is the founder's own message, so it is the consent in every phase 2 session, a
 resumed one included. Nothing standing is stored in the repo.
 
-## 7. Hand over
+## 9. Hand over
 
 In the same message as the `/goal` line, tell the founder, in this order:
 

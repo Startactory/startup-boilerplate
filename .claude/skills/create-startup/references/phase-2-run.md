@@ -16,9 +16,12 @@ phase 1: every answer is in `startup.config.json`.
 - The rules of `SKILL.md` hold: no secret in the transcript, an argument or printed output; never
   create an account, type a password or solve a CAPTCHA.
 - Check a Chrome session right before the step that drives that site: a login page means signing
-  in again with "Continue with Google"; a password, 2FA or CAPTCHA prompt is a block.
+  in again with "Continue with Google", picking `googleAccount` (the Google identity recorded in
+  phase 1) on the account chooser; a password, 2FA or CAPTCHA prompt is a block.
 - Until the first push (step `deploy`), commit on `master`. After it, every change goes through a
   branch and a PR that you merge: the pre-push hook refuses direct pushes to `master`.
+- Phase 2 never runs a real or live charge: payments stay in Stripe test mode, and the browser
+  check stops at the checkout page.
 
 ## Start (every session)
 
@@ -28,17 +31,20 @@ phase 1: every answer is in `startup.config.json`.
    block. Then `node scripts/run-ledger.mjs done preflight`.
 2. `node scripts/run-ledger.mjs status` prints `done <id>` per finished step, and
    `blocked <action>` after a block. On a `blocked` line this is a resume: check the action is now
-   done (the session works, the page passes), run `node scripts/run-ledger.mjs resume` (prints
-   `OK  block cleared`) and go on. If the action is still not done, block again with it.
-3. Skip every step listed as done and run the rest in this order.
+   done. For a consent block, the missing clause must be in the `/goal` line the founder just
+   pasted; for any other, the session works or the page passes. Then run
+   `node scripts/run-ledger.mjs resume` (prints `OK  block cleared`) and go on. If the action is
+   still not done, block again with it.
+3. Skip every step listed as done and run the rest in this order. Phase 1 already ran
+   `repository` and `vercel-project`, so a normal run starts at `local-env`.
 
 ## Steps
 
 | # | id | Reference |
 | --- | --- | --- |
 | 1 | `preflight` | Start, above |
-| 2 | `repository` | `01c-create-repository.md` |
-| 3 | `vercel-project` | `06-deploy-production.md` 6b |
+| 2 | `repository` | done in phase 1 (`phase-1-setup.md` section 6) |
+| 3 | `vercel-project` | done in phase 1 (`phase-1-setup.md` section 6) |
 | 4 | `local-env` | `03-install-and-secrets.md` |
 | 5 | `supabase` | `04-provision-services.md` 4a |
 | 6 | `google-oauth` | `04-provision-services.md` 4b |
@@ -47,22 +53,16 @@ phase 1: every answer is in `startup.config.json`.
 | 9 | `autumn` | `04-provision-services.md` 4e |
 | 10 | `dash0` | `04-provision-services.md` 4f |
 | 11 | `verify-local` | `05-verify-locally.md` |
-| 12 | `deploy` | `06-deploy-production.md` 6c to 6j |
+| 12 | `deploy` | `06-deploy-production.md` 6d, 6e, 6g, 6i and 6j item 1 |
 | 13 | `smoke-test` | Smoke test, below |
 | 14 | `report` | "End-of-run report" in `SKILL.md` |
 
+When the ledger lacks `repository` or `vercel-project` (a lost ledger), run it as
+`phase-1-setup.md` section 6 says; a Chrome permission prompt for the production host is then a
+block.
+
 What each step does, and where it differs from its reference:
 
-- **`repository`**: the private repo `<githubOwner>/<slug>`, the boilerplate kept as a fetch-only
-  `upstream`, `repository` written to `startup.config.json`, and one commit of what phase 1 wrote
-  (`startup.config.json`, `package.json`, `autumn.config.ts`, the two messages files). Set
-  `origin` without pushing (`gh repo create … --private --source=. --remote=origin`, no `--push`):
-  the first push of `master` is in `deploy`. Done when `gh repo view "<githubOwner>/<slug>"`
-  answers and `git remote -v` shows `origin` on it.
-- **`vercel-project`**: `node scripts/providers/vercel-project.mjs`. It creates or reuses the
-  Vercel project `<slug>`, links and Git-connects it, gives it its free domain, and writes
-  `productionUrl` into `startup.config.json` and `"regions"` into `vercel.json`. Success:
-  `OK  Vercel project <slug> <created|reused>, production URL <url>`. Commit both files.
 - **`local-env`**: 3a to 3f. Commit the two files `node scripts/sync-startup-profile.mjs` writes.
 - **`supabase`**: no MCP and no cost step; the script creates on the Free plan only.
 
@@ -75,8 +75,8 @@ What each step does, and where it differs from its reference:
   The first prints `OK  Supabase project <ref> <created|reused> in <region>` (it waits for
   `ACTIVE_HEALTHY`; after its timeout, run it again: it reuses the project). The last prints
   `OK  database password created, DATABASE_URL stored in startup-<slug>/production`.
-- **`google-oauth`**: one pass. Create both web clients: `<name> (local)` with
-  `http://localhost:3000/auth/callback/google`, and `<name>` with
+- **`google-oauth`**: one pass. The support and contact email is `googleAccount`. Create both web
+  clients: `<name> (local)` with `http://localhost:3000/auth/callback/google`, and `<name>` with
   `<productionUrl>/auth/callback/google`. Import each Download JSON into its item. Then publish the
   app (Audience, from "Testing" to "In production"); when Google requires a home page and a privacy
   policy, give `<productionUrl>` and `<productionUrl>/legal/privacy`. No test users are needed.
@@ -104,12 +104,16 @@ What each step does, and where it differs from its reference:
   3. `node scripts/push-env-to-vercel.mjs --file .env.prod`, then the same with `--apply` (6g);
   4. `node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/DATABASE_URL`
      (6g), so the first CI run is green;
-  5. `git push -u origin master`, the first push: it runs CI, the migration and the deploy; follow
-     it with `gh run watch` until Vercel promotes the build (6j);
+  5. `git push -u origin master`, the first push: it runs CI and its `migrate` job, then
+     `production.yml` calls the deploy hook (6j item 1). Follow each run without a prompt: take the
+     id with `gh run list --branch master --limit 1 --json databaseId -q '.[0].databaseId'`
+     (add `--workflow production.yml` for the deploy run, once CI is done), then
+     `gh run watch <id> --exit-status`;
   6. branch protection (6i); a 403 goes in the report.
 
-  Skip 6a (the URL is `productionUrl`), 6f (go-live, in `after-the-run.md`) and 6h (both Google
-  redirect URIs exist already).
+  Skip the rest of 06: 6a (the URL is `productionUrl`), 6b (phase 1), 6f (go-live, in
+  `after-the-run.md`), 6h (both Google redirect URIs exist already) and 6j item 2, whose real
+  checkout the smoke test below replaces.
 
 ## Smoke test
 
@@ -145,7 +149,9 @@ passed`, and `node scripts/run-ledger.mjs done report`.
    - complete a KYC;
    - give a consent that the saved consent does not cover;
    - delete a cloud resource;
-   - a secret reached the transcript or printed output (the founder decides on revoking it).
+   - a secret reached the transcript or printed output (the founder decides on revoking it);
+   - copy a secret by hand when Claude cannot copy it without seeing it (for example a Google
+     client secret when the console offers no Download JSON).
 3. **No deletion.** A one-time key that was lost is replaced by a new key; the old one stays, and
    the final report lists it for cleanup (provider, key name).
 
@@ -157,10 +163,15 @@ When an item of the closed list stops the run:
    `BLOCKED_ON_FOUNDER: <action>`.
 2. Send a push notification (`PushNotification`) with the exact action, under 200 characters.
 3. Print, as the last line of the turn:
-   `BLOCKED_ON_FOUNDER: <action>. When done, paste: <the /goal line>`, with the `/goal` line exactly
-   as the founder pasted it.
-4. End the turn. That line meets the `/goal` condition, so the loop stops instead of spinning.
+   `BLOCKED_ON_FOUNDER: <action>. When done, paste: <the /goal line>`, with the `/goal` line the
+   founder last pasted.
+4. End the turn. That line comes after the founder's latest `/goal` message, so it meets the
+   `/goal` condition and the loop stops instead of spinning. An older block line does not count.
 
 `<action>` says exactly what to do and where, for example
-`sign in to Autumn in Chrome and enter the 2FA code`. The founder's paste of the same line resumes
-the run (Start, step 2).
+`sign in to Autumn in Chrome and enter the 2FA code`. The founder's paste of the line resumes the
+run (Start, step 2).
+
+For a missing consent, `<action>` is `consent to <clause>`, and the line to paste is the founder's
+last `/goal` line with `; <clause>` added at the end of its consent list, before `Done when`. It
+must stay under 4,000 characters. Pasting that line is the founder's consent.
