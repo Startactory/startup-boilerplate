@@ -82,6 +82,22 @@ describe('provisionDash0', () => {
     );
   });
 
+  it('sends a versioned resource for the ingest token', async () => {
+    const s = setup();
+    await run(s);
+    const tokenPut = s.fetch.mock.calls.find(
+      ([url, init]) =>
+        url.includes('/api/auth-tokens/') && init.method === 'PUT',
+    );
+    const body = JSON.parse(
+      (tokenPut?.[1] as unknown as { body: string }).body,
+    );
+    expect(body).toMatchObject({
+      apiVersion: 'dash0.com/v1alpha1',
+      kind: 'Dash0AuthToken',
+    });
+  });
+
   it('is idempotent on re-run', async () => {
     const s = setup({
       production: new Map([['OTEL_EXPORTER_OTLP_HEADERS', 'x=y']]),

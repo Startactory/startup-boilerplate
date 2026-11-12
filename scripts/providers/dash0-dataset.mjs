@@ -28,6 +28,7 @@ async function putIngestToken({ call, baseUrl, slug, origin }) {
     method: 'PUT',
     url: `${baseUrl}/api/auth-tokens/${origin}`,
     body: {
+      apiVersion: 'dash0.com/v1alpha1',
       kind: 'Dash0AuthToken',
       metadata: {
         name: `${slug} ingest`,

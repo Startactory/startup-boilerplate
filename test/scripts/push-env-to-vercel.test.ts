@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { main, resolveEnvValues } from '../../scripts/push-env-to-vercel.mjs';
+import {
+  main,
+  pushEnv,
+  resolveEnvValues,
+} from '../../scripts/push-env-to-vercel.mjs';
 import { OpError } from '../../scripts/vault/op.mjs';
 
 const REFERENCE_FILE =
@@ -11,6 +15,73 @@ function fakeFs(files: Record<string, string>) {
     readFileSync: (path: string) => files[path] ?? '',
   };
 }
+
+describe('pushEnv', () => {
+  function recordingRun(stderrFor: Record<string, string> = {}) {
+    const calls: string[][] = [];
+    const run = (_command: string, args: string[]) => {
+      calls.push(args);
+      const key = args[2] ?? '';
+      if (args[1] === 'add' && stderrFor[key]) {
+        return { status: 1, stderr: stderrFor[key] };
+      }
+      return { status: 0, stderr: '' };
+    };
+    return { calls, run };
+  }
+
+  it('passes the environment with --environment', () => {
+    const { calls, run } = recordingRun();
+    pushEnv({
+      values: new Map([['DATABASE_URL', 'postgres://x']]),
+      target: 'production',
+      run,
+    });
+    expect(calls).toEqual([
+      ['env', 'rm', 'DATABASE_URL', '--environment', 'production', '--yes'],
+      ['env', 'add', 'DATABASE_URL', '--environment', 'production'],
+    ]);
+  });
+
+  it('marks NEXT_PUBLIC_ variables as public config', () => {
+    const { calls, run } = recordingRun();
+    pushEnv({
+      values: new Map([['NEXT_PUBLIC_POSTHOG_KEY', 'phc_x']]),
+      target: 'production',
+      run,
+    });
+    expect(calls[1]).toEqual([
+      'env',
+      'add',
+      'NEXT_PUBLIC_POSTHOG_KEY',
+      '--environment',
+      'production',
+      '--type',
+      'config',
+    ]);
+  });
+
+  it('reports the message of a JSON error from the CLI', () => {
+    const { run } = recordingRun({
+      DATABASE_URL:
+        '! some warning\n{\n  "status": "error",\n  "message": "Project not found (404)"\n}\n',
+    });
+    const errors: string[] = [];
+    const original = console.error;
+    console.error = (line: string) => errors.push(line);
+    try {
+      const result = pushEnv({
+        values: new Map([['DATABASE_URL', 'postgres://x']]),
+        target: 'production',
+        run,
+      });
+      expect(result).toEqual({ ok: 0, failed: 1 });
+    } finally {
+      console.error = original;
+    }
+    expect(errors).toEqual(['  FAILED  DATABASE_URL: Project not found (404)']);
+  });
+});
 
 describe('push-env-to-vercel', () => {
   it('resolves references through op inject', () => {

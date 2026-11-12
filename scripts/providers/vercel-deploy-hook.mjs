@@ -42,7 +42,7 @@ function findExistingUrl({ run, project }) {
   ]);
   if (result.status !== 0) {
     if (UNKNOWN_COMMAND_PATTERN.test(result.stderr)) {
-      throw new Error('update the Vercel CLI: pnpm add -g vercel@latest');
+      throw new Error('update the Vercel CLI: npm i -g vercel@latest');
     }
     throw new Error('vercel deploy-hooks list failed');
   }

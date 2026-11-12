@@ -71,7 +71,7 @@ node scripts/providers/vercel-deploy-hook.mjs --project <vercel-project>
 The Vercel project must be Git-connected (6b) and the Vercel CLI signed in. The hook URL is a
 bearer credential: it never appears in your output or in argv. Success prints names and statuses
 only. Verify with `gh secret list` (names only). If it errors, read the message: `update the
-Vercel CLI: pnpm add -g vercel@latest` means the Vercel CLI is too old to manage deploy hooks, and a missing Git connection
+Vercel CLI: npm i -g vercel@latest` means the Vercel CLI is too old to manage deploy hooks, and a missing Git connection
 means go back to 6b. If the hook ever leaks, delete it in **Project → Settings → Git → Deploy
 Hooks** and re-run the script.
 

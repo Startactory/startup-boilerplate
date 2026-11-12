@@ -27,7 +27,7 @@ Check each tool; install only what is missing, and ask the founder before each i
 | Check | If it fails, ask, then run | Success |
 | --- | --- | --- |
 | `command -v op` | `brew install --cask 1password-cli` | prints a path |
-| `command -v vercel`, then `vercel deploy-hooks --help` | `pnpm add -g vercel@latest` | prints a path, and the help text appears (an older CLI does not know `deploy-hooks`: update it) |
+| `command -v vercel`, then `vercel deploy-hooks --help` | `npm i -g vercel@latest` (`pnpm add -g` fails when the pnpm global bin is not in `PATH`) | prints a path, and the help text appears (an older CLI does not know `deploy-hooks`: update it) |
 | `command -v supabase` | `brew install supabase/tap/supabase` | prints a path |
 
 Also confirm `gh` and `gcloud` exist (`command -v gh`, `command -v gcloud`); item 5 uses them. If one
@@ -96,8 +96,25 @@ in the other region adds that region's accounts later.
 (not a login page) passes. Use narrow `find` queries ("Sign in", "Continue with Google") to tell.
 
 **If signed out:** open the sign-in page and ask the founder to click "Continue with Google" (GitHub
-for Supabase) and finish any consent or CAPTCHA themselves. When they say it is done, reload the
-dashboard and confirm the session. You never create the account or type credentials.
+for Supabase) and finish any CAPTCHA, phone or 2FA step themselves. When they say it is done, reload
+the dashboard and confirm the session. You never create the account or type credentials. Check the
+signed-in address on each dashboard: a provider that needs a phone number the founder already used
+elsewhere (Vercel, for example) may be on another of the founder's accounts, which is fine once they
+confirm it.
+
+**Ask once, up front,** whether you may accept each provider's terms of service and the CLI consent
+pages on the founder's behalf (they chose this stack, so they know these providers). With that yes,
+tick the terms box on a sign-up's legal-consent page (Dash0 shows one after Google sign-in) and click
+"Authorize" / "Allow Access" on the CLI consent pages below. Without it, the founder clicks them.
+
+**Then set each account up**, once per founder:
+
+- **Supabase:** an organization on the **Free** plan (`dashboard/new`: name `startup-factory`, plan
+  "Free - $0/month"). Startups are projects in it; Free allows 2 active projects.
+- **Dash0:** one organization per region, created in the region's data storage location
+  (`data-region.md`). New Dash0 organizations start on a 14-day trial, then need a subscription:
+  tell the founder.
+- **PostHog:** nothing; each startup gets its own organization from `posthog-projects.mjs`.
 
 Stripe is only connected to Autumn later; here the account just has to exist.
 
@@ -106,13 +123,18 @@ Stripe is only connected to Autumn later; here the account just has to exist.
 | Check | If it fails | Success |
 | --- | --- | --- |
 | `gh auth status` | founder runs `gh auth login` | logged in to github.com |
-| `vercel whoami` | founder runs `vercel login` | prints the username |
-| `supabase projects list` | founder runs `supabase login` | prints a table (possibly empty) |
+| `vercel whoami` | `vercel login` in a Claude terminal tab | prints the username |
 | `gcloud auth list` | founder runs `gcloud auth login` | an active account |
 
-The login commands open a browser; the founder runs them (a Claude terminal tab is fine here: these
-do not need the 1Password integration) and finishes the browser step. Re-run the check afterwards. No
-Vercel token goes in the vault: later steps use the `vercel login` session.
+`vercel login` prints a device URL (`vercel.com/oauth/device?user_code=…`). Open it in Chrome, check
+the signed-in account, and click "Allow Access" (with the up-front yes). Vercel may then ask for the
+founder's 2FA code: the founder types it. The device code expires after a few minutes; if the
+command has exited, run it again. No Vercel token goes in the vault: later steps use the
+`vercel login` session.
+
+There is no `supabase login`: the Supabase CLI and scripts use `SUPABASE_ACCESS_TOKEN` from the
+master keys (`node scripts/with-vault.mjs run -- supabase …` with
+`SUPABASE_ACCESS_TOKEN=op://startup-founder/master-keys/SUPABASE_ACCESS_TOKEN`).
 
 ## 6. Master keys (and SMTP)
 
@@ -132,8 +154,8 @@ rows for the founder's region `<R>` (`EU` or `US`).
 | Field | Where (dashboard path) | Permission |
 | --- | --- | --- |
 | `RESEND_FULL_ACCESS_API_KEY` | Resend → API Keys → Create | Full access |
-| `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Access Tokens | (personal token) |
-| `POSTHOG_PERSONAL_API_KEY_<R>` | PostHog (region account) → Settings → Personal API keys | `organization:read`, `project:read`, `project:write` |
+| `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Access Tokens → Generate new token | expires Never, resource access "Organization" = `startup-factory`, preset "Full access" |
+| `POSTHOG_PERSONAL_API_KEY_<R>` | PostHog (region account) → Settings → Personal API keys | expires Never, all access, scopes `organization:write` and `project:write` (each startup gets its own organization) |
 | `DASH0_AUTH_TOKEN_<R>` | Dash0 (region org) → Settings → Auth Tokens | all actions, no dataset restriction (managing tokens requires it) |
 | `DASH0_API_URL_<R>`, `DASH0_OTLP_ENDPOINT_<R>` | Dash0 → Organization Settings → Endpoints | not secret |
 

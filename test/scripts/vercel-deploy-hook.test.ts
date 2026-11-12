@@ -96,7 +96,7 @@ describe('provisionDeployHook', () => {
     });
     expect(() =>
       provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' }),
-    ).toThrow('update the Vercel CLI: pnpm add -g vercel@latest');
+    ).toThrow('update the Vercel CLI: npm i -g vercel@latest');
     expect(op.writeFields).not.toHaveBeenCalled();
   });
 

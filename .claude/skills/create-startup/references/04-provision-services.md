@@ -147,11 +147,14 @@ is already signed in to Google (step 0). Ask the founder's go-ahead before start
 Chrome:
 
 1. https://console.cloud.google.com → create a project named after the startup.
-2. **APIs & Services → OAuth consent screen** → External → app name (startup name), support email,
-   developer email. Add scopes `.../auth/userinfo.email` and `.../auth/userinfo.profile` (the code
-   requests these). While the app is in "Testing", add the founder's Google account as a test
-   user.
-3. **Credentials → Create credentials → OAuth client ID → Web application**, twice:
+2. **Google Auth Platform → Get started** (`console.cloud.google.com/auth/overview`): app name
+   (startup name), user support email (the founder), audience **External**, contact email (the
+   founder), tick the Google API Services User Data Policy (covered by the step 0 up-front yes),
+   **Create**. Then **Data Access** → add scopes `.../auth/userinfo.email` and
+   `.../auth/userinfo.profile` (the code requests these), and **Audience → Test users** → add the
+   founder's Google account while the app is in "Testing". If the Google Cloud console first shows
+   its own terms dialog, tick it (same up-front yes) and keep the founder's real country.
+3. **Clients → Create client → Application type: Web application**, twice:
    - `<name> (local)` with redirect URI `http://localhost:3000/auth/callback/google`
    - `<name>` with redirect URI `https://<prod-domain>/auth/callback/google` when
      `startup.config.json` has the domain. If it does not, create the client with no production
@@ -172,16 +175,15 @@ Chrome:
    off): read it. On error it prints `kept <path> — fix the error and re-run`; the file stays so you
    can retry. "Not a web client" means the wrong client type was created.
 
-   Fallback when no Download JSON button is offered: click each Copy button (`find "Copy client
-   ID"`, `find "Copy client secret"`) and run, one field per copy:
+   **Never search for the Copy buttons on this dialog.** Their accessible names contain the client
+   ID and the secret ("Copy to clipboard: GOCSPX-…"), so any `find` or `read_page` that matches
+   them puts the secret in the transcript. `find "Download JSON"` is safe (checked live).
 
-   ```bash
-   node scripts/vault-put.mjs --from-clipboard local GOOGLE_CLIENT_ID
-   node scripts/vault-put.mjs --from-clipboard local GOOGLE_CLIENT_SECRET
-   ```
-
-   Repeat with `production` for the other client. Copy the ID first, then the secret; a client ID
-   in the secret slot (or the reverse) is rejected by validation.
+   Fallback when no Download JSON button is offered: ask the founder to click the client secret's
+   Copy button themselves, then run `node scripts/vault-put.mjs --from-clipboard <env> GOOGLE_CLIENT_SECRET`;
+   the same for the client ID with `GOOGLE_CLIENT_ID`. A client ID in the secret slot (or the
+   reverse) is rejected by validation. If a secret did reach the transcript, delete that client
+   (ask first) and create a new one.
 
 (Microsoft OAuth is optional and left as a TODO — the code enables it automatically if
 `MICROSOFT_CLIENT_ID/SECRET` are set; redirect URI `/auth/callback/microsoft`.)
@@ -199,14 +201,18 @@ EU startup never lands in a US account.
 node scripts/providers/posthog-projects.mjs
 ```
 
-It creates (or reuses) two projects, `<name> (local)` and `<name>`, so local events stay out of
-production analytics, and stores each project's `phc_…` key in the matching item. Success prints
-`OK  PostHog local <state>, production <state>, stored in startup-<slug>/local and startup-<slug>/production`.
-It is idempotent: re-running reuses the projects.
+Each startup gets its **own PostHog organization**, named `<name>`: the free plan allows one project
+per organization, and a separate organization keeps the startup's usage and billing apart. The
+script creates (or reuses) that organization, turns its bootstrap "Default project" into the
+production project `<name>`, then tries a `<name> (local)` project so local events stay out of
+production analytics. It stores each project's `phc_…` key in the matching item. Success prints
+`OK  PostHog organization <state>, production <state>, local <state>, stored in startup-<slug>/production`
+(plus `and startup-<slug>/local` when the local project exists). It is idempotent: re-running reuses
+the organization and the projects.
 
-If the PostHog plan limits the number of projects, the local project is skipped with a warning and
-only production is created. Local analytics are then a clean no-op (the key stays empty), which is
-fine. A missing master key means step 0 is incomplete.
+On the free plan the local project is refused, so it is skipped with a warning. Local analytics are
+then a clean no-op (the key stays empty), which is fine. A missing master key, or an error naming a
+missing scope, means step 0 is incomplete (the key needs `organization:write` and `project:write`).
 
 ---
 
@@ -267,23 +273,26 @@ first, then return here.
 1. **Create the Autumn organization.** Claude in Chrome, signed in to Autumn (step 0): create an
    organization named after the startup. It is a separate org per startup; there is no secret on
    that page.
-2. **Log in the CLI.** Run `pnpm dlx atmn login`. It opens an OAuth page: ask the founder to
-   approve it and pick the startup's org, then wait for the command to finish. The CLI writes the
-   keys to `.env`.
-3. **Move the keys into the vault.**
+2. **Log in the CLI and move the keys into the vault.** Run in the background:
 
    ```bash
-   node scripts/vault-import-autumn-keys.mjs
+   node scripts/providers/autumn-login.mjs
    ```
 
-   It validates the keys, stores the sandbox key in `startup-<slug>/local` and a production key
-   (if `atmn` returned one) in `startup-<slug>/production`, removes the production key from `.env`,
-   and regenerates both files. Success prints
+   It runs `atmn login` in a throwaway directory (so `atmn` never asks to overwrite `.env`) and
+   prints `OPEN  <url>` instead of opening a browser. Open that URL in Chrome, check that the
+   organization selector shows the startup's org, and click "Authorize" (with the up-front yes from
+   step 0). The script then validates the keys, stores the sandbox key in `startup-<slug>/local`
+   and the production key in `startup-<slug>/production`, deletes the throwaway directory, and
+   regenerates both env files. Success prints
    `OK  Autumn sandbox key stored in startup-<slug>/local, production key <stored|not found> in startup-<slug>/production`.
-   Failures: "no Autumn keys in .env" means step 2 did not finish; "… is a live key — run atmn
-   login again and pick the sandbox" means the wrong environment was chosen; "no 1Password item …"
-   means run 3c and 4a step 4 first.
-4. **Push the product/pricing config** to Autumn's sandbox:
+   Failures: "atmn login never opened a browser" or "atmn login failed" mean run it again (the
+   consent page expires after a few minutes); "… is a live key" means the wrong environment was
+   chosen; "no 1Password item …" means run 3c and 4a step 4 first.
+
+   If the founder ran `atmn login` by hand instead, `node scripts/vault-import-autumn-keys.mjs`
+   moves the keys it wrote to `.env` into the vault.
+3. **Push the product/pricing config** to Autumn's sandbox:
 
    ```bash
    pnpm dlx atmn push --yes
@@ -291,7 +300,7 @@ first, then return here.
 
    The products/plans live in `autumn.config.ts`; Step 1b already set the `pro` price and trial.
    To change the pricing, go back to `references/01b-set-pricing.md`.
-5. **Test mode only for now.** The Autumn sandbox comes with its own test Stripe account, so you
+4. **Test mode only for now.** The Autumn sandbox comes with its own test Stripe account, so you
    connect nothing and add no Stripe key to this app (Autumn manages the Stripe webhooks). Live
    Stripe and the production key are Step 6.
 

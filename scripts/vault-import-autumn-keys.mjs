@@ -32,9 +32,10 @@ export function importAutumnKeys({
   op,
   fs = nodeFs,
   vault,
+  envPath = ENV_FILE_FOR_ENVIRONMENT.local,
   syncEnv = syncEnvFile,
 }) {
-  const env = parseEnv(fs.readFileSync(ENV_FILE_FOR_ENVIRONMENT.local, 'utf8'));
+  const env = parseEnv(fs.readFileSync(envPath, 'utf8'));
   const sandboxKey = env.get(SANDBOX_VARIABLE) || undefined;
   const productionKey = env.get(PRODUCTION_VARIABLE) || undefined;
   if (!sandboxKey && !productionKey) {

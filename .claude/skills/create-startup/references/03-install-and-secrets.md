@@ -146,7 +146,7 @@ parts are fully automatic and which ask for one click.
 | `NEXT_PUBLIC_POSTHOG_KEY` (4c) | PostHog API: two projects, `<name> (local)` and `<name>` | none |
 | `RESEND_API_KEY` (4d) | Resend API: two sending-only keys (needs a domain in Resend); otherwise SMTP from the vault | none |
 | SMTP credentials (4d) | copied from `startup-founder/master-keys` | none (the Gmail app password was created in step 0) |
-| `AUTUMN_SECRET_KEY` (4e) | `atmn login`, then moved from `.env` to the vault | approve the Autumn login |
+| `AUTUMN_SECRET_KEY` (4e) | `scripts/providers/autumn-login.mjs` runs `atmn login` and stores the keys | nothing (Claude approves the consent page) |
 | `OTEL_EXPORTER_OTLP_*` (4f) | Dash0 API: dataset `<slug>` and a dataset-scoped ingest token | none |
 
 ## 3f. Sanity check
