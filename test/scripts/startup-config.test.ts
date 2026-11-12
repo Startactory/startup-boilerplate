@@ -48,10 +48,22 @@ describe('validateRunConfig', () => {
       ...validConfig(),
       repository: 'ada/acme',
       productionUrl: 'https://acme.vercel.app',
+      googleCloudProject: 'acme-473215',
       createdStep: '3',
       extra: true,
     };
     expect(validateRunConfig(config)).toEqual({ ok: true });
+  });
+
+  it.each([
+    'Acme-473215',
+    '1acme-473215',
+    'acme-',
+    'acme',
+  ])('reports a Google Cloud project ID that Google refuses: %s', (googleCloudProject) => {
+    expect(issuesOf({ ...validConfig(), googleCloudProject })).toEqual([
+      expect.stringMatching(/^googleCloudProject:/),
+    ]);
   });
 
   it('reports a missing idea', () => {

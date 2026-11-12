@@ -89,6 +89,15 @@ export const RunConfig = v.looseObject({
       ),
     ),
   ),
+  googleCloudProject: v.optional(
+    v.pipe(
+      text,
+      v.regex(
+        /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/,
+        'must be a Google Cloud project ID (6-30 lowercase letters, digits or hyphens, starting with a letter)',
+      ),
+    ),
+  ),
   createdStep: v.optional(v.unknown()),
 });
 
