@@ -95,7 +95,8 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=6144
 
   migrate:
-    if: github.event_name == 'push'
+    # the boilerplate itself has no database; each startup repo made from it does
+    if: github.event_name == 'push' && github.repository != 'Startactory/startup-boilerplate'
     needs: [test, type-check]
     runs-on: ubuntu-latest
     timeout-minutes: 10

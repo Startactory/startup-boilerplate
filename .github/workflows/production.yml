@@ -9,7 +9,8 @@ on:
 
 jobs:
   deploy:
-    if: github.event.workflow_run.event == 'push'
+    # the boilerplate itself has no deployment; each startup repo made from it does
+    if: github.event.workflow_run.event == 'push' && github.repository != 'Startactory/startup-boilerplate'
     runs-on: ubuntu-latest
 
     concurrency:
