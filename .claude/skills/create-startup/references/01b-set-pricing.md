@@ -127,6 +127,11 @@ Autumn sandbox, and Step 6 pushes it to production.
 Once saved, tell the founder the pricing is final (they can change it any time by editing
 `autumn.config.ts` and running `pnpm dlx atmn push`) and move to Step 1c.
 
+**Changing the price later.** The terms of sale show the price, the trial and the currency. On any
+change to `price`, `trialDays` or `currency`, also bump `legal.termsVersion` in
+`startup.config.json` to today's date and re-run `node scripts/sync-startup-profile.mjs`, so
+customers accept the new terms. Tell the founder this when they ask to change the price.
+
 ---
 
 Pricing rules adapted from the `pricing` skill in
