@@ -13,11 +13,10 @@
   },
   "Onboarding": {
     "title": "Create your organization",
-    "subtitle": "Enter your organization name and the early-access code you received.",
+    "subtitle": "Enter your organization name to get started.",
     "orgName": "Organization name",
-    "code": "Early-access code",
     "submit": "Continue",
-    "invalidCode": "Invalid or already-used code.",
+    "invalidOrgName": "The organization name must be between 2 and 100 characters.",
     "unknownError": "Something went wrong. Please try again."
   },
   "Paywall": {

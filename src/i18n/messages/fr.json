@@ -13,11 +13,10 @@
   },
   "Onboarding": {
     "title": "Créez votre organisation",
-    "subtitle": "Saisissez le nom de votre organisation et le code d'accès anticipé reçu.",
+    "subtitle": "Saisissez le nom de votre organisation pour commencer.",
     "orgName": "Nom de l'organisation",
-    "code": "Code d'accès anticipé",
     "submit": "Continuer",
-    "invalidCode": "Code invalide ou déjà utilisé.",
+    "invalidOrgName": "Le nom de l'organisation doit contenir entre 2 et 100 caractères.",
     "unknownError": "Une erreur est survenue. Veuillez réessayer."
   },
   "Paywall": {

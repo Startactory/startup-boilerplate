@@ -21,7 +21,6 @@ const RULES = {
   SMTP_FROM_EMAIL: { email: true },
   SMTP_PASS: { minLength: 8 },
   BETTER_AUTH_SECRET: { minLength: 32 },
-  EARLY_ACCESS_PEPPER: { minLength: 16 },
   DATABASE_URL: { database: true },
   OTEL_EXPORTER_OTLP_ENDPOINT: { url: true, otlpEndpoint: true },
   OTEL_EXPORTER_OTLP_HEADERS: { otlpHeaders: true },
@@ -196,7 +195,6 @@ export function validateEnvValue(key, value, options) {
 
 export const SECRET_KEYS = new Set([
   'BETTER_AUTH_SECRET',
-  'EARLY_ACCESS_PEPPER',
   'ENCRYPTION_KEY',
   'DATABASE_URL',
   'GOOGLE_CLIENT_SECRET',

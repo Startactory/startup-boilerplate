@@ -8,7 +8,6 @@ const validSource = {
   BETTER_AUTH_URL: 'http://localhost:3000',
   GOOGLE_CLIENT_ID: 'id.apps.googleusercontent.com',
   GOOGLE_CLIENT_SECRET: 'GOCSPX-secret',
-  EARLY_ACCESS_PEPPER: 'b'.repeat(16),
   SMTP_HOST: 'smtp.example.com',
   SMTP_USER: 'user@example.com',
   SMTP_PASS: 'password',

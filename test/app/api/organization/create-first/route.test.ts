@@ -9,33 +9,33 @@ vi.mock('@/application/rate-limit/apply-rate-limit', () => ({
   applyRateLimit: vi.fn(),
 }));
 
-vi.mock('@/application/early-access/redeem', () => ({
-  redeem: vi.fn(),
+vi.mock('@/application/organization/create-first-organization', () => ({
+  createFirstOrganization: vi.fn(),
 }));
 
 vi.mock('@/shared/logger', () => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { POST } from '@/app/api/early-access/redeem/route';
-import { redeem } from '@/application/early-access/redeem';
+import { POST } from '@/app/api/organization/create-first/route';
 import { getCurrentUser } from '@/application/me/get-current-user';
+import { createFirstOrganization } from '@/application/organization/create-first-organization';
 import { applyRateLimit } from '@/application/rate-limit/apply-rate-limit';
 import { unauthorized } from '@/core/errors';
 
 const mockedUser = vi.mocked(getCurrentUser);
 const mockedRateLimit = vi.mocked(applyRateLimit);
-const mockedRedeem = vi.mocked(redeem);
+const mockedCreateFirst = vi.mocked(createFirstOrganization);
 
 function request(body: unknown): Request {
-  return new Request('http://localhost/api/early-access/redeem', {
+  return new Request('http://localhost/api/organization/create-first', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
 
-const VALID_BODY = { code: 'CODE-1', organizationName: 'Acme' };
+const VALID_BODY = { organizationName: 'Acme' };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -50,10 +50,13 @@ beforeEach(() => {
     success: true,
     reset: 0,
   } as unknown as Awaited<ReturnType<typeof applyRateLimit>>);
-  mockedRedeem.mockResolvedValue({ success: true, organizationId: 'org-1' });
+  mockedCreateFirst.mockResolvedValue({
+    success: true,
+    organizationId: 'org-1',
+  });
 });
 
-describe('POST /api/early-access/redeem', () => {
+describe('POST /api/organization/create-first', () => {
   it('returns 200 and the organization id on success', async () => {
     const res = await POST(request(VALID_BODY));
 
@@ -62,18 +65,19 @@ describe('POST /api/early-access/redeem', () => {
       success: true,
       organizationId: 'org-1',
     });
+    expect(mockedCreateFirst).toHaveBeenCalledWith(VALID_BODY);
   });
 
-  it('returns 401 without calling redeem when unauthenticated', async () => {
+  it('returns 401 without creating an organization when unauthenticated', async () => {
     mockedUser.mockResolvedValue(err(unauthorized('nope')));
 
     const res = await POST(request(VALID_BODY));
 
     expect(res.status).toBe(401);
-    expect(mockedRedeem).not.toHaveBeenCalled();
+    expect(mockedCreateFirst).not.toHaveBeenCalled();
   });
 
-  it('returns 429 without calling redeem when rate limited', async () => {
+  it('returns 429 without creating an organization when rate limited', async () => {
     mockedRateLimit.mockResolvedValue({
       success: false,
       reset: 123,
@@ -82,24 +86,23 @@ describe('POST /api/early-access/redeem', () => {
     const res = await POST(request(VALID_BODY));
 
     expect(res.status).toBe(429);
-    expect(mockedRedeem).not.toHaveBeenCalled();
+    expect(mockedCreateFirst).not.toHaveBeenCalled();
   });
 
-  it('rejects a malformed body before reaching redeem', async () => {
-    const res = await POST(request({ code: 123 }));
+  it('rejects a malformed body before creating an organization', async () => {
+    const res = await POST(request({ organizationName: 123 }));
 
     expect(res.status).toBe(400);
-    expect(mockedRedeem).not.toHaveBeenCalled();
+    expect(mockedCreateFirst).not.toHaveBeenCalled();
   });
 
   it.each([
-    ['invalid_code', 400],
     ['invalid_input', 400],
     ['already_in_org', 409],
     ['unauthenticated', 401],
     ['unknown', 500],
   ] as const)('maps the %s outcome to HTTP %i', async (reason, status) => {
-    mockedRedeem.mockResolvedValue({ success: false, error: reason });
+    mockedCreateFirst.mockResolvedValue({ success: false, error: reason });
 
     const res = await POST(request(VALID_BODY));
 

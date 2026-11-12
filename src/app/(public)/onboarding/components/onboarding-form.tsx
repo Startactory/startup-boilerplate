@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import posthog from 'posthog-js';
 import { useState, useTransition } from 'react';
-import type { RedeemResult } from '@/application/early-access/redeem';
+import type { CreateFirstOrganizationResult } from '@/application/organization/create-first-organization';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -17,21 +17,20 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-// The route mirrors RedeemResult for every mapped outcome, but transport-level
-// failures (rate limit, malformed body) answer with a different shape.
-async function redeemEarlyAccess(input: {
-  code: string;
+// The route mirrors CreateFirstOrganizationResult for every mapped outcome,
+// but transport-level failures (rate limit, malformed body) use another shape.
+async function requestFirstOrganization(input: {
   organizationName: string;
-}): Promise<RedeemResult> {
+}): Promise<CreateFirstOrganizationResult> {
   try {
-    const res = await fetch('/api/early-access/redeem', {
+    const res = await fetch('/api/organization/create-first', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(input),
     });
     const body: unknown = await res.json();
     if (typeof body === 'object' && body !== null && 'success' in body) {
-      return body as RedeemResult;
+      return body as CreateFirstOrganizationResult;
     }
     return { success: false, error: 'unknown' };
   } catch {
@@ -48,9 +47,8 @@ export function OnboardingForm() {
   const onSubmit = (formData: FormData): void => {
     setError(null);
     startTransition(async () => {
-      const result = await redeemEarlyAccess({
+      const result = await requestFirstOrganization({
         organizationName: String(formData.get('orgName') ?? ''),
-        code: String(formData.get('code') ?? ''),
       });
 
       if (result.success) {
@@ -62,9 +60,8 @@ export function OnboardingForm() {
       }
 
       switch (result.error) {
-        case 'invalid_code':
         case 'invalid_input':
-          setError(t('invalidCode'));
+          setError(t('invalidOrgName'));
           break;
         case 'unauthenticated':
           router.replace('/sign-in');
@@ -105,16 +102,8 @@ export function OnboardingForm() {
                 name="orgName"
                 required
                 autoComplete="organization"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="code">{t('code')}</Label>
-              <Input
-                id="code"
-                name="code"
-                required
-                autoComplete="off"
-                className="font-mono tracking-wider"
+                minLength={2}
+                maxLength={100}
               />
             </div>
             {error ? (

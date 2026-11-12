@@ -5,7 +5,6 @@ import postgres from 'postgres';
 import { env } from '@/shared/env';
 import { DbLogger } from '@/shared/logger';
 import * as authSchema from './schema/auth-schema';
-import * as earlyAccessSchema from './schema/early-access-schema';
 import * as organizationSchema from './schema/organization-schema';
 
 const e = env();
@@ -40,6 +39,5 @@ export const db = drizzle(conn, {
   schema: {
     ...authSchema,
     ...organizationSchema,
-    ...earlyAccessSchema,
   },
 });

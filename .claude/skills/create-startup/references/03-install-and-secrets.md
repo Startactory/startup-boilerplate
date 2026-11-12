@@ -102,7 +102,7 @@ What it does:
 
 | | |
 | --- | --- |
-| **Generates** | `BETTER_AUTH_SECRET`, `EARLY_ACCESS_PEPPER`, `ENCRYPTION_KEY` — via `crypto.randomBytes`, lengths well above the `env.ts` minimums |
+| **Generates** | `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY` — via `crypto.randomBytes`, lengths well above the `env.ts` minimums |
 | **Sets** | `NEXT_PUBLIC_APP_URL`, `BETTER_AUTH_URL` (both `http://localhost:3000`), plus constants (`NEXT_PUBLIC_POSTHOG_HOST`, `EMAIL_PROVIDER`, `SMTP_HOST`, `SMTP_PORT`) |
 | **Leaves alone** | any key that already holds a real value |
 

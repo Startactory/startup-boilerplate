@@ -7,10 +7,7 @@ import {
 
 export const SCHEMA_PREFIX = 'src/infra/database/schema/';
 const DB_CONNECTION = 'src/infra/database/connection';
-const DB_INTERNAL_MODULES = new Set([
-  'src/infra/database/connection',
-  'src/infra/database/local-seed',
-]);
+const DB_INTERNAL_MODULES = new Set(['src/infra/database/connection']);
 const CORE_FORBIDDEN_TARGETS = [
   'src/application/',
   'src/infra/',

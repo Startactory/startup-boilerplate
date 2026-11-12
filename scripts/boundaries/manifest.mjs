@@ -30,6 +30,8 @@ export const DOMAINS = [
       'src/infra/data-access/organization',
       'src/app/(app)/dashboard/organization',
       'src/app/(public)/accept-invitation',
+      'src/app/(public)/onboarding',
+      'src/app/api/organization',
     ],
     schemas: ['src/infra/database/schema/organization-schema'],
     public: [
@@ -38,20 +40,8 @@ export const DOMAINS = [
       'src/application/organization/list-invitations',
       'src/application/organization/get-membership',
       'src/application/organization/get-organization-name',
-      'src/application/organization/create-organization-with-owner',
       'src/application/invitations/find-pending-for-current-user',
     ],
-  },
-  {
-    name: 'early-access',
-    dirs: [
-      'src/application/early-access',
-      'src/infra/data-access/early-access',
-      'src/app/(public)/onboarding',
-      'src/app/api/early-access',
-    ],
-    schemas: ['src/infra/database/schema/early-access-schema'],
-    public: ['src/application/early-access/redeem'],
   },
   {
     name: 'rate-limit',
@@ -95,10 +85,7 @@ export const DOMAINS = [
   },
 ];
 
-export const ALLOWED_EDGES = [
-  ['early-access', 'organization'],
-  ['auth', 'organization'],
-];
+export const ALLOWED_EDGES = [['auth', 'organization']];
 
 export const SHARED_PREFIXES = [
   'src/shared',

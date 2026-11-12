@@ -17,31 +17,21 @@ If it can't connect, check that the local Postgres is running and that `.env` ha
 env, so a good `.env` is enough. The production database is migrated by CI in Step 6, never from
 here.
 
-## 5b. Early-access code (if the sign-up flow gates on it)
-
-The boilerplate has an early-access gate (`early_access_code` table, `application/early-access/redeem`).
-To let yourself in, generate a code hash and insert it per the repo's flow:
-
-```bash
-pnpm early-access:hash
-```
-
-Follow the script's output. Skip only if the user confirms the gate is disabled for their setup.
-
-## 5c. Boot and smoke-test
+## 5b. Boot and smoke-test
 
 1. `pnpm dev` (Next 16 + Turbopack). The `next-devtools` MCP connects automatically now — use it
    (`get_errors`, `get_routes`) to diagnose anything that fails.
 2. Open `http://localhost:3000`.
 3. Sign in with **Google** (email/password is disabled — Google is the only provider unless
    Microsoft was configured).
-4. Exercise the core surface: create/confirm an organization, invite a member, and reach the
-   dashboard past the paywall (it is an empty page by design). Watch the dev logs for errors.
+4. Exercise the core surface: create the organization on the onboarding page (it asks only for a
+   name), invite a member, and reach the dashboard past the paywall (it is an empty page by
+   design). Watch the dev logs for errors.
 5. If PostHog was configured, confirm events land in the PostHog project.
 6. If Autumn is wired, open the pricing/paywall surface and confirm the `useCustomer` state loads
    (a checkout can be tested in Step 6 against Stripe test mode).
 
-## 5d. Pass the gate
+## 5c. Pass the gate
 
 ```bash
 pnpm validate

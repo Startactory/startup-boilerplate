@@ -34,8 +34,6 @@ const EnvSchema = v.object({
 
   ENCRYPTION_KEY: v.optional(v.string()),
 
-  EARLY_ACCESS_PEPPER: v.pipe(v.string(), v.minLength(16)),
-
   EMAIL_PROVIDER: v.optional(v.picklist(['resend', 'smtp']), 'smtp'),
 
   RESEND_API_KEY: v.optional(v.pipe(v.string(), v.minLength(1))),
