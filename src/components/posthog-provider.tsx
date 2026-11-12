@@ -14,7 +14,11 @@ function PostHogIdentity(): null {
   const groupedOrganizationId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (consent !== 'granted' || !posthog.__loaded) return;
+    if (consent !== 'granted') {
+      identifiedUserId.current = null;
+      return;
+    }
+    if (!posthog.__loaded) return;
 
     const user = session?.user;
     if (!user) {
@@ -33,7 +37,11 @@ function PostHogIdentity(): null {
   }, [session, consent]);
 
   useEffect(() => {
-    if (consent !== 'granted' || !posthog.__loaded) return;
+    if (consent !== 'granted') {
+      groupedOrganizationId.current = null;
+      return;
+    }
+    if (!posthog.__loaded) return;
     const organizationId = activeOrganization?.id;
     if (!organizationId || groupedOrganizationId.current === organizationId)
       return;

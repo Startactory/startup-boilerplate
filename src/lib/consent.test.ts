@@ -1,5 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { parseConsent, serializeConsentCookie } from '@/lib/consent';
+import {
+  parseConsent,
+  readConsentFromCookieString,
+  serializeConsentCookie,
+} from '@/lib/consent';
+
+describe('readConsentFromCookieString', () => {
+  it('finds the consent cookie among others', () => {
+    expect(
+      readConsentFromCookieString('a=1; cookie_consent=granted; b=2'),
+    ).toBe('granted');
+  });
+
+  it('ignores look-alike cookie names', () => {
+    expect(readConsentFromCookieString('xcookie_consent=granted')).toBe(
+      'unset',
+    );
+  });
+
+  it('returns unset for an empty string', () => {
+    expect(readConsentFromCookieString('')).toBe('unset');
+  });
+
+  it('returns unset for an invalid value', () => {
+    expect(readConsentFromCookieString('cookie_consent=garbage')).toBe('unset');
+  });
+});
 
 describe('parseConsent', () => {
   it('accepts exact granted and denied values', () => {
