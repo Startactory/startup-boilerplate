@@ -104,6 +104,21 @@ The count of `op://` lines is the number of secrets; no value is printed.
 This is the one per-startup human step: Stripe verifies the business, and only the founder can
 complete that.
 
+0. **Legal-identity gate.** Before anything goes live, run:
+
+   ```bash
+   node scripts/check-legal-identity.mjs
+   ```
+
+   `OK  legal identity complete` means continue. If it prints `MISSING  <fields>`, **stop** and ask
+   the founder for the company details: legal name, legal form, address, SIREN, publication
+   director, and the **named consumer mediator** (French consumer code; consumer sales cannot go
+   live without one). RCS and VAT number are optional. Write them into `legal.company` in
+   `startup.config.json` (the mediator goes in `legal.company.mediator`), name the mediator in the
+   "Disputes and mediation" article of the terms (`Legal.terms.mediation` in `en.json` and
+   `fr.json`), bump `legal.termsVersion` to today's date, run
+   `node scripts/sync-startup-profile.mjs`, then re-run the gate. Also remind the founder that the
+   generated legal templates need a legal review before real customers pay.
 1. **Ask the founder's go-ahead**, then use Claude in Chrome to create the startup's own Stripe
    account under the founder's Stripe login (Stripe dashboard → account name → **New account**).
    Never reuse another startup's account.

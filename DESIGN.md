@@ -22,6 +22,12 @@ This app is a production tool, not a marketing page. The interface is built for 
 
 ### Accent (Charcoal — the single action color)
 
+The accent is **per-startup**. Charcoal is only the boilerplate default: each startup sets
+`brand.accent` in `startup.config.json`, and `node scripts/sync-startup-profile.mjs` writes
+`src/app/brand.css`, which remaps the accent tokens (primary, ring, charts, sidebar accent) for
+the whole app. The rest of this document says "Charcoal" for the accent role. The app is light
+mode only; the accent override does not apply to a dark theme.
+
 | Name | Value | Token | Role |
 |------|-------|-------|------|
 | Charcoal | `#2F3130` | `--color-charcoal` | The brand accent. Primary buttons, active nav item, focused field outline, links, selected state, key icons. **This is the only color used for primary action.** |

@@ -7,7 +7,7 @@ This is a real system with real users.
 > **Correctness > cleverness · Simplicity > abstraction · Explicitness > magic · Consistency > preference.**
 
 Single Next.js app. This repo is a **reusable startup boilerplate** — the user-facing brand is per-startup and undecided; **never hard-code a product name in user-visible copy**.
-Included base: auth, organizations (onboarding asks only for the organization name), paywall + billing (the only access gate), email, rate-limit, i18n. **Everything behind the paywall is the startup's own product** — the dashboard ships as an empty page and features are built on top of this base from the founder's idea. Don't add product features to the boilerplate itself.
+Included base: a public storefront (landing page at `/`) with French-law legal pages and a cookie banner, auth, organizations (onboarding asks only for the organization name), paywall + billing (the only access gate), email, rate-limit, i18n. **Everything behind the paywall is the startup's own product** — the dashboard ships as an empty page and features are built on top of this base from the founder's idea. Don't add product features to the boilerplate itself.
 
 ---
 

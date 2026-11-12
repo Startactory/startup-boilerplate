@@ -93,6 +93,7 @@ Add a `pricing` block to `startup.config.json` (keep the existing fields):
     "customer": "individual",
     "amount": 19,
     "interval": "month",
+    "currency": "EUR",
     "trialDays": 14,
     "cardRequired": true,
     "rationale": "Freelancers pay about 30-60 per contract review today; 19 is well under the value and above the 9 trap.",
@@ -101,8 +102,9 @@ Add a `pricing` block to `startup.config.json` (keep the existing fields):
 }
 ```
 
-`source` is `founder` or `derived`. `interval` is `month` or `year`. `trialDays` is `0` for no
-trial. `deferred` lists pricing shapes the founder asked for that the code cannot sell yet.
+`source` is `founder` or `derived`. `interval` is `month` or `year`. `currency` is the ISO code
+shown on the storefront price (default `EUR`); it must match the Autumn organization's default
+currency. `trialDays` is `0` for no trial. `deferred` lists pricing shapes the founder asked for that the code cannot sell yet.
 
 ## 5. Write `autumn.config.ts`
 

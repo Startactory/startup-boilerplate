@@ -22,17 +22,25 @@ US startups keeps one parent account per region for each of these two services.
 Autumn and Stripe have no region choice. They process billing data in the US under their own
 data processing terms; list them as sub-processors (below).
 
+## French-law set (every startup)
+
+Founders are established in France, so the French-law set applies to **every** startup, whatever
+`dataRegion` says: GDPR applies to a French company even when its data sits in the US. Step 1d
+builds it: the legal pages, the cookie banner, PostHog started only after consent, and the GDPR
+baseline. `gdpr` and `dataRegion` now decide only the region of each service.
+
 ## When `gdpr` is `true`
 
 Regions are only part of it. These items make an EU startup compliant; they are tracked here so
-no step forgets them. None is automated yet — report each one as **needs action** in the final
-checklist until it is built:
+no step forgets them. Report each one in the final checklist as shown:
 
-- **Cookie consent** — PostHog must not set cookies before consent (or run cookieless).
-- **Privacy policy** — what is collected, why, how long, and the sub-processors: Supabase,
-  Vercel, PostHog, Dash0, Resend (or the SMTP provider), Autumn, Stripe, Google (sign-in).
-- **Legal notice** — required for a company established in France ("mentions légales").
-- **User rights** — account deletion and data export (GDPR art. 17 and 20).
+- **Cookie consent** — built (Step 1d): PostHog does not start, or set cookies, before consent.
+- **Privacy policy** — built (Step 1d): what is collected, why, how long, and the sub-processors:
+  Supabase, Vercel, PostHog, Dash0, Resend (or the SMTP provider), Autumn, Stripe, Google
+  (sign-in).
+- **Legal notice** — built (Step 1d): required for a company established in France ("mentions
+  légales").
+- **User rights** — **needs action**: account deletion and data export (GDPR art. 17 and 20).
 - **Telemetry hygiene** — `shared/logger` already redacts emails and names. HTTP spans can carry
   client IP addresses, which are personal data; Dash0 keeps them for its retention period.
 

@@ -104,6 +104,9 @@ reach that step** and follow it; don't run ahead. Keep a todo per step.
 1c. **Create the startup's repository** → `references/01c-create-repository.md`
    A private GitHub repo named after the slug becomes `origin`; the boilerplate stays as a
    fetch-only `upstream`.
+1d. **Build the storefront** → `references/01d-storefront.md`
+   A public landing page, French-law legal pages and a cookie banner, generated from the idea;
+   asks the founder only for their name and a contact email.
 2. **Connect the connectors** → `references/02-connect-connectors.md`
    Add every service MCP so you can configure them from here; authenticate each.
 3. **Install & build the local environment** → `references/03-install-and-secrets.md`
