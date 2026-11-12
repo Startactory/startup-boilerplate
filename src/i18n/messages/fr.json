@@ -159,7 +159,7 @@
     "footer": {
       "label": "Informations légales",
       "notice": "Mentions légales",
-      "terms": "CGU",
+      "terms": "CGV",
       "privacy": "Politique de confidentialité",
       "cookies": "Politique de cookies",
       "manageCookies": "Gérer les cookies"
@@ -167,7 +167,6 @@
   },
   "Legal": {
     "common": {
-      "backHome": "Retour à l'accueil",
       "version": "Version {version}",
       "fields": {
         "status": "Statut",

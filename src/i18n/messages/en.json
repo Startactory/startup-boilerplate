@@ -167,7 +167,6 @@
   },
   "Legal": {
     "common": {
-      "backHome": "Back to home",
       "version": "Version {version}",
       "fields": {
         "status": "Status",
