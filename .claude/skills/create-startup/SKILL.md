@@ -106,7 +106,8 @@ reach that step** and follow it; don't run ahead. Keep a todo per step.
    fetch-only `upstream`.
 1d. **Build the storefront** → `references/01d-storefront.md`
    A public landing page, French-law legal pages and a cookie banner, generated from the idea;
-   asks the founder only for their name and a contact email.
+   asks the founder only for their name and a contact email. Writes the config and the copy; the
+   sync runs in Step 3a and the browser check in Step 5b.
 2. **Connect the connectors** → `references/02-connect-connectors.md`
    Add every service MCP so you can configure them from here; authenticate each.
 3. **Install & build the local environment** → `references/03-install-and-secrets.md`

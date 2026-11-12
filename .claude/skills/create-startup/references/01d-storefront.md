@@ -74,23 +74,19 @@ Add `brand` and `legal` to `startup.config.json` (keep the existing fields), and
 ```
 
 `termsVersion` is today's date (`YYYY-MM-DD`). `company` stays `null` until the company exists.
-Then run:
 
-```bash
-node scripts/sync-startup-profile.mjs
-```
+Do **not** run the sync yet: `scripts/sync-startup-profile.mjs` imports `lucide-react` and
+`valibot`, which exist only after `pnpm install`. Step 3a runs it right after the install. It
+writes `src/shared/startup-profile/profile.json` and `src/app/brand.css` and ends with
+`OK  startup profile synced (<name>)`; a `FAIL` line names the invalid field (`brand.icon`,
+`brand.accent`, `pricing.currency`, `legal.*`). Do not edit those two generated files by hand.
 
-It writes `src/shared/startup-profile/profile.json` and `src/app/brand.css` and ends with
-`OK  startup profile synced (<name>)`. A `FAIL` line names the invalid field; fix it and re-run.
-Do not edit those two generated files by hand.
+## 4. Browser check (later)
 
-## 4. Check it in the browser
-
-Start `pnpm dev` if it is not running (Step 5 covers the full local run; the pages do not need a
-signed-in session). Open `/` and `/legal/notice` and check, in both languages: the headline and
-sentence read well, the button shows the right price and trial, the accent and logo render, the
-legal notice names the founder and the contact email, and the cookie banner appears. If anything
-is wrong, fix the copy or the config, re-run the sync, and look again.
+The pages cannot be looked at yet: the app does not boot until Step 5 (`pnpm dev` is forbidden
+before then). Step 5b opens `/` and `/legal/notice` and checks them; if anything is wrong there,
+fix the copy or the config, re-run the sync (`node scripts/sync-startup-profile.mjs`) and look
+again.
 
 ## 5. When the company exists
 
