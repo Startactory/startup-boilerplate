@@ -32,6 +32,7 @@ type Account = {
   unrelatedAddError?: boolean;
   gitConnect?: Result;
   createResult?: Result;
+  lookupResult?: Result;
 };
 
 function fakeVercel(account: Account = {}) {
@@ -45,6 +46,7 @@ function fakeVercel(account: Account = {}) {
     if (args[0] !== 'api') return ok;
     const path = args[1] ?? '';
     if (path === '/v9/projects/acme') {
+      if (account.lookupResult) return account.lookupResult;
       return account.project
         ? json(account.project)
         : failed('Error: 404 not_found');
@@ -274,6 +276,18 @@ describe('ensureVercelProject', () => {
     );
   });
 
+  it('never links or connects when the project lookup is unreadable', async () => {
+    const { calls, runVercel } = fakeVercel({
+      lookupResult: { code: 0, stdout: 'not json', stderr: '' },
+    });
+    await expect(ensureVercelProject({ ...base, runVercel })).rejects.toThrow(
+      'vercel api project lookup',
+    );
+    expect(calls.some((call) => call[0] === 'link' || call[0] === 'git')).toBe(
+      false,
+    );
+  });
+
   it('stops before any call when the repository is not recorded yet', async () => {
     const { calls, runVercel } = fakeVercel();
     await expect(
@@ -310,6 +324,18 @@ describe('checkVercelName', () => {
       },
     });
     expect(await checkVercelName({ ...base, runVercel })).toBe('own');
+  });
+
+  it.each([
+    ['text that is not JSON', { code: 0, stdout: 'not json', stderr: '' }],
+    ['an empty answer', { code: 0, stdout: '', stderr: '' }],
+    ['a JSON array', json([])],
+  ])('fails closed when the lookup returns %s', async (_label, lookupResult) => {
+    const { calls, runVercel } = fakeVercel({ lookupResult });
+    await expect(checkVercelName({ ...base, runVercel })).rejects.toThrow(
+      'vercel api project lookup',
+    );
+    expect(calls).toEqual([['api', '/v9/projects/acme']]);
   });
 
   it('refuses a name another project holds', async () => {
