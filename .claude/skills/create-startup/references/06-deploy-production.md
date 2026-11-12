@@ -54,6 +54,9 @@ push to master
                  └─ POST $VERCEL_DEPLOY_HOOK_URL  →  Vercel builds and promotes
 ```
 
+The boilerplate repository itself (`Startactory/startup-boilerplate`) has no database and no
+deployment, so both `migrate` and the deploy job skip there; they run in every startup repository.
+
 So migrations always run before the new code goes live, and a red test suite never reaches
 production. `deploymentEnabled: false` blocks push deploys only; deploy hooks still work. Do **not**
 set `github.enabled: false` in `vercel.json`: that one disables deploy hooks and breaks the
