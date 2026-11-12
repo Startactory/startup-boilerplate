@@ -35,6 +35,37 @@ function setup(envText: string) {
 
 describe('importAutumnKeys', () => {
   it('reads the keys from the env file it is given', () => {
+    const { fs, op } = setup(`AUTUMN_SECRET_KEY=${SANDBOX_KEY}\n`);
+    const result = importAutumnKeys({
+      op,
+      fs,
+      vault: 'startup-acme',
+      envPath: '/tmp/atmn-login/.env',
+    });
+    expect(result).toEqual({ local: true, production: 'sandbox' });
+    expect(fs.readFileSync).toHaveBeenCalledWith(
+      '/tmp/atmn-login/.env',
+      'utf8',
+    );
+  });
+
+  it('writes the sandbox key to both items by default and ignores a live key', () => {
+    const { fs, op } = setup(
+      `AUTUMN_SECRET_KEY=${SANDBOX_KEY}\nAUTUMN_PROD_SECRET_KEY=${PRODUCTION_KEY}\n`,
+    );
+    const result = importAutumnKeys({ op, fs, vault: 'startup-acme' });
+    expect(result).toEqual({ local: true, production: 'sandbox' });
+    for (const item of ['local', 'production']) {
+      expect(op.writeFields).toHaveBeenCalledWith({
+        vault: 'startup-acme',
+        item,
+        fields: new Map([['AUTUMN_SECRET_KEY', SANDBOX_KEY]]),
+      });
+    }
+    expect(op.writeFields).toHaveBeenCalledTimes(2);
+  });
+
+  it('writes the live key to the production item in live mode', () => {
     const { fs, op } = setup(
       `AUTUMN_SECRET_KEY=${SANDBOX_KEY}\nAUTUMN_PROD_SECRET_KEY=${PRODUCTION_KEY}\n`,
     );
@@ -42,21 +73,9 @@ describe('importAutumnKeys', () => {
       op,
       fs,
       vault: 'startup-acme',
-      envPath: '/tmp/atmn-login/.env',
+      productionKey: 'live',
     });
-    expect(result).toEqual({ local: true, production: true });
-    expect(fs.readFileSync).toHaveBeenCalledWith(
-      '/tmp/atmn-login/.env',
-      'utf8',
-    );
-  });
-
-  it('moves both keys to their items', () => {
-    const { fs, op } = setup(
-      `AUTUMN_SECRET_KEY=${SANDBOX_KEY}\nAUTUMN_PROD_SECRET_KEY=${PRODUCTION_KEY}\n`,
-    );
-    const result = importAutumnKeys({ op, fs, vault: 'startup-acme' });
-    expect(result).toEqual({ local: true, production: true });
+    expect(result).toEqual({ local: true, production: 'live' });
     expect(op.writeFields).toHaveBeenCalledWith({
       vault: 'startup-acme',
       item: 'local',
@@ -74,7 +93,12 @@ describe('importAutumnKeys', () => {
     const { fs, op, written } = setup(
       `AUTUMN_SECRET_KEY=${SANDBOX_KEY}\nAUTUMN_PROD_SECRET_KEY=${PRODUCTION_KEY}\n`,
     );
-    importAutumnKeys({ op, fs, vault: 'startup-acme' });
+    importAutumnKeys({
+      op,
+      fs,
+      vault: 'startup-acme',
+      productionKey: 'live',
+    });
     const envText = written.get('.env');
     expect(envText).toContain(`AUTUMN_SECRET_KEY=${SANDBOX_KEY}`);
     expect(envText).not.toContain('AUTUMN_PROD_SECRET_KEY');
@@ -89,27 +113,41 @@ describe('importAutumnKeys', () => {
     expect(op.writeFields).not.toHaveBeenCalled();
   });
 
-  it('imports one key and reports the other as not found', () => {
-    const { fs, op } = setup(`AUTUMN_SECRET_KEY=${SANDBOX_KEY}\n`);
-    const result = importAutumnKeys({ op, fs, vault: 'startup-acme' });
-    expect(result).toEqual({ local: true, production: false });
-    expect(op.writeFields).toHaveBeenCalledTimes(1);
+  it('refuses a production key that is not live in live mode', () => {
+    const { fs, op } = setup(
+      `AUTUMN_SECRET_KEY=${SANDBOX_KEY}\nAUTUMN_PROD_SECRET_KEY=am_sk_test_other\n`,
+    );
+    expect(() =>
+      importAutumnKeys({
+        op,
+        fs,
+        vault: 'startup-acme',
+        productionKey: 'live',
+      }),
+    ).toThrow('AUTUMN_PROD_SECRET_KEY is not a live key');
+    expect(op.writeFields).not.toHaveBeenCalled();
   });
 
-  it('throws when .env holds neither key', () => {
+  it('throws in live mode when .env has no production key', () => {
+    const { fs, op } = setup(`AUTUMN_SECRET_KEY=${SANDBOX_KEY}\n`);
+    expect(() =>
+      importAutumnKeys({
+        op,
+        fs,
+        vault: 'startup-acme',
+        productionKey: 'live',
+      }),
+    ).toThrow(
+      'no live Autumn key in .env — connect Stripe live in Autumn, then run atmn login again',
+    );
+    expect(op.writeFields).not.toHaveBeenCalled();
+  });
+
+  it('throws when .env holds no sandbox key', () => {
     const { fs, op } = setup('OTHER=1\n');
     expect(() => importAutumnKeys({ op, fs, vault: 'startup-acme' })).toThrow(
       'no Autumn keys in .env — run pnpm dlx atmn login first',
     );
-  });
-
-  it('imports only the production key and still clears it from .env', () => {
-    const { fs, op, written } = setup(
-      `AUTUMN_PROD_SECRET_KEY=${PRODUCTION_KEY}\n`,
-    );
-    const result = importAutumnKeys({ op, fs, vault: 'startup-acme' });
-    expect(result).toEqual({ local: false, production: true });
-    expect(written.get('.env')).not.toContain('AUTUMN_PROD_SECRET_KEY');
   });
 
   it('stops before writing when the local item is missing', () => {

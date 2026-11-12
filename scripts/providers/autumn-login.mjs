@@ -63,6 +63,7 @@ export async function loginToAutumn({
   vault,
   spawnAtmn = defaultSpawnAtmn,
   importKeys = importAutumnKeys,
+  productionKey = 'sandbox',
   onUrl,
   pollMs = 200,
 }) {
@@ -91,7 +92,12 @@ export async function loginToAutumn({
     if (status !== 0) {
       throw new Error(`atmn login failed (exit ${status}) — run it again`);
     }
-    return importKeys({ op, vault, envPath: join(dir, '.env') });
+    return importKeys({
+      op,
+      vault,
+      envPath: join(dir, '.env'),
+      productionKey,
+    });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -108,13 +114,14 @@ async function main() {
     const result = await loginToAutumn({
       op: createOp(),
       vault,
+      productionKey: process.argv.includes('--live') ? 'live' : 'sandbox',
       onUrl: (url) =>
         console.log(
           `OPEN  ${url}\n      Approve it in the founder's browser and pick the "${name}" organization.`,
         ),
     });
     console.log(
-      `OK  Autumn sandbox key ${status(result.local)} in ${vault}/local, production key ${status(result.production)} in ${vault}/production`,
+      `OK  Autumn sandbox key ${status(result.local)} in ${vault}/local, production uses the ${result.production} key`,
     );
   } catch (error) {
     console.error(error.message);
