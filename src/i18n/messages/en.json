@@ -23,6 +23,8 @@
     "title": "Choose a plan to continue",
     "subtitle": "Your workspace needs an active subscription to use the app.",
     "upgrade": "Upgrade to Pro",
+    "acceptTerms": "I accept the <terms>terms of sale</terms> and request immediate access to the service, waiving my right of withdrawal.",
+    "acceptTermsError": "We could not record your acceptance of the terms. Please try again.",
     "devSkip": "Skip paywall (dev only)"
   },
   "Nav": {

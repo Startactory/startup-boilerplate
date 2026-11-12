@@ -77,8 +77,9 @@ export const DOMAINS = [
       'src/app/(app)/paywall',
       'src/app/api/autumn',
       'src/app/api/billing',
+      'src/infra/data-access/billing',
     ],
-    schemas: [],
+    schemas: ['src/infra/database/schema/billing-schema'],
     // Reads the active org id via the auth domain (openToAll); nothing else
     // depends on it yet, so no ALLOWED_EDGES entry is required.
     public: ['src/application/billing/get-app-entitlement'],

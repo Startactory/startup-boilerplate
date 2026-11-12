@@ -23,6 +23,8 @@
     "title": "Choisissez une formule pour continuer",
     "subtitle": "Votre espace de travail nécessite un abonnement actif pour utiliser l'application.",
     "upgrade": "Passer à Pro",
+    "acceptTerms": "J'accepte les <terms>CGV</terms> et je demande l'accès immédiat au service, en renonçant à mon droit de rétractation.",
+    "acceptTermsError": "Nous n'avons pas pu enregistrer votre acceptation des conditions. Veuillez réessayer.",
     "devSkip": "Ignorer le paywall (dev uniquement)"
   },
   "Nav": {

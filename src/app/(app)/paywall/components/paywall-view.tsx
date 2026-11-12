@@ -2,8 +2,10 @@
 
 import { AutumnProvider, useCustomer } from 'autumn-js/react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -12,6 +14,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { DevSkipButton } from './dev-skip-button';
 
 // Must match the paid plan id in autumn.config.ts.
@@ -21,23 +25,58 @@ function UpgradeButton(): React.ReactElement {
   const t = useTranslations('Paywall');
   const { attach } = useCustomer();
   const [isPending, setIsPending] = useState(false);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
+
+  async function startCheckout(): Promise<void> {
+    setIsPending(true);
+    try {
+      const response = await fetch('/api/billing/accept-terms', {
+        method: 'POST',
+      });
+      if (response.status !== 200) {
+        toast.error(t('acceptTermsError'));
+        return;
+      }
+      // Redirects to Stripe checkout when payment is required.
+      await attach({ planId: PRO_PLAN_ID });
+    } catch {
+      toast.error(t('acceptTermsError'));
+    } finally {
+      setIsPending(false);
+    }
+  }
 
   return (
-    <Button
-      type="button"
-      loading={isPending}
-      onClick={async () => {
-        setIsPending(true);
-        try {
-          // Redirects to Stripe checkout when payment is required.
-          await attach({ planId: PRO_PLAN_ID });
-        } finally {
-          setIsPending(false);
-        }
-      }}
-    >
-      {t('upgrade')}
-    </Button>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="accept-terms"
+          checked={hasAcceptedTerms}
+          onCheckedChange={setHasAcceptedTerms}
+          className="mt-0.5"
+        />
+        <Label
+          htmlFor="accept-terms"
+          className="text-sm font-normal leading-snug"
+        >
+          {t.rich('acceptTerms', {
+            terms: (chunks) => (
+              <Link href="/legal/terms" className="underline" target="_blank">
+                {chunks}
+              </Link>
+            ),
+          })}
+        </Label>
+      </div>
+      <Button
+        type="button"
+        loading={isPending}
+        disabled={!hasAcceptedTerms}
+        onClick={startCheckout}
+      >
+        {t('upgrade')}
+      </Button>
+    </div>
   );
 }
 
