@@ -49,6 +49,7 @@ describe('validateRunConfig', () => {
       repository: 'ada/acme',
       productionUrl: 'https://acme.vercel.app',
       googleCloudProject: 'acme-473215',
+      autumnOrganization: 'org_2x9Kd7',
       createdStep: '3',
       extra: true,
     };
@@ -63,6 +64,15 @@ describe('validateRunConfig', () => {
   ])('reports a Google Cloud project ID that Google refuses: %s', (googleCloudProject) => {
     expect(issuesOf({ ...validConfig(), googleCloudProject })).toEqual([
       expect.stringMatching(/^googleCloudProject:/),
+    ]);
+  });
+
+  it.each([
+    '',
+    '   ',
+  ])('reports a recorded Autumn organization that is blank: "%s"', (autumnOrganization) => {
+    expect(issuesOf({ ...validConfig(), autumnOrganization })).toEqual([
+      expect.stringMatching(/^autumnOrganization:/),
     ]);
   });
 

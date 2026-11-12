@@ -89,6 +89,9 @@ export const RunConfig = v.looseObject({
       ),
     ),
   ),
+  autumnOrganization: v.optional(
+    v.pipe(text, v.trim(), v.nonEmpty('must not be empty')),
+  ),
   googleCloudProject: v.optional(
     v.pipe(
       text,
