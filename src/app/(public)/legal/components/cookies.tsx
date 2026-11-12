@@ -13,7 +13,13 @@ export async function Cookies(): Promise<React.ReactElement> {
       </LegalSection>
       <LegalSection title={t('list.title')}>
         <LegalList
-          items={[t('list.session'), t('list.consent'), t('list.analytics')]}
+          items={[
+            t('list.session'),
+            t('list.locale'),
+            t('list.consent'),
+            t('list.analytics'),
+            t('list.storage'),
+          ]}
         />
       </LegalSection>
       <LegalSection title={t('manage.title')}>

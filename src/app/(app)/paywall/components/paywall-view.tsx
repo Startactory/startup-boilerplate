@@ -27,20 +27,30 @@ function UpgradeButton(): React.ReactElement {
   const [isPending, setIsPending] = useState(false);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
 
-  async function startCheckout(): Promise<void> {
-    setIsPending(true);
+  async function recordAcceptance(): Promise<boolean> {
     try {
       const response = await fetch('/api/billing/accept-terms', {
         method: 'POST',
       });
-      if (response.status !== 200) {
+      return response.status === 200;
+    } catch {
+      return false;
+    }
+  }
+
+  async function startCheckout(): Promise<void> {
+    setIsPending(true);
+    try {
+      if (!(await recordAcceptance())) {
         toast.error(t('acceptTermsError'));
         return;
       }
-      // Redirects to Stripe checkout when payment is required.
-      await attach({ planId: PRO_PLAN_ID });
-    } catch {
-      toast.error(t('acceptTermsError'));
+      try {
+        // Redirects to Stripe checkout when payment is required.
+        await attach({ planId: PRO_PLAN_ID });
+      } catch {
+        toast.error(t('checkoutError'));
+      }
     } finally {
       setIsPending(false);
     }

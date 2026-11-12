@@ -6,9 +6,8 @@ import { LegalSection } from './legal-section';
 import { PublisherDetails } from './publisher-details';
 
 export async function Notice(): Promise<React.ReactElement> {
-  const [t, tCommon, tStorefront] = await Promise.all([
+  const [t, tStorefront] = await Promise.all([
     getTranslations('Legal.notice'),
-    getTranslations('Legal.common'),
     getTranslations('Storefront'),
   ]);
   const profile = getStartupProfile();
@@ -17,7 +16,7 @@ export async function Notice(): Promise<React.ReactElement> {
     publisher.kind === 'company'
       ? publisher.publicationDirector
       : publisher.name;
-  const contactEmail = publisher.contactEmail || tCommon('contactFallback');
+  const contactEmail = publisher.contactEmail;
 
   return (
     <LegalDocument title={t('title')}>
@@ -43,7 +42,11 @@ export async function Notice(): Promise<React.ReactElement> {
         <p>{t('host.body')}</p>
       </LegalSection>
       <LegalSection title={t('contact.title')}>
-        <p>{t('contact.body', { email: contactEmail })}</p>
+        <p>
+          {contactEmail
+            ? t('contact.body', { email: contactEmail })
+            : t('contact.none')}
+        </p>
       </LegalSection>
     </LegalDocument>
   );

@@ -25,14 +25,16 @@
     "upgrade": "Passer à Pro",
     "acceptTerms": "J'accepte les <terms>CGV</terms> et je demande l'accès immédiat au service, en renonçant à mon droit de rétractation.",
     "acceptTermsError": "Nous n'avons pas pu enregistrer votre acceptation des conditions. Veuillez réessayer.",
-    "devSkip": "Ignorer le paywall (dev uniquement)"
+    "devSkip": "Ignorer le paywall (dev uniquement)",
+    "checkoutError": "Nous n'avons pas pu lancer le paiement. Veuillez réessayer."
   },
   "Nav": {
     "dashboard": "Tableau de bord",
     "organization": "Organisation",
     "settings": "Paramètres",
     "signOut": "Se déconnecter",
-    "language": "Langue"
+    "language": "Langue",
+    "manageCookies": "Gérer les cookies"
   },
   "Members": {
     "title": "Organisation",
@@ -203,7 +205,8 @@
       },
       "contact": {
         "title": "Contact",
-        "body": "Pour toute question relative à ce site, écrivez à {email}."
+        "body": "Pour toute question relative à ce site, écrivez à {email}.",
+        "none": "Aucune adresse de contact n'a encore été publiée."
       }
     },
     "terms": {
@@ -216,7 +219,7 @@
       },
       "service": {
         "title": "Le Service",
-        "body": "{name} est un service en ligne accessible après connexion avec un compte Google ou Microsoft. Les fonctionnalités du Service sont celles présentées sur le site au jour de la souscription."
+        "body": "{name} est un service en ligne accessible après connexion avec un compte d'un fournisseur de connexion pris en charge, tel que Google. Les fonctionnalités du Service sont celles présentées sur le site au jour de la souscription."
       },
       "price": {
         "title": "Prix et paiement",
@@ -275,11 +278,11 @@
       "collected": {
         "title": "Données collectées",
         "intro": "Les données suivantes sont traitées :",
-        "account": "Données de compte : le nom et l'adresse e-mail fournis par votre compte Google ou Microsoft lors de la connexion.",
+        "account": "Données de compte : le nom et l'adresse e-mail fournis par votre fournisseur de connexion (Google, ou Microsoft lorsqu'il est activé) lors de la connexion.",
         "organization": "Données d'organisation : le nom de votre organisation, ses membres et ses invitations.",
         "billing": "Données de facturation : l'état de votre abonnement et de vos paiements. Les données de carte sont saisies chez Stripe et ne sont jamais conservées par nos soins ; la facturation est assurée par Autumn et Stripe.",
         "technical": "Données techniques : journaux serveur, traces et métriques nécessaires à la sécurité et au fonctionnement du service.",
-        "analytics": "Données d'usage : mesure d'audience du produit, collectée uniquement si vous l'acceptez dans le bandeau de cookies."
+        "analytics": "Données d'usage : mesure d'audience du produit, collectée uniquement si vous l'acceptez dans le bandeau de cookies. Lorsque vous êtes connecté, PostHog reçoit aussi votre nom, votre adresse e-mail et votre organisation afin de rattacher l'usage à votre compte."
       },
       "purposes": {
         "title": "Finalités et bases légales",
@@ -306,7 +309,7 @@
         "email": "Resend, ou le fournisseur SMTP configuré par l'éditeur : envoi des e-mails transactionnels.",
         "autumn": "Autumn : gestion des abonnements et de la facturation.",
         "stripe": "Stripe : traitement des paiements.",
-        "google": "Google et Microsoft : connexion avec votre compte."
+        "google": "Google, et Microsoft lorsqu'il est activé : connexion avec votre compte."
       },
       "transfers": {
         "title": "Transferts hors de l'Union européenne",
@@ -325,8 +328,10 @@
       "list": {
         "title": "Ce qui est déposé",
         "session": "Cookie de session (strictement nécessaire) : vous maintient connecté. Il est déposé à la connexion et ne nécessite pas de consentement.",
+        "locale": "Cookie de langue LOCALE (strictement nécessaire) : mémorise votre préférence de langue pendant 1 an.",
         "consent": "Cookie de consentement cookie_consent (strictement nécessaire) : mémorise votre choix pendant 180 jours.",
-        "analytics": "PostHog (mesure d'audience) : déposé uniquement après votre acceptation. Si vous refusez ou n'avez pas encore choisi, PostHog ne démarre pas et ne dépose rien."
+        "analytics": "PostHog (mesure d'audience) : déposé uniquement après votre acceptation. Si vous refusez ou n'avez pas encore choisi, PostHog ne démarre pas et ne dépose rien.",
+        "storage": "Stockage local du navigateur (strictement nécessaire) : lorsque vous refusez la mesure d'audience, PostHog y conserve un petit indicateur de refus pour rester désactivé. Il ne contient aucune donnée personnelle."
       },
       "manage": {
         "title": "Vos choix",

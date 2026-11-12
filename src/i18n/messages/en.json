@@ -25,14 +25,16 @@
     "upgrade": "Upgrade to Pro",
     "acceptTerms": "I accept the <terms>terms of sale</terms> and request immediate access to the service, waiving my right of withdrawal.",
     "acceptTermsError": "We could not record your acceptance of the terms. Please try again.",
-    "devSkip": "Skip paywall (dev only)"
+    "devSkip": "Skip paywall (dev only)",
+    "checkoutError": "We could not start the checkout. Please try again."
   },
   "Nav": {
     "dashboard": "Dashboard",
     "organization": "Organization",
     "settings": "Settings",
     "signOut": "Sign out",
-    "language": "Language"
+    "language": "Language",
+    "manageCookies": "Manage cookies"
   },
   "Members": {
     "title": "Organization",
@@ -203,7 +205,8 @@
       },
       "contact": {
         "title": "Contact",
-        "body": "For any question about this site, write to {email}."
+        "body": "For any question about this site, write to {email}.",
+        "none": "No contact address has been published yet."
       }
     },
     "terms": {
@@ -216,7 +219,7 @@
       },
       "service": {
         "title": "The Service",
-        "body": "{name} is an online service accessed after signing in with a Google or Microsoft account. The features of the Service are those presented on the site on the day of subscription."
+        "body": "{name} is an online service accessed after signing in with an account from a supported sign-in provider, such as Google. The features of the Service are those presented on the site on the day of subscription."
       },
       "price": {
         "title": "Price and payment",
@@ -275,11 +278,11 @@
       "collected": {
         "title": "Data collected",
         "intro": "The following data is processed:",
-        "account": "Account data: the name and email address provided by your Google or Microsoft account when you sign in.",
+        "account": "Account data: the name and email address provided by your sign-in provider (Google, or Microsoft where enabled) when you sign in.",
         "organization": "Organization data: the name of your organization, its members and invitations.",
         "billing": "Billing data: your subscription and payment status. Card details are entered with Stripe and are never stored by us; billing is handled by Autumn and Stripe.",
         "technical": "Technical data: server logs, traces and metrics needed to secure and operate the service.",
-        "analytics": "Usage data: product analytics, collected only if you accept it in the cookie banner."
+        "analytics": "Usage data: product analytics, collected only if you accept it in the cookie banner. When you are signed in, PostHog also receives your name, email address and organization so that usage can be tied to your account."
       },
       "purposes": {
         "title": "Purposes and legal bases",
@@ -306,7 +309,7 @@
         "email": "Resend, or the SMTP provider configured by the publisher: sending transactional emails.",
         "autumn": "Autumn: subscription and billing management.",
         "stripe": "Stripe: payment processing.",
-        "google": "Google and Microsoft: sign-in with your account."
+        "google": "Google, and Microsoft where enabled: sign-in with your account."
       },
       "transfers": {
         "title": "Transfers outside the European Union",
@@ -325,8 +328,10 @@
       "list": {
         "title": "What is set",
         "session": "Session cookie (strictly necessary): keeps you signed in. It is set when you sign in and needs no consent.",
+        "locale": "Language cookie LOCALE (strictly necessary): remembers your language preference for 1 year.",
         "consent": "Consent cookie cookie_consent (strictly necessary): remembers your choice for 180 days.",
-        "analytics": "PostHog (audience measurement): set only after you accept. If you refuse or have not chosen, PostHog does not start and sets nothing."
+        "analytics": "PostHog (audience measurement): set only after you accept. If you refuse or have not chosen, PostHog does not start and sets nothing.",
+        "storage": "Browser local storage (strictly necessary): when you refuse analytics, PostHog keeps a small opt-out flag there so that it stays off. It contains no personal data."
       },
       "manage": {
         "title": "Your choices",
