@@ -7,6 +7,7 @@ function fakeClient() {
     init: vi.fn(() => {
       client.__loaded = true;
     }),
+    has_opted_out_capturing: vi.fn(() => false),
     opt_in_capturing: vi.fn(),
     opt_out_capturing: vi.fn(),
     reset: vi.fn(),
@@ -19,7 +20,12 @@ const host = 'https://eu.i.posthog.com';
 describe('createAnalytics', () => {
   it('initializes only once when started twice', () => {
     const client = fakeClient();
-    const analytics = createAnalytics({ client, key: 'phc_test', host });
+    const analytics = createAnalytics({
+      client,
+      key: 'phc_test',
+      host,
+      isDebug: () => false,
+    });
     analytics.start();
     analytics.start();
     expect(client.init).toHaveBeenCalledTimes(1);
@@ -27,14 +33,53 @@ describe('createAnalytics', () => {
 
   it('never initializes without a key', () => {
     const client = fakeClient();
-    const analytics = createAnalytics({ client, key: undefined, host });
+    const analytics = createAnalytics({
+      client,
+      key: undefined,
+      host,
+      isDebug: () => false,
+    });
     analytics.start();
     expect(client.init).not.toHaveBeenCalled();
   });
 
+  it('resets before opting out so the opt-out flag survives', () => {
+    const client = fakeClient();
+    const analytics = createAnalytics({
+      client,
+      key: 'phc_test',
+      host,
+      isDebug: () => false,
+    });
+    analytics.start();
+    analytics.stop();
+    const resetOrder = client.reset.mock.invocationCallOrder[0] ?? 0;
+    const optOutOrder =
+      client.opt_out_capturing.mock.invocationCallOrder[0] ?? 0;
+    expect(resetOrder).toBeLessThan(optOutOrder);
+  });
+
+  it('opts in right after init when a previous refusal is persisted', () => {
+    const client = fakeClient();
+    client.has_opted_out_capturing.mockReturnValue(true);
+    const analytics = createAnalytics({
+      client,
+      key: 'phc_test',
+      host,
+      isDebug: () => false,
+    });
+    analytics.start();
+    expect(client.opt_in_capturing).toHaveBeenCalledTimes(1);
+  });
+
   it('opts out and resets on stop', () => {
     const client = fakeClient();
-    const analytics = createAnalytics({ client, key: 'phc_test', host });
+    const analytics = createAnalytics({
+      client,
+      key: 'phc_test',
+      host,
+      isDebug: () => false,
+    });
     analytics.start();
     analytics.stop();
     expect(client.opt_out_capturing).toHaveBeenCalledTimes(1);
@@ -43,7 +88,12 @@ describe('createAnalytics', () => {
 
   it('opts back in when started after stop', () => {
     const client = fakeClient();
-    const analytics = createAnalytics({ client, key: 'phc_test', host });
+    const analytics = createAnalytics({
+      client,
+      key: 'phc_test',
+      host,
+      isDebug: () => false,
+    });
     analytics.start();
     analytics.stop();
     analytics.start();
@@ -53,7 +103,12 @@ describe('createAnalytics', () => {
 
   it('does nothing on stop when never started', () => {
     const client = fakeClient();
-    const analytics = createAnalytics({ client, key: 'phc_test', host });
+    const analytics = createAnalytics({
+      client,
+      key: 'phc_test',
+      host,
+      isDebug: () => false,
+    });
     analytics.stop();
     expect(client.opt_out_capturing).not.toHaveBeenCalled();
   });
