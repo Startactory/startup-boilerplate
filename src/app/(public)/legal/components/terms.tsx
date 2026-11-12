@@ -1,5 +1,6 @@
 import { getLocale, getTranslations } from 'next-intl/server';
 import { getStartupProfile } from '@/shared/startup-profile/startup-profile';
+import { resolveMediator } from '@/shared/storefront/mediation';
 import {
   formatPrice,
   getProPricing,
@@ -26,6 +27,7 @@ export async function Terms(): Promise<React.ReactElement> {
     locale,
   });
   const contactEmail = publisher.contactEmail || tCommon('contactFallback');
+  const mediator = resolveMediator(profile.legal);
   const termsVersion = profile.legal.termsVersion.trim();
 
   return (
@@ -83,7 +85,11 @@ export async function Terms(): Promise<React.ReactElement> {
         <p>{t('data.body')}</p>
       </LegalSection>
       <LegalSection title={t('mediation.title')}>
-        <p>{t('mediation.body', { email: contactEmail })}</p>
+        <p>
+          {mediator
+            ? t('mediation.bodyNamed', { email: contactEmail, mediator })
+            : t('mediation.body', { email: contactEmail })}
+        </p>
       </LegalSection>
       <LegalSection title={t('law.title')}>
         <p>{t('law.body')}</p>

@@ -114,9 +114,8 @@ complete that.
    the founder for the company details: legal name, legal form, address, SIREN, publication
    director, and the **named consumer mediator** (French consumer code; consumer sales cannot go
    live without one). RCS and VAT number are optional. Write them into `legal.company` in
-   `startup.config.json` (the mediator goes in `legal.company.mediator`), name the mediator in the
-   "Disputes and mediation" article of the terms (`Legal.terms.mediation` in `en.json` and
-   `fr.json`), bump `legal.termsVersion` to today's date, run
+   `startup.config.json` (the mediator goes in `legal.company.mediator`; the terms name it
+   automatically), bump `legal.termsVersion` to today's date, run
    `node scripts/sync-startup-profile.mjs`, then re-run the gate. Also remind the founder that the
    generated legal templates need a legal review before real customers pay.
 1. **Ask the founder's go-ahead**, then use Claude in Chrome to create the startup's own Stripe

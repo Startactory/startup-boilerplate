@@ -10,6 +10,7 @@ const CompanySchema = v.object({
   rcs: v.optional(v.string()),
   vatNumber: v.optional(v.string()),
   shareCapital: v.optional(v.string()),
+  mediator: v.optional(v.string()),
 });
 
 const LegalIdentitySchema = v.object({

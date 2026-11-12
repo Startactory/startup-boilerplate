@@ -24,9 +24,11 @@ and the `Storefront` i18n messages, never in components.
 - Landing at `/` for signed-out visitors (`src/app/(public)/page.tsx`): header with logo, name and
   "Sign in", a headline, one sentence, one button, a footer. Signed-in visitors keep today's
   redirects (dashboard, onboarding, pending invitation).
-- The button shows the trial and the price after it ("14 days free, then 19 €/month"). The amount,
-  interval and trial come from `autumn.config.ts` (`pro.price`, `pro.freeTrial`); the currency
-  comes from `pricing.currency`.
+- Under the button, one line is composed from the `Storefront` messages: the price (`priceMonthly`
+  or `priceYearly`), the VAT mention (`vat.franchise`, or `vat.included` for a VAT-registered
+  company) and, when there is a trial, `trial`, joined with " · ". The amount, interval and trial
+  come from `autumn.config.ts` (`pro.price`, `pro.freeTrial`); the currency comes from
+  `pricing.currency`.
 - Legal pages `/legal/notice`, `/legal/terms`, `/legal/privacy`, `/legal/cookies`, in French and
   English, with a cookie banner (Refuse and Accept equally prominent, plus Customize). PostHog does
   not start, or identify anyone, before consent (`src/lib/analytics.ts`,
@@ -111,9 +113,8 @@ Later, once the company is registered, ask for the company details and write the
 `rcs`, `vatNumber` and `shareCapital` are optional (a micro-entrepreneur has none of them).
 `vatNumber` present means the company is VAT-registered, so prices are shown tax included. Then:
 
-1. Name the mediator in the "Disputes and mediation" article of the terms (`Legal.terms.mediation`
-   in both message files).
-2. Bump `legal.termsVersion` to today's date, because the terms changed.
-3. Re-run `node scripts/sync-startup-profile.mjs`.
+1. Bump `legal.termsVersion` to today's date, because the terms changed.
+2. Re-run `node scripts/sync-startup-profile.mjs`. The terms then name the mediator in the
+   "Disputes and mediation" article; without a mediator they say it is given on request.
 
 Step 6f runs `node scripts/check-legal-identity.mjs` and refuses to go live until it prints `OK`.

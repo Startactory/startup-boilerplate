@@ -104,7 +104,8 @@ Add a `pricing` block to `startup.config.json` (keep the existing fields):
 
 `source` is `founder` or `derived`. `interval` is `month` or `year`. `currency` is the ISO code
 shown on the storefront price (default `EUR`); it must match the Autumn organization's default
-currency. `trialDays` is `0` for no trial. `deferred` lists pricing shapes the founder asked for that the code cannot sell yet.
+currency. `trialDays` is `0` for no trial. `deferred` lists pricing shapes the founder asked for
+that the code cannot sell yet.
 
 ## 5. Write `autumn.config.ts`
 

@@ -39,6 +39,23 @@ describe('syncStartupProfile', () => {
     });
   });
 
+  it('keeps the consumer mediator in the written profile', () => {
+    const company = {
+      name: 'Acme SAS',
+      form: 'SAS',
+      address: '1 rue de Rivoli, 75001 Paris',
+      siren: '123456789',
+      publicationDirector: 'Ada Lovelace',
+      mediator: 'Example mediator, mediator.example.eu',
+    };
+    const written = run({
+      ...fullConfig,
+      legal: { ...fullConfig.legal, company },
+    });
+    const profile = JSON.parse(contentOf(written, 'profile.json'));
+    expect(profile.legal.company.mediator).toBe(company.mediator);
+  });
+
   it('writes brand.css overriding the accent tokens', () => {
     const css = contentOf(run(fullConfig), 'brand.css');
     expect(css).toContain('--primary: #2f3130');

@@ -256,7 +256,8 @@
       },
       "mediation": {
         "title": "Litiges et médiation",
-        "body": "Avant toute action en justice, le Client peut contacter le Vendeur ({email}) afin de rechercher une solution amiable. Le Client agissant en qualité de consommateur peut également recourir gratuitement à un médiateur de la consommation (article L612-1 du Code de la consommation) ; le Vendeur communique les coordonnées de son médiateur sur demande."
+        "body": "Avant toute action en justice, le Client peut contacter le Vendeur ({email}) afin de rechercher une solution amiable. Le Client agissant en qualité de consommateur peut également recourir gratuitement à un médiateur de la consommation (article L612-1 du Code de la consommation) ; le Vendeur communique les coordonnées de son médiateur sur demande.",
+        "bodyNamed": "Avant toute action en justice, le Client peut contacter le Vendeur ({email}) afin de rechercher une solution amiable. Le Client agissant en qualité de consommateur peut également recourir gratuitement à un médiateur de la consommation (article L612-1 du Code de la consommation). Le médiateur du Vendeur est : {mediator}."
       },
       "law": {
         "title": "Droit applicable",

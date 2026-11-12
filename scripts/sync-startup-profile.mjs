@@ -28,6 +28,7 @@ const Company = v.object({
   rcs: v.optional(text),
   vatNumber: v.optional(text),
   shareCapital: v.optional(text),
+  mediator: v.optional(text),
 });
 const Legal = v.object({
   termsVersion: text,

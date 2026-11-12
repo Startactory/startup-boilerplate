@@ -256,7 +256,8 @@
       },
       "mediation": {
         "title": "Disputes and mediation",
-        "body": "Before any court action, the Customer can contact the Seller ({email}) to find an amicable solution. A Customer acting as a consumer may also use, free of charge, a consumer mediator (article L612-1 of the Consumer Code); the Seller provides the contact details of its mediator on request."
+        "body": "Before any court action, the Customer can contact the Seller ({email}) to find an amicable solution. A Customer acting as a consumer may also use, free of charge, a consumer mediator (article L612-1 of the Consumer Code); the Seller provides the contact details of its mediator on request.",
+        "bodyNamed": "Before any court action, the Customer can contact the Seller ({email}) to find an amicable solution. A Customer acting as a consumer may also use, free of charge, a consumer mediator (article L612-1 of the Consumer Code). The Seller's mediator is: {mediator}."
       },
       "law": {
         "title": "Governing law",
