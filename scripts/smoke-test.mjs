@@ -10,6 +10,24 @@ import { createOp } from './vault/op.mjs';
 
 const LEGAL_PAGES = ['notice', 'terms', 'privacy', 'cookies'];
 const GOOGLE_HOST = 'accounts.google.com';
+const HTML_ENTITIES = [
+  ['&', '&amp;'],
+  ['<', '&lt;'],
+  ['>', '&gt;'],
+  ['"', '&quot;'],
+];
+const APOSTROPHE_ENTITIES = ['&#x27;', '&#39;'];
+
+function htmlForms(name) {
+  const escaped = HTML_ENTITIES.reduce(
+    (text, [character, entity]) => text.replaceAll(character, entity),
+    name,
+  );
+  return [
+    name,
+    ...APOSTROPHE_ENTITIES.map((entity) => escaped.replaceAll("'", entity)),
+  ];
+}
 
 async function checkLanding({ url, fetch, expectedName }) {
   const response = await fetch(`${url}/`);
@@ -17,7 +35,7 @@ async function checkLanding({ url, fetch, expectedName }) {
     return { ok: false, detail: `status ${response.status}` };
   }
   const html = await response.text();
-  if (!html.includes(expectedName)) {
+  if (!htmlForms(expectedName).some((form) => html.includes(form))) {
     return { ok: false, detail: `page does not mention "${expectedName}"` };
   }
   return { ok: true, detail: 'status 200' };

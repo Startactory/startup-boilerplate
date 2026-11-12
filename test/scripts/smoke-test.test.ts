@@ -31,15 +31,17 @@ function fakeFetch({
   commitSha = COMMIT,
   redirectUri = `${SITE_URL}/auth/callback/google`,
   missingPath,
+  landingHtml = '<h1>Acme</h1>',
 }: {
   commitSha?: string | null;
   redirectUri?: string;
   missingPath?: string;
+  landingHtml?: string;
 } = {}) {
   return vi.fn(async (input: string, init?: { method?: string }) => {
     const path = input.replace(SITE_URL, '');
     if (path === missingPath) return htmlResponse(404, 'not found');
-    if (path === '/') return htmlResponse(200, '<h1>Acme</h1>');
+    if (path === '/') return htmlResponse(200, landingHtml);
     if (path.startsWith('/legal/')) return htmlResponse(200, 'legal');
     if (path === '/api/version') {
       return jsonResponse(200, { deploymentId: 'dpl', commitSha });
@@ -54,15 +56,17 @@ function fakeFetch({
 function run({
   fetch = fakeFetch(),
   countAppliedMigrations = async () => 3,
+  expectedName = 'Acme',
 }: {
   fetch?: FakeFetch;
   countAppliedMigrations?: () => Promise<number>;
+  expectedName?: string;
 } = {}) {
   return runSmokeTest({
     url: SITE_URL,
     fetch: fetch as unknown as typeof globalThis.fetch,
     expectedCommit: COMMIT,
-    expectedName: 'Acme',
+    expectedName,
     googleClientId: CLIENT_ID,
     countAppliedMigrations,
     expectedMigrations: 3,
@@ -120,6 +124,40 @@ describe('runSmokeTest', () => {
       }),
     });
     expect(failedNames(results)).toEqual(['google-sign-in']);
+  });
+
+  it.each([
+    ['raw', "<h1>L'Atelier & Co</h1>"],
+    ['React-escaped', '<h1>L&#x27;Atelier &amp; Co</h1>'],
+    ['decimal-escaped', '<h1>L&#39;Atelier &amp; Co</h1>'],
+  ])('finds a name with an apostrophe and an ampersand, %s', async (_form, landingHtml) => {
+    const results = await run({
+      fetch: fakeFetch({ landingHtml }),
+      expectedName: "L'Atelier & Co",
+    });
+    expect(failedNames(results)).toEqual([]);
+  });
+
+  it('finds a name with quotes and angle brackets once escaped', async () => {
+    const results = await run({
+      fetch: fakeFetch({
+        landingHtml: '<title>&quot;Ship&quot; &lt;fast&gt;</title>',
+      }),
+      expectedName: '"Ship" <fast>',
+    });
+    expect(failedNames(results)).toEqual([]);
+  });
+
+  it('fails the landing check when the name is absent', async () => {
+    const results = await run({
+      fetch: fakeFetch({ landingHtml: '<h1>L&#x27;Atelier</h1>' }),
+      expectedName: "L'Atelier & Co",
+    });
+    expect(results[0]).toEqual({
+      name: 'landing',
+      ok: false,
+      detail: `page does not mention "L'Atelier & Co"`,
+    });
   });
 
   it('fails only the legal page that returns 404', async () => {
