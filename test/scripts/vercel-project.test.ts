@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  checkVercelName,
   ensureVercelProject,
   VERCEL_REGION,
   writeProductionUrl,
@@ -289,6 +290,37 @@ describe('ensureVercelProject', () => {
     });
     await expect(ensureVercelProject({ ...base, runVercel })).rejects.toThrow(
       'vercel project create failed',
+    );
+  });
+});
+
+describe('checkVercelName', () => {
+  it('reports a name no project holds, and creates nothing', async () => {
+    const { calls, runVercel } = fakeVercel();
+    expect(await checkVercelName({ ...base, runVercel })).toBe('free');
+    expect(calls).toEqual([['api', '/v9/projects/acme']]);
+  });
+
+  it("reports a project that is this startup's", async () => {
+    const { runVercel } = fakeVercel({
+      project: {
+        name: 'acme',
+        link: { type: 'github', org: 'me', repo: 'acme' },
+        latestDeployments: [{ id: 'dpl_1' }],
+      },
+    });
+    expect(await checkVercelName({ ...base, runVercel })).toBe('own');
+  });
+
+  it('refuses a name another project holds', async () => {
+    const { runVercel } = fakeVercel({
+      project: {
+        name: 'acme',
+        link: { type: 'github', org: 'someone', repo: 'site' },
+      },
+    });
+    await expect(checkVercelName({ ...base, runVercel })).rejects.toThrow(
+      OTHER_OWNER,
     );
   });
 });

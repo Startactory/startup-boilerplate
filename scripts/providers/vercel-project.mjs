@@ -78,6 +78,17 @@ function assertProjectIsThisStartups({ project, slug, repository }) {
   );
 }
 
+export async function checkVercelName({
+  runVercel = defaultRunVercel,
+  slug,
+  repository,
+}) {
+  const project = await readProject({ runVercel, slug });
+  if (!project) return 'free';
+  assertProjectIsThisStartups({ project, slug, repository });
+  return 'own';
+}
+
 async function findOwnDomain({ runVercel, slug }) {
   const response = await callApi({
     runVercel,
@@ -206,8 +217,34 @@ export function writeVercelSettings({
   });
 }
 
+const CHECK_USAGE =
+  'usage: node scripts/providers/vercel-project.mjs --check-name <slug> --repository <owner>/<slug>';
+
+function optionValue(argv, flag) {
+  const index = argv.indexOf(flag);
+  const value = index === -1 ? undefined : argv[index + 1];
+  if (!value || value.startsWith('--')) throw new Error(CHECK_USAGE);
+  return value;
+}
+
+async function checkNameFromArguments(argv) {
+  const slug = optionValue(argv, '--check-name');
+  const repository = optionValue(argv, '--repository');
+  const state = await checkVercelName({ slug, repository });
+  console.log(
+    state === 'free'
+      ? `OK  Vercel name ${slug} is free`
+      : `OK  Vercel project ${slug} is this startup's`,
+  );
+}
+
 async function main() {
   try {
+    const argv = process.argv.slice(2);
+    if (argv.includes('--check-name')) {
+      await checkNameFromArguments(argv);
+      return;
+    }
     const { slug, repository, dataRegion } = readStartupConfig();
     const { productionUrl, outcome } = await ensureVercelProject({
       slug,
