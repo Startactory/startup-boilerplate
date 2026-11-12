@@ -98,13 +98,16 @@ call's 2-minute default: run the script in the background and read its output wh
 project's first password is random and never leaves the script; step 3 replaces it. Success
 prints `OK  Supabase project <ref> <created|reused> in <region>`. Note the `ref`.
 
+A project named after the slug that is `GOING_DOWN` (being deleted) or `REMOVED` counts as gone:
+the script creates a new one and does not count it against the free limit.
+
 Failures:
 
 - `Supabase project <ref> still <status> after 10 minutes — re-run to keep waiting`: run it again;
   it reuses that project and never creates a second one.
 - `Supabase project <ref> is <status> — the founder restores or deletes it in the Supabase
-  dashboard`: the project named after the slug is paused (`INACTIVE`: free projects pause after a
-  week without activity) or failed (`INIT_FAILED`, `RESTORE_FAILED`, `PAUSE_FAILED`) and will
+  dashboard`: the project named after the slug is paused (`INACTIVE` or `PAUSED`: free projects
+  pause after a week without activity) or failed (`INIT_FAILED`, `RESTORE_FAILED`, `PAUSE_FAILED`) and will
   never become healthy. Restoring it uses a free-project slot and deleting it is on the closed
   list, so in phase 2 it is a `BLOCKED_ON_FOUNDER` case, with an action such as
   `in the Supabase dashboard, restore project <ref> or delete it`. On resume,

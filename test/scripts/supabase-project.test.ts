@@ -197,6 +197,30 @@ describe('ensureSupabaseProject', () => {
     expect(s.posts).toHaveLength(0);
   });
 
+  it.each([
+    'REMOVED',
+    'GOING_DOWN',
+  ])('creates a new project when the one named after the slug is %s', async (status) => {
+    const s = setup({
+      projects: [project('goneprojectgoneproje', 'acme', status)],
+    });
+    expect(await run(s)).toEqual({
+      ref: 'newrefnewrefnewrefne',
+      outcome: 'created',
+    });
+    expect(s.posts).toHaveLength(1);
+  });
+
+  it('does not count a project going down against the free limit', async () => {
+    const s = setup({
+      projects: [
+        project('a', 'one', 'ACTIVE_HEALTHY'),
+        project('b', 'two', 'GOING_DOWN'),
+      ],
+    });
+    expect((await run(s)).outcome).toBe('created');
+  });
+
   it('refuses when two projects are already active', async () => {
     const s = setup({
       projects: [
