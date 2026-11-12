@@ -34,7 +34,7 @@ function fakeAtmn({
 describe('loginToAutumn', () => {
   it('runs atmn in a fresh directory, reports the URL and imports the keys', async () => {
     const { spawnAtmn, seen } = fakeAtmn();
-    const importKeys = vi.fn(() => ({ local: true, production: true }));
+    const importKeys = vi.fn(() => ({ local: true, production: 'sandbox' }));
     const onUrl = vi.fn();
     const result = await loginToAutumn({
       op: {},
@@ -44,7 +44,7 @@ describe('loginToAutumn', () => {
       onUrl,
       pollMs: 1,
     });
-    expect(result).toEqual({ local: true, production: true });
+    expect(result).toEqual({ local: true, production: 'sandbox' });
     expect(onUrl).toHaveBeenCalledWith(AUTH_URL);
     expect(seen.path?.split(':')[0]).toBe(join(seen.cwd ?? '', 'bin'));
     expect(seen.shim).toContain(join(seen.cwd ?? '', 'auth-url'));
@@ -52,8 +52,26 @@ describe('loginToAutumn', () => {
       op: {},
       vault: 'startup-acme',
       envPath: join(seen.cwd ?? '', '.env'),
+      productionKey: 'sandbox',
     });
     expect(existsSync(seen.cwd ?? '')).toBe(false);
+  });
+
+  it('passes the live production choice to the import', async () => {
+    const { spawnAtmn } = fakeAtmn();
+    const importKeys = vi.fn(() => ({ local: true, production: 'live' }));
+    await loginToAutumn({
+      op: {},
+      vault: 'startup-acme',
+      spawnAtmn,
+      importKeys,
+      productionKey: 'live',
+      onUrl: vi.fn(),
+      pollMs: 1,
+    });
+    expect(importKeys).toHaveBeenCalledWith(
+      expect.objectContaining({ productionKey: 'live' }),
+    );
   });
 
   it('makes the browser shim executable', async () => {
@@ -71,7 +89,7 @@ describe('loginToAutumn', () => {
       op: {},
       vault: 'startup-acme',
       spawnAtmn,
-      importKeys: vi.fn(() => ({ local: true, production: true })),
+      importKeys: vi.fn(() => ({ local: true, production: 'sandbox' })),
       onUrl: vi.fn(),
       pollMs: 1,
     });

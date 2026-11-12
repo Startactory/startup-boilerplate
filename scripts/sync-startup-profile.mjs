@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { icons } from 'lucide-react';
 import * as v from 'valibot';
 import { deriveAccentTokens } from './brand/accent.mjs';
+import { Legal } from './startup-config.mjs';
 import { readStartupConfig } from './vault/names.mjs';
 
 const PROFILE_PATH = 'src/shared/startup-profile/profile.json';
@@ -17,25 +18,6 @@ const NEUTRAL_LEGAL = {
   contactEmail: '',
   company: null,
 };
-
-const text = v.string();
-const Company = v.object({
-  name: text,
-  form: text,
-  address: text,
-  siren: text,
-  publicationDirector: text,
-  rcs: v.optional(text),
-  vatNumber: v.optional(text),
-  shareCapital: v.optional(text),
-  mediator: v.optional(text),
-});
-const Legal = v.object({
-  termsVersion: text,
-  founderName: text,
-  contactEmail: text,
-  company: v.nullable(Company),
-});
 
 function resolveBrand(brand) {
   const icon = brand?.icon ?? DEFAULT_ICON;

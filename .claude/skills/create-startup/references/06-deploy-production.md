@@ -1,45 +1,72 @@
 # Step 6 — Deploy to production (Vercel)
 
-End state: the Vercel project is connected to the GitHub repo, CI deploys it after green checks,
-production runs on the Supabase database from Step 4a with its own `.env.prod`, prod OAuth works,
-and payments are in live mode. Use the `vercel` MCP (connected in Step 2); the `vercel` CLI is the
-fallback.
+End state of the run: the Vercel project is connected to the GitHub repo, CI deploys it after green
+checks, production runs on the Supabase database from Step 4a with its own `.env.prod`, Google
+sign-in works on the live URL, and payments run on the Autumn sandbox (Stripe test mode) until the
+founder goes live after the run. The Vercel CLI and the scripts below do all of it.
 
-Do this only after Step 5 is green (`pnpm validate` passed and the app ran locally). Nothing in this
-step touches `.env`: production values go in `.env.prod`.
+Where each part runs:
 
-## 6a. Decide the production URL
+- **Phase 1, step `vercel-project`**: 6b, right after the `repository` step (`phase-1-setup.md`
+  section 6), so the production URL is known before Google OAuth (4b).
+- **Phase 2, step `deploy`**, after Step 5 is green: 6d, 6e, 6g, then the first push (6j item 1),
+  then 6i. 6j item 2 is the `smoke-test` step.
+- 6a and 6c explain; 6f (going live) is after the run.
 
-- If the user has a custom domain (`startup.config.json.domain`), that's the production URL — add
-  it in Vercel → Settings → Domains and follow the DNS instructions.
-- Otherwise use the Vercel-assigned domain (`https://<project>.vercel.app`) for now; a custom
-  domain can be added later.
+Nothing in this step touches `.env`: production values go in `.env.prod`. Below, `<repository>` is
+`startup.config.json` `repository` (`<owner>/<slug>`) and `<slug>` its `slug`.
+
+## 6a. The production URL
+
+`productionUrl` in `startup.config.json`: the free `https://<slug>.vercel.app` (or
+`https://<slug>-<4 characters>.vercel.app` when that name is taken) that 6b gave the project. A
+custom domain comes after the run (`after-the-run.md`).
 
 This URL becomes `NEXT_PUBLIC_APP_URL` and `BETTER_AUTH_URL` in production — several things key off
 it (Better Auth `trustedOrigins`, secure cookies, OAuth redirects, email links). A wrong value gives
-sign-in loops that are hard to debug, so settle it before 6e.
+sign-in loops that are hard to debug, which is why 6b settles it before 4b and 6e use it.
 
-## 6b. Create the Vercel project and connect it to the repo
+## 6b. Create the Vercel project and connect it to the repo (phase 1, step `vercel-project`)
 
-1. Create a project named after the `slug`.
-2. **Connect it to the GitHub repository**: **Project → Settings → Git → Connect Git Repository**,
-   then pick the startup's repo (`startup.config.json` `repository`, created in Step 1c). Never
-   the boilerplate. This is easy to miss. `vercel link` only links the *local directory* to the
-   project: enough to push env vars, but Vercel gets no access to the repo. Without the Git
-   connection there is no commit to build, and deploy hooks do not exist (the Deploy Hooks panel
-   only appears for Git-connected projects).
-3. Link the local directory too, so the env push and the CLI know the project:
+It needs the `repository` step done (`startup.config.json` `repository`, `origin` on it), the
+`vercel login` session, and the Vercel GitHub App installed for `githubOwner` with access to the
+repository (`phase-1-setup.md` checklist item 7).
 
-   ```bash
-   vercel link
-   ```
+```bash
+node scripts/providers/vercel-project.mjs
+```
 
-4. Framework preset is Next.js (auto-detected). Leave the build command alone.
-5. Pin the function region next to the database: add `"regions": ["<region>"]` to `vercel.json`
-   with the Vercel region `references/data-region.md` gives for `dataRegion` (`cdg1` for an EU
-   startup on a Paris database). Without it, functions run in `iad1` (US) — for an EU startup
-   that sends every request's personal data through the US. Commit this change on a branch, but
-   do not merge it yet: merging it is the first deploy (6j).
+It does, idempotently:
+
+1. Creates the Vercel project named after the `slug`, or reuses it only when it is this
+   startup's: Git-linked to `repository`, or not linked and never deployed (an earlier attempt of
+   this step). Any other project of that name stops it (below).
+2. Links the local directory to it (`vercel link`), so the env push and the CLI know the project.
+3. **Connects it to the GitHub repository** `repository` (never the boilerplate). `vercel link`
+   only links the *local directory*: enough to push env vars, but Vercel gets no access to the
+   repo. Without the Git connection there is no commit to build, and deploy hooks do not exist (the
+   Deploy Hooks panel only appears for Git-connected projects).
+4. Gives the project its free domain `<slug>.vercel.app`, or `<slug>-<4 random lowercase
+   alphanumerics>.vercel.app` when someone else holds that name, and reuses the one it already
+   has on a re-run.
+5. Writes `productionUrl` into `startup.config.json`, and two settings into `vercel.json`:
+   `"framework": "nextjs"` (a project created by the CLI can keep the "Other" preset, and a
+   Next.js build then serves 404s), and the function region next to the database,
+   `"regions": ["<region>"]`, with the Vercel region `references/data-region.md` gives for
+   `dataRegion` (`cdg1` for `eu`, `iad1` for `us`). Without the region, functions run in `iad1`
+   (US) — for an EU startup that sends every request's personal data through the US. The `git`
+   block stays as it is, and a re-run writes the same file.
+
+Success prints `OK  Vercel project <slug> <created|reused>, production URL <url>`. On failure it
+prints one line naming the call that failed: `vercel git connect failed: …` means the Vercel
+GitHub App cannot see the repository (checklist item 7); `no free *.vercel.app name for <slug>
+after 3 tries` means run it again; `Vercel project <slug> already exists and belongs to something
+else — pick another slug (founder decision)` means the slug check of `phase-1-setup.md` section 2
+missed a project of the founder's: choose another slug with the founder (in phase 2, a block).
+Leave the build command alone.
+
+Then commit `startup.config.json` and `vercel.json` on `master` (nothing is pushed yet: the first
+push is 6j) and run `node scripts/run-ledger.mjs done vercel-project`.
 
 ## 6c. How the pipeline deploys
 
@@ -68,25 +95,32 @@ One script creates (or reuses) the `production` hook on `master`, stores the URL
 `startup-<slug>/ci`, and pipes it to `gh secret set VERCEL_DEPLOY_HOOK_URL`:
 
 ```bash
-node scripts/providers/vercel-deploy-hook.mjs --project <vercel-project>
+node scripts/providers/vercel-deploy-hook.mjs --project <slug>
 ```
 
 The Vercel project must be Git-connected (6b) and the Vercel CLI signed in. The hook URL is a
 bearer credential: it never appears in your output or in argv. Success prints names and statuses
-only. Verify with `gh secret list` (names only). If it errors, read the message: `update the
-Vercel CLI: npm i -g vercel@latest` means the Vercel CLI is too old to manage deploy hooks, and a missing Git connection
-means go back to 6b. If the hook ever leaks, delete it in **Project → Settings → Git → Deploy
-Hooks** and re-run the script.
+only. Verify with `gh secret list --repo "<repository>"` (names only). If it errors, read the
+message: `update the
+Vercel CLI: npm i -g vercel@latest` means the Vercel CLI is too old to manage deploy hooks, and a
+missing Git connection means 6b did not finish (run it again). If the hook URL ever reaches the
+transcript or printed output, that is a decision block (`phase-2-run.md`, "Block protocol"): the
+founder decides whether to delete the hook (**Project → Settings → Git → Deploy Hooks**). The
+action is
+`the Vercel deploy hook URL reached the transcript: delete the hook in Vercel and answer Decision: revoked, or answer Decision: keep`.
+On resume, `revoked`: re-run the script, which creates a new hook and gives it to CI; `keep`: go
+on, and the end-of-run report lists the hook as exposed. Never print the project JSON
+(`vercel api /v9/projects/<slug>`): its `link.deployHooks` holds the hook URL.
 
 ## 6e. Finish `.env.prod`
 
-Step 4 already filled the `production` item: its own Google client, PostHog project, Resend key (or
-SMTP), Supabase `DATABASE_URL` and Dash0 variables. Nothing is copied from `.env`: each environment
-got its own Google, PostHog and Resend values in Step 4. Only the production URL is left; an
-explicit `--app-url` replaces the localhost value and nothing else is overwritten:
+Step 4 already filled the `production` item: its own Google client, PostHog project, SMTP
+credentials, the Autumn sandbox key, Supabase `DATABASE_URL` and Dash0 variables. Nothing is copied
+from `.env`: each environment got its own Google and PostHog values in Step 4. Only the production
+URL is left; an explicit `--app-url` replaces the localhost value and nothing else is overwritten:
 
 ```bash
-node scripts/init-env.mjs --apply --file .env.prod --app-url "https://<prod-domain>"
+node scripts/init-env.mjs --apply --file .env.prod --app-url "<productionUrl>"
 ```
 
 Then regenerate the file from the vault and check names and counts only:
@@ -99,45 +133,12 @@ grep -c '=op://' .env.prod
 
 The count of `op://` lines is the number of secrets; no value is printed.
 
-## 6f. Switch Autumn + Stripe to live
+## 6f. Going live — after the run
 
-This is the one per-startup human step: Stripe verifies the business, and only the founder can
-complete that.
-
-0. **Legal-identity gate.** Before anything goes live, run:
-
-   ```bash
-   node scripts/check-legal-identity.mjs
-   ```
-
-   `OK  legal identity complete` means continue. If it prints `MISSING  <fields>`, **stop** and ask
-   the founder for the company details: legal name, legal form, address, SIREN, publication
-   director, and the **named consumer mediator** (French consumer code; consumer sales cannot go
-   live without one). RCS and VAT number are optional. Write them into `legal.company` in
-   `startup.config.json` (the mediator goes in `legal.company.mediator`; the terms name it
-   automatically), bump `legal.termsVersion` to today's date, run
-   `node scripts/sync-startup-profile.mjs`, then re-run the gate. Also remind the founder that the
-   generated legal templates need a legal review before real customers pay.
-1. **Ask the founder's go-ahead**, then use Claude in Chrome to create the startup's own Stripe
-   account under the founder's Stripe login (Stripe dashboard → account name → **New account**).
-   Never reuse another startup's account.
-2. In the Autumn dashboard (the startup's own org), connect that Stripe account in **live mode**.
-3. The founder completes Stripe KYC (business details, bank account). Payouts stay blocked until
-   it is done; say so plainly and do not wait on it to continue the deploy.
-4. Push the product config to production. `op run` (through `scripts/with-vault.mjs run`, which supplies the service account token to `op`
-   and strips it from the command) resolves the reference in the environment of that one command,
-   which overrides the key in `.env`, so the value is never printed:
-
-   ```bash
-   AUTUMN_PROD_SECRET_KEY=op://startup-<slug>/production/AUTUMN_SECRET_KEY node scripts/with-vault.mjs run -- pnpm dlx atmn push -p --yes
-   ```
-
-   (`atmn` 2.x needs `--yes`.) Success ends with the products listed as pushed to production. If
-   `atmn` still reads the sandbox key from `.env`, stop and report it rather than pushing to the
-   wrong environment.
-
-The production `AUTUMN_SECRET_KEY` is already in the `production` item (4e); `.env.prod` refers to
-it by reference.
+Phase 2 never does it. The legal-identity gate, the startup's own Stripe account and its KYC, the
+live Stripe connection in Autumn, the live Autumn key and the production plan push
+(`atmn push -p`) are in `after-the-run.md`, "Go live". Until then production stays on the Autumn
+sandbox: never run `atmn push -p` while production uses the sandbox key.
 
 ## 6g. Push the environment to Vercel and the database URL to GitHub
 
@@ -152,15 +153,15 @@ push those. Everything else comes from `.env.prod`, whose secret lines are `op:/
 
 | Variable | Required | Where the value comes from |
 | --- | --- | --- |
-| `NEXT_PUBLIC_APP_URL` | ✅ | the production URL from 6a |
+| `NEXT_PUBLIC_APP_URL` | ✅ | `productionUrl` (6a, set in 6e) |
 | `BETTER_AUTH_URL` | ✅ | the same production URL |
 | `DATABASE_URL` | ✅ | vault `production` item, Supabase **session pooler**, port 5432 (4a) |
 | `DATABASE_SSL` | — | `require` (4a) |
 | `BETTER_AUTH_SECRET` | ✅ | vault `production` item, generated in Step 4a (`init-env --file .env.prod`) |
 | `ENCRYPTION_KEY` | — | vault `production` item, generated in Step 4a |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ✅ | vault `production` item, the production OAuth client (4b) |
-| `AUTUMN_SECRET_KEY` | ✅ **in production** | vault `production` item, Autumn production key (4e) — `assertBillingConfigured` fails the build without it |
-| `EMAIL_PROVIDER` + its vars | ✅ | vault `production` item; `resend` → `RESEND_API_KEY`, `RESEND_FROM_EMAIL`; `smtp` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL` |
+| `AUTUMN_SECRET_KEY` | ✅ **in production** | vault `production` item: the Autumn sandbox key until go-live (4e), then the live key — `assertBillingConfigured` fails the build without it |
+| `EMAIL_PROVIDER` + its vars | ✅ | vault `production` item; in a run `smtp` → `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL`; with a domain `resend` → `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
 | `NEXT_PUBLIC_POSTHOG_KEY` / `_HOST` | — | vault `production` item, the production PostHog project (4c) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` / `_HEADERS` / `OTEL_SERVICE_NAME` | — | vault `production` item, written by `dash0-dataset.mjs` (4f) — without them, production logs only reach Vercel's runtime logs |
 | `UPSTASH_*`, `MICROSOFT_*` | — | optional; leave unset to disable |
@@ -189,9 +190,12 @@ Vercel and GitHub are **two separate stores holding different things**: the Verc
 what the *running app* needs; GitHub Actions secrets hold only what *CI* needs. Do **not** mirror
 the whole env file into GitHub.
 
-Check first that `gh` targets the startup's repo, not the boilerplate:
-`gh repo view --json nameWithOwner -q .nameWithOwner` must print `startup.config.json`
-`repository`. If not, go back to Step 1c.
+Every `gh` command in this step names the startup's repository (`--repo "<repository>"`, or the
+literal path in 6i): with the boilerplate kept as `upstream`,
+`gh` without it can resolve to the boilerplate, and `gh secret` never uses the clone's default.
+Check also that the clone's default is the startup's repo, not the boilerplate:
+`gh repo set-default --view` must print `<repository>`. If not, run
+`gh repo set-default "<repository>"` (`01c-create-repository.md` section 4.3).
 
 The workflows reference exactly three secrets (check that nothing was added:
 `grep -roE "secrets\.[A-Z_]+" .github/workflows | sort -u`):
@@ -202,32 +206,26 @@ The workflows reference exactly three secrets (check that nothing was added:
 | `DATABASE_URL` | `ci.yml` → `migrate` job on `master` | now |
 | `DEV_DATABASE_URL` | `ci.yml` → `migrate` job on `dev` | only if a `dev` branch exists |
 
-The GitHub MCP **cannot** write secrets, so use the script: it reads the value from the vault,
-refuses an empty one, and hands it to `gh` on stdin without printing it:
+Use the script: it reads the value from the vault, refuses an empty one, and hands it to `gh` on
+stdin without printing it:
 
 ```bash
 node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/DATABASE_URL
 ```
 
-Set it **before the first push to `master`**, or the `migrate` job fails its `Verify database url`
-guard and the release never triggers. Verify with `gh secret list` — it prints names only.
-
-## 6h. Wire production OAuth
-
-Only needed when 4b could not add the production redirect URI (no domain was known then). Ask the
-founder's go-ahead, then use Claude in Chrome: Google Cloud → Credentials → the `<name>` client
-(not the `(local)` one), add `https://<prod-domain>/auth/callback/google`, save. Use narrow `find`
-queries only; the page can show the client secret. If the consent screen is still in "Testing",
-either add real users as test users or publish the app. (Same for Microsoft if it was enabled:
-`/auth/callback/microsoft`.)
+Set it **before the first push to `master`** (6j), or the `migrate` job fails its
+`Verify database url` guard and the release never triggers. Verify with
+`gh secret list --repo "<repository>"` — it prints names only.
 
 ## 6i. Protect `master`
 
+Run it right after the first push (6j item 1): `master` does not exist on GitHub before.
 `CLAUDE.md` calls branch protection the only gate a developer cannot bypass locally. Require the CI
-jobs:
+jobs, on the startup's repository written out literally (`<repository>` is `<owner>/<slug>` from
+`startup.config.json`; never `{owner}/{repo}`, which `gh` can fill in with the boilerplate):
 
 ```bash
-gh api -X PUT "repos/{owner}/{repo}/branches/master/protection" \
+gh api -X PUT "repos/<repository>/branches/master/protection" \
   --input - <<'JSON'
 {
   "required_status_checks": { "strict": true, "contexts": ["boundaries", "test", "type-check"] },
@@ -238,43 +236,68 @@ gh api -X PUT "repos/{owner}/{repo}/branches/master/protection" \
 JSON
 ```
 
-Branch protection on a private repo needs a paid GitHub plan. If the API returns 403, report it as
-a follow-up: it does not block deployment.
+Branch protection on a private repo needs a paid GitHub plan. If the API returns 403, put it in the
+end-of-run report as a follow-up: it does not block deployment.
 
 ## 6j. Deploy & verify
 
 Checklist before the first deploy — every line must be true:
 
-- [ ] the Vercel project is **connected to the GitHub repo** (not only `vercel link`)
-- [ ] `gh secret list` shows `VERCEL_DEPLOY_HOOK_URL` and `DATABASE_URL`
+- [ ] the Vercel project is **connected to the GitHub repo** (6b, not only `vercel link`)
+- [ ] `gh secret list --repo "<repository>"` shows `VERCEL_DEPLOY_HOOK_URL` and `DATABASE_URL`
 - [ ] the env push in 6g succeeded with no missing variable
 
-1. Deploy by merging the `vercel.json` region change from 6b into `master` through a PR. Watch the
-   chain: `ci.yml` → `migrate` → `production.yml` → Vercel build.
+1. **The first push.** On `master`, with everything committed:
+
    ```bash
-   gh run watch
+   git push -u origin master
    ```
-   A red `migrate` job usually means a wrong `DATABASE_URL` secret; a failed Vercel build with
+
+   The husky pre-push hook lets this first push create `master` on the new remote; after it,
+   `master` only changes through a branch and a PR that you merge. The push runs `ci.yml` and its
+   `migrate` job, then `production.yml` calls the deploy hook and Vercel builds. Follow each run
+   without a prompt:
+
+   ```bash
+   gh run list --repo "<repository>" --branch master --workflow ci.yml --limit 1 --json databaseId -q '.[0].databaseId'
+   gh run watch <id> --repo "<repository>" --exit-status
+   ```
+
+   A run takes a few seconds to appear after the push: when the first command prints nothing,
+   wait and retry a few times. A CI run can outlast a Bash call's 2-minute default: give
+   `gh run watch` the longest timeout (10 minutes) or run it in the background, and run it again
+   when it is cut off (it only reads). Once CI is green, do the same with
+   `--workflow production.yml` for the deploy run, which starts when CI completes. A red `migrate`
+   job usually means a wrong `DATABASE_URL` secret; a failed Vercel build with
    `Invalid environment variables` means a variable is missing in 6g.
-2. Smoke-test on the live URL:
-   - Sign in with Google (confirms prod OAuth + secure cookies + `trustedOrigins`).
-   - Create an organization (the onboarding asks only for its name) and reach the dashboard
-     past the paywall (Supabase Postgres in prod).
-   - Open pricing and run a real checkout in Stripe (a live small charge or a test-clock) to
-     confirm Autumn end-to-end.
-   - Confirm PostHog receives prod events.
-   - Confirm the Dash0 dataset shows production logs from service `<slug>`, with traces linked.
-     Serverless functions can freeze before a batch is sent: if requests show in Vercel's logs but
-     not in Dash0, report it rather than assume it works.
-3. Report the live URL and a final per-service status checklist. When `gdpr` is `true`, include
-   each item of the "When `gdpr` is `true`" list in `references/data-region.md` as **needs action**
-   until it is built.
+2. **Smoke test** (the `smoke-test` step), every time on the deployed commit:
+   1. `git switch master && git pull --ff-only`: after a PR merged on GitHub, the local `HEAD` is
+      not the deployed commit. `git rev-parse HEAD` is then the commit `/api/version` must return.
+   2. Wait for the Vercel build of that commit. `production.yml` is green as soon as its call to
+      the deploy hook returns, while Vercel is still building, so a smoke test right away gets
+      404s. List the commit's production deployments (the table shows no secret; do not print
+      deployment JSON instead, whose metadata can name the deploy hook):
 
-## 6k. Handover
+      ```bash
+      vercel ls <slug> --environment production --meta githubCommitSha="$(git rev-parse HEAD)"
+      ```
 
-Tell the user what's live, what's still a TODO (Stripe KYC if not finished, Upstash, Microsoft
-OAuth, custom domain if not set, branch protection if the plan refused it), and where each secret
-lives: every secret is in the 1Password vault `startup-<slug>` (items `local`, `production`, `ci`).
-`.env` holds real values for local use only; `.env.prod` holds `op://` references only, so it
-contains no secret. The same values also sit in the Vercel project env and the two GitHub secrets.
-Remind them that both env files are git-ignored and must never be committed.
+      The hook's deployment can take a few seconds to appear: retry every 10 seconds for up to 2
+      minutes; if none appears, leave out `--meta …` and take the newest. Then wait on the
+      deployment URL it lists first (`https://<slug>-<hash>-<scope>.vercel.app`), at most 15
+      minutes, in the background (longer than a Bash call can wait):
+
+      ```bash
+      vercel inspect <deployment url> --wait --timeout 15m
+      ```
+
+      It exits 0 once the deployment is ready. A timeout (exit 1) or an `Error` status is a failed
+      or stuck build: read `vercel inspect <deployment url> --logs`, fix the cause on a branch,
+      merge its PR, and start this item again.
+   3. `node scripts/smoke-test.mjs` plus the browser check of `phase-2-run.md` ("Smoke test"). It
+      never runs a real or live charge: the browser check stops at the Stripe test-mode checkout
+      page. The live checkout waits for going live (`after-the-run.md`, "Go live").
+3. **Report** (the `report` step): the "End-of-run report" of `SKILL.md` — the live URL, the
+   per-service checklist (with each item of the "When `gdpr` is `true`" list of
+   `references/data-region.md` when `gdpr` is `true`), what stays for later, and where each secret
+   lives.

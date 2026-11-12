@@ -7,6 +7,7 @@ const EnvSchema = v.object({
   NODE_ENV: v.optional(NodeEnv, 'development'),
   VERCEL_ENV: v.optional(VercelEnv, 'development'),
   VERCEL_DEPLOYMENT_ID: v.optional(v.pipe(v.string(), v.minLength(1))),
+  VERCEL_GIT_COMMIT_SHA: v.optional(v.pipe(v.string(), v.minLength(1))),
   LOG_LEVEL: v.optional(
     v.picklist(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']),
     'debug',

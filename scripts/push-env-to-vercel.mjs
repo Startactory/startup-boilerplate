@@ -24,6 +24,7 @@ const VERCEL_MANAGED = new Set([
   'VERCEL_URL',
   'VERCEL_REGION',
   'VERCEL_DEPLOYMENT_ID',
+  'VERCEL_GIT_COMMIT_SHA',
 ]);
 
 // Mirrors src/shared/env.ts. Keep in sync when the schema changes.

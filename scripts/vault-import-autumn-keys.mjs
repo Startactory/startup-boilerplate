@@ -34,13 +34,27 @@ export function importAutumnKeys({
   vault,
   envPath = ENV_FILE_FOR_ENVIRONMENT.local,
   syncEnv = syncEnvFile,
+  productionKey: productionKeyKind = 'sandbox',
 }) {
   const env = parseEnv(fs.readFileSync(envPath, 'utf8'));
   const sandboxKey = env.get(SANDBOX_VARIABLE) || undefined;
-  const productionKey = env.get(PRODUCTION_VARIABLE) || undefined;
-  if (!sandboxKey && !productionKey) {
+  const liveKey =
+    productionKeyKind === 'live'
+      ? env.get(PRODUCTION_VARIABLE) || undefined
+      : undefined;
+  if (productionKeyKind === 'live') {
+    if (!liveKey) {
+      throw new Error(
+        'no live Autumn key in .env — connect Stripe live in Autumn, then run atmn login again',
+      );
+    }
+    if (!liveKey.startsWith(LIVE_KEY_PREFIX)) {
+      throw new Error(`${PRODUCTION_VARIABLE} is not a live key`);
+    }
+  } else if (!sandboxKey) {
     throw new Error('no Autumn keys in .env — run pnpm dlx atmn login first');
   }
+  const productionKey = liveKey ?? sandboxKey;
   if (sandboxKey?.startsWith(LIVE_KEY_PREFIX)) {
     throw new Error(
       `${SANDBOX_VARIABLE} in .env is a live key — run atmn login again and pick the sandbox`,
@@ -55,7 +69,8 @@ export function importAutumnKeys({
   }
   if (productionKey) {
     validateKey({
-      variable: PRODUCTION_VARIABLE,
+      variable:
+        productionKeyKind === 'live' ? PRODUCTION_VARIABLE : SANDBOX_VARIABLE,
       value: productionKey,
       environment: 'production',
     });
@@ -86,7 +101,7 @@ export function importAutumnKeys({
   for (const environment of ['local', 'production']) {
     syncEnv({ op, vault, environment, fs });
   }
-  return { local: Boolean(sandboxKey), production: Boolean(productionKey) };
+  return { local: Boolean(sandboxKey), production: productionKeyKind };
 }
 
 function status(found) {
@@ -96,9 +111,13 @@ function status(found) {
 function main() {
   try {
     const vault = startupVault(readStartupConfig().slug);
-    const result = importAutumnKeys({ op: createOp(), vault });
+    const result = importAutumnKeys({
+      op: createOp(),
+      vault,
+      productionKey: process.argv.includes('--live') ? 'live' : 'sandbox',
+    });
     console.log(
-      `OK  Autumn sandbox key ${status(result.local)} in ${vault}/local, production key ${status(result.production)} in ${vault}/production`,
+      `OK  Autumn sandbox key ${status(result.local)} in ${vault}/local, production uses the ${result.production} key`,
     );
   } catch (error) {
     console.error(error.message);

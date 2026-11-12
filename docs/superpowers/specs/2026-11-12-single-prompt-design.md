@@ -1,0 +1,353 @@
+# True single prompt (roadmap item 7) — design
+
+Date: 2026-11-12. Status: agreed with the founder in chat (brainstorming), reviewed by a builder
+check whose two open questions the founder answered. The founder asked to go from design to
+build without a further approval step.
+
+## Intent
+
+The boilerplate promises "one prompt to a running company". Today the `create-startup` skill
+stops many times along the way: it asks for the name, then the pricing, then the founder's
+details, then asks for a go-ahead before each OAuth consent, each key, each push. Sign-ins and
+2FA codes come up in the middle of the run. The founder has to stay at the screen for the whole
+run, which can take hours.
+
+This step splits the run in two:
+
+1. **Phase 1, with the founder, at the start, in one sitting.** Claude asks every question the
+   run needs and gets every founder-only action done (accounts, sign-ins, 2FA, the Gmail app
+   password), plus one blanket consent. It saves all of it to `startup.config.json`, checks that
+   nothing is missing (the preflight), and prints one `/goal` line.
+2. **Phase 2, Claude alone.** The founder pastes the `/goal` line and leaves. Claude runs every
+   remaining step without a single question, deploys to production on the free `*.vercel.app`
+   URL, and runs an automatic smoke test.
+
+When the founder comes back, the startup is set up and live: the parent accounts are connected,
+every cloud project exists for this startup, and the site is online on the URL that Vercel
+assigned.
+
+## Goals
+
+1. **One sitting of founder work, then none.** Every question and every founder-only action of the
+   current skill moves to phase 1. Phase 2 contains no question to the founder.
+2. **Answers saved in a JSON file.** `startup.config.json` (already the per-startup config, read
+   by the scripts) holds every answer. A new session can resume phase 2 from it with no context
+   from phase 1. The founder's consent is not stored there (see "Blanket consent").
+3. **A preflight that blocks early.** A script checks that the config is complete and valid, that
+   the tools are installed, that the CLI sign-ins and the master keys work, and that the provider
+   quotas leave room for this startup. If anything is missing, phase 2 does not start.
+4. **An unattended run driven by `/goal`.** `/goal` makes Claude keep taking turns until its
+   condition is met. The condition is provable from the transcript: the smoke test printed its
+   pass line, or Claude printed `BLOCKED_ON_FOUNDER`.
+5. **An automatic smoke test** on the production URL, as a script plus a short browser check.
+6. **Caveman mode in the founder's session**, to cut output tokens over a long run.
+
+## Non-goals
+
+- A custom domain, Resend and DNS (roadmap item 4, set aside). Email uses SMTP with the founder's
+  Gmail, which needs no domain.
+- Live payments. The run ends with the production app wired to the Autumn **sandbox** (Stripe test
+  mode). Creating the company, the startup's Stripe account, the KYC and the switch to live stay
+  with the founder for later (the storefront design already gates this on the legal identity).
+- Turning the idea into product features (roadmap item 6, skipped). The dashboard stays empty.
+- Microsoft OAuth and Upstash Redis (still optional `TODO` lines).
+- Running phase 2 in the cloud or on a server. It runs on the founder's machine, in the Claude
+  Code session where phase 1 happened (or a resumed one).
+
+## Anti-goals (a failure even if it works)
+
+- Phase 2 asks the founder something that phase 1 could have asked or that Claude could have
+  solved alone.
+- Phase 2 calls the founder for something that is not on the closed list below.
+- Claude deletes a cloud resource without the founder.
+- A secret reaches the transcript, a command-line argument or printed output (the existing rule).
+- The `/goal` loop keeps burning turns while it waits for the founder.
+- A second, parallel config or answer store appears next to `startup.config.json`.
+- A standing consent is stored in the repo, where a later session or a future hire could pick it
+  up.
+
+## The founder's experience
+
+1. The founder opens Claude Code in a fresh clone of the boilerplate and writes one message, for
+   example: "Create my startup: <the idea>. Name: <the name>."
+2. **Briefing** (one message): what phase 1 needs from them (about how long, which accounts, that
+   they must keep the laptop awake and plugged in during phase 2), and what stays manual for later
+   (company, Stripe live, domain).
+3. **Interview** (one message, one answer): Claude derives everything it can from the idea and
+   asks only for the rest. The founder answers once, approving or changing the proposals.
+4. **Founder-only actions**: a checklist, each item checked first and skipped silently when it
+   already passes. For a returning founder (second startup), most items pass and this is short.
+5. **Blanket consent** (one message, one "yes").
+6. **Preflight**: `PREFLIGHT OK`, or the exact list of what is missing and how to fix it.
+7. Claude prints the `/goal` line. The founder pastes it and leaves.
+8. Phase 2 runs. At the end, a push notification: "live at <url>, smoke test passed". If a
+   founder-only action becomes necessary, a push notification says exactly what to do.
+
+## Phase 1 in detail
+
+### Interview
+
+Asked, because Claude cannot infer them:
+
+- the idea and the name (from the first message; asked only if missing);
+- the founder's full name (legal notice) and contact email (default: the founder's Google
+  identity);
+- the Gmail address for SMTP (default: the Google identity);
+- the GitHub owner, only when `gh org list` shows organizations (default: personal account).
+
+Derived and shown for one review, as today's steps derive them:
+
+- the slug (checked up front against the vault, Dash0 and GitHub name rules and against an
+  existing `<owner>/<slug>` repo);
+- the data region (default `eu`: the founders are established in France);
+- the pricing proposal of `01b-set-pricing.md` (amount, interval, trial, currency `EUR`,
+  rationale);
+- the brand (lucide icon, accent color) and the landing copy in French and English, from
+  `01d-storefront.md`;
+- the legal state: individual founder, `legal.company` null.
+
+The founder's one answer is written to `startup.config.json` and `autumn.config.ts`, and the
+landing copy to the messages files, exactly as steps 1, 1b and 1d do today. The domain is empty.
+
+### Founder-only actions
+
+Each item is a check first; only a failing check becomes an action. Order: long-lived items
+first, short-lived sign-ins last, so they are fresh when phase 2 starts.
+
+1. 1Password service account in the Keychain (`vault-put.mjs --check`); if missing, the existing
+   Terminal.app procedure of step 0.
+2. Provider accounts and Chrome sign-ins: Google, GitHub, Vercel, Supabase, PostHog (in the
+   region), Autumn, Dash0 (an organization in the region). Claude opens each dashboard; the
+   founder acts only where a sign-in needs a password, a 2FA code, a CAPTCHA or an account
+   creation.
+3. Master keys missing from `startup-founder/master-keys`: Claude creates them in Chrome under the
+   blanket consent, as step 0 does today. The founder acts only if a page asks for a password or
+   2FA.
+4. The Gmail app password for SMTP: only the founder can create it; it reaches the vault through
+   the clipboard, as step 0 does today.
+5. Postgres or Docker on the machine (install under the consent).
+6. `gh auth login`, with the `workflow` scope when the git protocol is https.
+7. Site and app permissions for the unattended run: Claude opens, once, every site phase 2
+   drives in Chrome (Google Cloud console, Supabase, PostHog, Autumn, Dash0, Vercel, the
+   production URL, the Stripe checkout) so the founder picks "always allow" for each, and asks
+   computer-use access for the apps it may need. Claude never changes its own permission
+   settings.
+8. `vercel login` (device code, maybe a 2FA code). Last of the sign-ins, because its device code
+   expires in minutes and its session must still be valid in phase 2.
+9. The founder switches the session to **bypass permissions mode** (the founder's decision: an
+   unattended run must never wait on a tool approval). The app's mode selector or Shift+Tab does
+   it; in a terminal, `claude --dangerously-skip-permissions --continue`. The behavioral guards
+   of phase 2 (the closed list, no deletion, secrets rules) are what remain, so the briefing says
+   so plainly.
+
+### Blanket consent
+
+One message lists everything Claude will do alone in phase 2, and the founder answers once:
+
+- install the missing tools;
+- accept the providers' terms of service and CLI consent pages (the founder chose this stack);
+- give OAuth consent and create keys for the named providers;
+- publish the startup's Google OAuth app (from "Testing" to "In production"), so anyone can sign
+  in to the live site;
+- create the cloud projects for this startup, on free plans only, with one exception named in the
+  consent: the Dash0 dataset (Dash0 has no free tier: a 14-day trial, then billing per record;
+  the founder chose it with the stack);
+- create the private GitHub repo, push to `master`, merge its own PRs, deploy;
+- during the smoke test, sign in to the production app with the founder's Google account, create
+  the founder's organization and accept the startup's own terms on the founder's behalf.
+
+Claude's safety rules count only approvals the founder gives in chat, for the session they are
+given in; an approval read from a file does not count. So the consent travels in the `/goal`
+line: Claude prints the line with the consent list in it, and the founder pastes it. The pasted
+line is the founder's own message, in every phase 2 session, including a resumed one. Nothing
+standing is stored in the repo. Anything outside this list in phase 2 is a `BLOCKED_ON_FOUNDER`
+case.
+
+### Preflight
+
+A script, `scripts/preflight.mjs`, run at the end of phase 1 and again as the first thing of
+phase 2. It prints one line per check and ends with `PREFLIGHT OK` or `PREFLIGHT FAILED`, with a
+non-zero exit code on failure. It checks:
+
+- `startup.config.json` against the full schema of a single-prompt run (every answer present and
+  valid);
+- the tools: `node`, `pnpm`, `op`, `vercel` (recent enough for deploy hooks), `gh`, and Postgres or
+  Docker;
+- the vault: the service account works, and every master key field that the run needs exists
+  (names only, never values);
+- the sessions: `gh auth status` (with the `workflow` scope when needed) and `vercel whoami`;
+- the quotas it can read by API: a free slot on the Supabase Free plan (fewer than 2 active
+  projects in the `startup-factory` organization), the GitHub repo name still free (or already
+  this startup's), and the Dash0 organization still usable (its API answers with the master
+  token, so an ended trial blocks here and not halfway through phase 2).
+
+Chrome sessions cannot be checked by a script: Claude checks them in phase 1 by opening each
+dashboard, and again in phase 2 right before the step that needs them.
+
+### The `/goal` line
+
+Claude prints it at the end of phase 1, filled in for this startup, under the 4,000-character
+limit. It states what to run, the founder's consent, and when to stop, for example:
+
+```
+/goal Run phase 2 of the create-startup skill for <slug> (.claude/skills/create-startup/SKILL.md, startup.config.json) without asking me anything. I consent to: <the consent list, one short clause each>. Done when scripts/smoke-test.mjs printed "SMOKE TEST PASSED" for the production URL and the browser check printed "BROWSER CHECK PASSED", or when you printed a line starting with "BLOCKED_ON_FOUNDER:", or after 200 turns.
+```
+
+The docs do not say a skill can set `/goal` itself, so the founder pastes it. The same line
+resumes the run after a block.
+
+## Phase 2 in detail
+
+### Order
+
+Phase 2 runs today's steps 1c to 6 with no question, reordered to remove the late dependencies
+found in the inventory:
+
+1. Preflight again.
+2. Create the private GitHub repo (no push yet).
+3. Create the Vercel project and read the production URL that Vercel assigns. Save it in
+   `startup.config.json`. Knowing it now removes today's second Google pass (step 6h).
+4. Install and build the local environment (step 3), including the storefront sync.
+5. Provision the services (step 4): Supabase production database, both Google OAuth clients in one
+   pass (local and production redirect URIs are both known) and the Google app published so
+   anyone can sign in (with the production landing as home page and `/legal/privacy` as privacy
+   policy if Google asks for them), PostHog, SMTP, Autumn (organization,
+   login, pricing push, check that the organization's default currency matches
+   `pricing.currency`), Dash0.
+6. Verify locally (step 5): migrations, `pnpm validate`, and a browser check on localhost done by
+   Claude in Chrome.
+7. Deploy (step 6): deploy hook, `.env.prod` and the Vercel env push, GitHub secrets, then the
+   first push to `master`, which runs CI, the migration and the deploy. The `DATABASE_URL` secret
+   exists before that first push, so the first CI run is green.
+8. Smoke test.
+9. Final report (the per-service checklist of today) and a push notification.
+
+Each step announces itself and ends with a `STEP <id> DONE` line, and records its completion in a
+git-ignored run ledger, `startup.run.json`. Every step is idempotent (it creates or reuses), so a
+resumed run can also start over; the ledger only lets it skip finished steps faster.
+
+### Changes to today's steps
+
+- **No MCP needed.** The Supabase project is created through the Supabase Management API with the
+  master token (cost check: Free plan only, 0 per month), not through the Supabase MCP. Phase 2 no
+  longer needs the `/mcp` OAuth sign-ins of step 2, which could expire mid-run and only the founder
+  can redo.
+- **`gcloud` is dropped** from step 0: no later step uses it.
+- **Production uses the Autumn sandbox key** until the founder goes live. Today the docs do not say
+  what to push to production while Stripe is not live, and the production build fails without
+  `AUTUMN_SECRET_KEY`.
+- **Every question inside the reference steps reads its answer from `startup.config.json`**
+  instead, and every go-ahead is covered by the consent in the `/goal` line.
+- **The founder-driven paths stay, outside phase 2.** Going live (company details, the legal gate
+  of step 6f, the startup's Stripe account, KYC, the live Autumn key), a custom domain with
+  Resend, and changing the price of an existing startup move to a separate "After the run"
+  section of the skill. They stay interactive, phase 2 never reaches them, and the skill's
+  single-step triggers ("set my pricing", "deploy it to prod") still work outside a run.
+
+### When something breaks
+
+1. **Claude solves it alone first**, in this order: the provider's API or CLI; Claude in Chrome
+   (the founder's signed-in browser); computer use for native apps. It may change approach, wait
+   and retry (for example the 1Password rate limit of 100 writes per hour, or a provider
+   propagation delay).
+2. **It calls the founder only when a human is required.** Closed list:
+   - create an account;
+   - type a password;
+   - enter a 2FA code;
+   - solve a CAPTCHA;
+   - pay or enter a card (including moving off a free plan);
+   - complete a KYC;
+   - give a consent that the saved consent does not cover;
+   - delete a cloud resource;
+   - a secret reached the transcript or printed output (the founder decides on revoking it).
+3. **When blocked**, Claude records the block in the run ledger, sends a push notification with
+   the exact action (under 200 characters), and prints
+   `BLOCKED_ON_FOUNDER: <the action>. When done, paste: <the /goal line>`. That line meets the
+   `/goal` condition, so the loop stops instead of spinning.
+4. **No deletion.** A one-time key that was lost is replaced by a new key; the old one stays and
+   the final report lists it for cleanup.
+
+### Smoke test
+
+Two parts, both on the production URL.
+
+**Script**, `scripts/smoke-test.mjs --url <production URL>`, prints one line per check and ends
+with `SMOKE TEST PASSED` or `SMOKE TEST FAILED`:
+
+- `/` answers 200 and shows the startup name; each `/legal/*` page answers 200;
+- `/api/version` returns the commit that was pushed;
+- starting a Google sign-in returns a redirect to Google with the production client ID and the
+  production callback URL;
+- the production database has every migration of `drizzle/` applied (read through the vault, the
+  URL never printed).
+
+**Browser check**, by Claude in Chrome: sign in with Google as the founder, create the
+organization (named after the startup), reach the paywall, tick the terms, and reach the Stripe
+checkout page in test mode. Claude stops there and never enters a card number. Then it prints
+`BROWSER CHECK PASSED`. This leaves the founder's own account, organization and terms acceptance
+in the production database, which is expected: the founder is the first user.
+
+## Caveman mode
+
+The boilerplate commits a project `.claude/settings.json` that declares the caveman marketplace
+(GitHub `JuliusBrussee/caveman`) and enables the `caveman@caveman` plugin, so Claude Code offers
+to install it when the founder trusts the folder. The questions of phase 1 stay in plain, full
+sentences (caveman already drops its style for confirmations and questions that need clarity).
+Code, docs and commits stay in normal English, as today. The setting stays in each startup's
+repo; the final report says how to remove it.
+
+## Constraints
+
+- All existing rules hold: secrets only through the vault, the clipboard or a downloaded file;
+  Claude never creates accounts, types passwords or solves CAPTCHAs; one data region for every
+  service; no new SaaS; English for code, docs and commits.
+- `/goal` facts (code.claude.com/docs/en/goal): one goal per session, a condition of at most 4,000
+  characters, checked after each turn by a small model that reads only the transcript and runs no
+  tools; it survives `--resume`; it has no built-in turn cap.
+- Push notifications reach the founder's desktop, and their phone when Remote Control is on; the
+  briefing tells the founder so.
+- The founder's machine must stay awake for the whole of phase 2.
+
+## Decided (by the founder, in the conversation)
+
+- Two phases: every question and founder-only action first, then an unattended run.
+- Answers saved in a file; Claude recommended JSON (`startup.config.json`) plus `/goal` to drive
+  the run, and the founder agreed.
+- Done means: accounts set up, the startup's cloud projects created, the startup online on the
+  free Vercel URL.
+- On failure, Claude finds a solution alone (API, Claude in Chrome, computer use) and calls the
+  founder only when the founder's action is truly necessary.
+- The founder's session runs in caveman mode.
+- Phase 2 runs in bypass permissions mode; the founder switches to it at the end of phase 1.
+- Anyone can sign in to the live site from the end of the run: the Google OAuth app is
+  published. The founder accepted that, while production is on the Autumn sandbox, any visitor
+  can get past the paywall with a Stripe test card; the final report says so, and going live
+  ends it.
+
+## Claude's calls (marked as such, from the playback the founder approved)
+
+- The closed list of founder-required actions above.
+- `BLOCKED_ON_FOUNDER` stops the `/goal` loop; the same `/goal` line resumes.
+- No deletion of cloud resources in phase 2.
+- Production stays on the Autumn sandbox (Stripe test mode) at the end of the run.
+- The Vercel project is created right after the repo, so Google OAuth is done in one pass.
+- The Supabase MCP is replaced by the Management API, and `gcloud` is dropped.
+- A git-ignored run ledger `startup.run.json`, and `STEP <id> DONE` lines.
+- The `/goal` turn cap of 200.
+- The consent travels in the pasted `/goal` line, never in a file.
+- Dash0 is the one paid service named in the consent; the preflight checks it is still usable.
+- The founder-driven paths (go-live, domain, price changes) move to an "After the run" section.
+- The caveman setting stays in each startup's repo.
+
+## Left to the builder
+
+- The exact JSON schema additions (consent, production URL, GitHub owner) and where the schema
+  lives so the preflight and the existing scripts share it.
+- How to read the Vercel-assigned production domain right after project creation.
+- How to start a Google sign-in from a script and read the redirect.
+- How to check the Autumn organization's default currency, and how to fix a mismatch alone.
+- How the skill files are reorganized: the phase 1 and phase 2 flows in `SKILL.md`, the questions
+  removed from the reference steps.
+- Whether the browser check on localhost (step 5) and the production browser check share one
+  procedure.
+- Tests for the preflight and the smoke test scripts, with the network calls faked.

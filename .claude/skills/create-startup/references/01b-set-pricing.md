@@ -1,10 +1,13 @@
 # Step 1b — Set the pricing
 
-Decide what the startup charges before any service is provisioned. Step 4e pushes the result to
-Autumn, so the price must be final in `autumn.config.ts` by then.
+**Phase 1** (and after the run, to change the price of an existing startup). Decide what the
+startup charges before any service is provisioned. Step 4e (phase 2) pushes the result to the
+Autumn sandbox, so the price must be final in `autumn.config.ts` by then.
 
-The founder either **gives the pricing** or **lets you derive it from the idea**. Ask which, in one
-plain question. Never block on this step: if the founder has no opinion, derive it.
+You derive the pricing from the idea (sections 1 to 3), and the phase 1 interview
+(`phase-1-setup.md` section 2) shows the proposal for review in its one message. The founder's one
+answer either keeps it or gives their own price (`pricing.source` is then `founder`). Never block
+on this step: with no opinion from the founder, the derived proposal stands.
 
 ## What the app can sell today
 
@@ -20,13 +23,13 @@ trial. You may change the `pro` plan's `price` and `freeTrial`. Keep the ids `fr
 `app_access`, and keep the plan name `Pro` (the paywall button copy says "Upgrade to Pro").
 
 Tiers, usage limits, credits, seats and annual/monthly toggles need code changes (metered
-features, a plan picker on the paywall). If the founder asks for one of them, say it is not wired
-yet, record the request in `pricing.deferred`, and set the closest flat price now.
+features, a plan picker on the paywall). If the founder's answer asks for one of them, say it is
+not wired yet, record the request in `pricing.deferred`, and set the closest flat price now.
 
 ## 1. Gather the inputs
 
-Read `startup.config.json`. If it has no `idea`, ask for it (one or two sentences) and save it.
-Then fill in what you can from the idea, and ask only for what you cannot infer:
+The `idea` comes from the founder's first message (the interview asks for it only when the message
+lacks it). Infer the rest from the idea; the interview asks nothing about these:
 
 - **Customer** — who pays: an individual (`individual`), a small team or SMB (`team`), or a
   business buying a business-critical tool (`business`).
@@ -53,7 +56,7 @@ buyers correct it later.
    target. Your cost is a floor, never the basis.
 3. **Check the 10:1 rule.** The customer should get about 10x more value than the price. If you
    cannot argue 10x, the price is too high or the idea's value is unclear. Lower the price inside
-   the bucket, or tell the founder the value is unclear.
+   the bucket, or say in the proposal that the value is unclear.
 4. **Do not go ultra-low.** Avoid prices like 5 or 9 per month "to reduce friction". Cheap
    prices attract the least committed buyers, churn more, and are hard to raise later. When unsure
    between two numbers, pick the higher one.
@@ -61,8 +64,8 @@ buyers correct it later.
    product). Whole currency units only.
 6. **Check the cost floor.** If the product has a per-use cost (OpenAI calls, storage, third-party
    APIs), estimate what a typical customer costs per month. Keep that at or below half the price.
-   If it is higher, raise the price inside the bucket or tell the founder the margin is thin. For
-   a `team` customer, one organization pays once, but every member adds cost.
+   If it is higher, raise the price inside the bucket or say in the proposal that the margin is
+   thin. For a `team` customer, one organization pays once, but every member adds cost.
 
 ## 3. Decide the trial
 
@@ -77,11 +80,11 @@ so they can see the value:
 
 Do not propose freemium: the paywall cannot grant partial access today.
 
-## 4. Confirm, then persist
+## 4. Show, then persist
 
-Show the founder the proposal in a few lines: price and interval, trial, and a one-sentence
-rationale (bucket, alternative, value). Remind them the amount is in the Autumn organization's
-default currency. Apply it only after they agree or adjust it.
+The interview shows the proposal in a few lines: price and interval, trial, currency (`EUR` by
+default) and a one-sentence rationale (bucket, alternative, value). Apply it as the founder's one
+answer leaves it.
 
 Add a `pricing` block to `startup.config.json` (keep the existing fields):
 
@@ -104,8 +107,8 @@ Add a `pricing` block to `startup.config.json` (keep the existing fields):
 
 `source` is `founder` or `derived`. `interval` is `month` or `year`. `currency` is the ISO code
 shown on the storefront price (default `EUR`); it must match the Autumn organization's default
-currency. `trialDays` is `0` for no trial. `deferred` lists pricing shapes the founder asked for
-that the code cannot sell yet.
+currency, which step 4e checks and changes when it differs. `trialDays` is `0` for no trial.
+`deferred` lists pricing shapes the founder asked for that the code cannot sell yet.
 
 ## 5. Write `autumn.config.ts`
 
@@ -121,16 +124,13 @@ export const pro = plan({
 });
 ```
 
-Omit `freeTrial` when `trialDays` is `0`. Do not push yet: Step 4e pushes the config to the
-Autumn sandbox, and Step 6 pushes it to production.
+Omit `freeTrial` when `trialDays` is `0`. Do not push yet: step 4e (phase 2) pushes the config to
+the Autumn sandbox, which production uses until go-live. The production push is part of going
+live (`after-the-run.md`).
 
-Once saved, tell the founder the pricing is final (they can change it any time by editing
-`autumn.config.ts` and running `pnpm dlx atmn push`) and move to Step 1c.
-
-**Changing the price later.** The terms of sale show the price, the trial and the currency. On any
-change to `price`, `trialDays` or `currency`, also bump `legal.termsVersion` in
-`startup.config.json` to today's date and re-run `node scripts/sync-startup-profile.mjs`, so
-customers accept the new terms. Tell the founder this when they ask to change the price.
+**Changing the price later** follows `after-the-run.md` ("Changing the price of an existing
+startup"): the same `pro` plan and `pricing` block, plus a `legal.termsVersion` bump, because the
+terms of sale show the price, the trial and the currency.
 
 ---
 
