@@ -49,6 +49,21 @@ function resolveBrand(brand) {
   return { icon, accent: accent.toLowerCase() };
 }
 
+function resolveCurrency(currency) {
+  const code = currency ?? DEFAULT_CURRENCY;
+  if (!/^[A-Z]{3}$/.test(code)) {
+    throw new Error(
+      `pricing.currency "${code}" must be a 3-letter ISO 4217 code`,
+    );
+  }
+  try {
+    new Intl.NumberFormat('en', { style: 'currency', currency: code });
+  } catch {
+    throw new Error(`pricing.currency "${code}" is not a valid currency code`);
+  }
+  return code;
+}
+
 function resolveLegal(legal) {
   if (legal === undefined) return NEUTRAL_LEGAL;
   const result = v.safeParse(Legal, legal);
@@ -81,7 +96,7 @@ export function syncStartupProfile({ config, writeFile }) {
   const profile = {
     name: config.name ?? '',
     brand,
-    currency: config.pricing?.currency ?? DEFAULT_CURRENCY,
+    currency: resolveCurrency(config.pricing?.currency),
     legal: resolveLegal(config.legal),
   };
   writeFile(PROFILE_PATH, `${JSON.stringify(profile, null, 2)}\n`);
