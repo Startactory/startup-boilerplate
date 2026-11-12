@@ -8,6 +8,13 @@ const API_HOST = 'https://api.supabase.com';
 const HEALTHY_STATUS = 'ACTIVE_HEALTHY';
 const FREE_PLAN_ACTIVE_PROJECTS = 2;
 const NOT_ACTIVE_STATUSES = new Set(['INACTIVE', 'PAUSED', 'REMOVED']);
+const NEVER_HEALTHY_STATUSES = new Set([
+  'INACTIVE',
+  'PAUSED',
+  'INIT_FAILED',
+  'RESTORE_FAILED',
+  'PAUSE_FAILED',
+]);
 
 export const SUPABASE_REGION = { eu: 'eu-west-3', us: 'us-east-1' };
 export const FACTORY_ORGANIZATION = 'startup-factory';
@@ -74,6 +81,11 @@ async function waitUntilHealthy({
 }) {
   let status = initialStatus;
   for (let elapsed = 0; status !== HEALTHY_STATUS; elapsed += pollMs) {
+    if (NEVER_HEALTHY_STATUSES.has(status)) {
+      throw new Error(
+        `Supabase project ${ref} is ${status} — the founder restores or deletes it in the Supabase dashboard`,
+      );
+    }
     if (elapsed >= timeoutMs) {
       throw new Error(
         `Supabase project ${ref} still ${status} after ${Math.round(timeoutMs / 60_000)} minutes — re-run to keep waiting`,

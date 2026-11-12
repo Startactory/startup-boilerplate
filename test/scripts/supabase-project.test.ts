@@ -164,6 +164,31 @@ describe('ensureSupabaseProject', () => {
     );
   });
 
+  it.each([
+    'INACTIVE',
+    'PAUSED',
+    'INIT_FAILED',
+    'RESTORE_FAILED',
+    'PAUSE_FAILED',
+  ])('stops at once on a reused project that is %s', async (status) => {
+    const s = setup({
+      projects: [project('existingexistingexis', 'acme', status)],
+    });
+    await expect(run(s)).rejects.toThrow(
+      `Supabase project existingexistingexis is ${status} — the founder restores or deletes it in the Supabase dashboard`,
+    );
+    expect(s.wait).not.toHaveBeenCalled();
+    expect(s.posts).toHaveLength(0);
+  });
+
+  it('stops at once when a new project fails to initialize', async () => {
+    const s = setup({ pollStatuses: ['COMING_UP', 'INIT_FAILED'] });
+    await expect(run(s)).rejects.toThrow(
+      'Supabase project newrefnewrefnewrefne is INIT_FAILED — the founder restores or deletes it in the Supabase dashboard',
+    );
+    expect(s.wait).toHaveBeenCalledTimes(2);
+  });
+
   it('refuses a paid plan without creating', async () => {
     const s = setup({ plan: 'pro' });
     await expect(run(s)).rejects.toThrow(
