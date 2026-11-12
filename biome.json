@@ -52,6 +52,7 @@
       "!.next",
       "!node_modules",
       "!.claude/worktrees",
+      "!.superpowers",
       "!next-env.d.ts",
       "!tsconfig.json"
     ]
