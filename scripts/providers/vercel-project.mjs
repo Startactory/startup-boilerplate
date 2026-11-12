@@ -9,6 +9,7 @@ const MAX_DOMAIN_TRIES = 3;
 const SUFFIX_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const NOT_FOUND_PATTERN = /404|not[ _-]?found/i;
 const REPOSITORY_CONNECTED_PATTERN = /already connected/i;
+const GITHUB_COM_LINK_TYPES = new Set(['github', 'github-limited']);
 const DOMAIN_REFUSED_PATTERN =
   /409|already|in use|taken|assigned|not allowed|not available|unavailable/i;
 
@@ -46,12 +47,35 @@ async function callApi({ runVercel, args }) {
   return { ok, body, result };
 }
 
-async function projectExists({ runVercel, slug }) {
+async function readProject({ runVercel, slug }) {
   const response = await callApi({ runVercel, args: [`/v9/projects/${slug}`] });
-  if (response.ok) return true;
+  if (response.ok) return response.body ?? {};
   const text = `${response.result.stderr}${response.result.stdout}`;
-  if (NOT_FOUND_PATTERN.test(text)) return false;
+  if (NOT_FOUND_PATTERN.test(text)) return null;
   throw failure('vercel api project lookup', response.result);
+}
+
+function isLinkedTo({ project, repository }) {
+  const link = project.link;
+  if (!GITHUB_COM_LINK_TYPES.has(link?.type) || !link.org || !link.repo) {
+    return false;
+  }
+  return `${link.org}/${link.repo}`.toLowerCase() === repository.toLowerCase();
+}
+
+function hasDeployment(project) {
+  return (
+    (project.latestDeployments ?? []).length > 0 ||
+    Boolean(project.targets?.production)
+  );
+}
+
+function assertProjectIsThisStartups({ project, slug, repository }) {
+  if (isLinkedTo({ project, repository })) return;
+  if (!project.link && !hasDeployment(project)) return;
+  throw new Error(
+    `Vercel project ${slug} already exists and belongs to something else — pick another slug (founder decision)`,
+  );
 }
 
 async function findOwnDomain({ runVercel, slug }) {
@@ -102,21 +126,7 @@ async function addVercelDomain({ runVercel, slug, randomSuffix }) {
   );
 }
 
-export async function ensureVercelProject({
-  runVercel = defaultRunVercel,
-  slug,
-  repository,
-  randomSuffix = defaultRandomSuffix,
-}) {
-  const projectExisted = await projectExists({ runVercel, slug });
-  if (!projectExisted) {
-    const created = await runVercel(['project', 'create', slug]);
-    if (created.code !== 0) throw failure('vercel project create', created);
-  }
-
-  const linked = await runVercel(['link', '--yes', '--project', slug]);
-  if (linked.code !== 0) throw failure('vercel link', linked);
-
+async function connectRepository({ runVercel, repository }) {
   const connected = await runVercel([
     'git',
     'connect',
@@ -129,13 +139,40 @@ export async function ensureVercelProject({
   ) {
     throw failure('vercel git connect', connected);
   }
+}
+
+export async function ensureVercelProject({
+  runVercel = defaultRunVercel,
+  slug,
+  repository,
+  randomSuffix = defaultRandomSuffix,
+}) {
+  if (!repository) {
+    throw new Error(
+      'no repository in startup.config.json — run the repository step first',
+    );
+  }
+  const project = await readProject({ runVercel, slug });
+  if (project) {
+    assertProjectIsThisStartups({ project, slug, repository });
+  } else {
+    const created = await runVercel(['project', 'create', slug]);
+    if (created.code !== 0) throw failure('vercel project create', created);
+  }
+
+  const linked = await runVercel(['link', '--yes', '--project', slug]);
+  if (linked.code !== 0) throw failure('vercel link', linked);
+
+  if (!project || !isLinkedTo({ project, repository })) {
+    await connectRepository({ runVercel, repository });
+  }
 
   const existing = await findOwnDomain({ runVercel, slug });
   const domain =
     existing ?? (await addVercelDomain({ runVercel, slug, randomSuffix }));
   return {
     productionUrl: `https://${domain}`,
-    outcome: projectExisted ? 'reused' : 'created',
+    outcome: project ? 'reused' : 'created',
   };
 }
 
@@ -152,7 +189,7 @@ export function writeProductionUrl({
   rewriteJson({ path, fs, update: (config) => ({ ...config, productionUrl }) });
 }
 
-export function writeVercelRegions({
+export function writeVercelSettings({
   path = 'vercel.json',
   fs = { readFileSync, writeFileSync },
   dataRegion,
@@ -160,7 +197,12 @@ export function writeVercelRegions({
   rewriteJson({
     path,
     fs,
-    update: (config) => ({ ...config, regions: [VERCEL_REGION[dataRegion]] }),
+    // A project created by the CLI may keep the "Other" preset, which serves 404s for Next.js.
+    update: (config) => ({
+      ...config,
+      framework: 'nextjs',
+      regions: [VERCEL_REGION[dataRegion]],
+    }),
   });
 }
 
@@ -172,7 +214,7 @@ async function main() {
       repository,
     });
     writeProductionUrl({ productionUrl });
-    writeVercelRegions({ dataRegion });
+    writeVercelSettings({ dataRegion });
     console.log(
       `OK  Vercel project ${slug} ${outcome}, production URL ${productionUrl}`,
     );

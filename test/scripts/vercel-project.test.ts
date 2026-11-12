@@ -3,7 +3,7 @@ import {
   ensureVercelProject,
   VERCEL_REGION,
   writeProductionUrl,
-  writeVercelRegions,
+  writeVercelSettings,
 } from '../../scripts/providers/vercel-project.mjs';
 
 type Result = { code: number; stdout: string; stderr: string };
@@ -16,8 +16,15 @@ const json = (body: unknown): Result => ({
   stderr: '',
 });
 
+type Project = {
+  name: string;
+  link?: { type: string; org?: string; repo?: string };
+  latestDeployments?: Array<{ id: string }>;
+  targets?: { production?: { id: string } | null };
+};
+
 type Account = {
-  projectExists?: boolean;
+  project?: Project;
   domains?: string[];
   takenElsewhere?: string[];
   refusalForOwned?: boolean;
@@ -37,8 +44,8 @@ function fakeVercel(account: Account = {}) {
     if (args[0] !== 'api') return ok;
     const path = args[1] ?? '';
     if (path === '/v9/projects/acme') {
-      return account.projectExists
-        ? json({ name: 'acme' })
+      return account.project
+        ? json(account.project)
         : failed('Error: 404 not_found');
     }
     if (path.startsWith('/v9/projects/acme/domains')) {
@@ -67,6 +74,10 @@ const base = {
   repository: 'me/acme',
   randomSuffix: () => 'abcd',
 };
+
+const unlinkedProject: Project = { name: 'acme', latestDeployments: [] };
+const OTHER_OWNER =
+  'Vercel project acme already exists and belongs to something else — pick another slug (founder decision)';
 
 const addedNames = (calls: string[][]) =>
   calls.filter((call) => call[2] === '-X').map((call) => call[call.length - 1]);
@@ -121,7 +132,7 @@ describe('ensureVercelProject', () => {
 
   it('reuses the existing domain without adding one', async () => {
     const { calls, runVercel } = fakeVercel({
-      projectExists: true,
+      project: unlinkedProject,
       domains: ['acme-teams.vercel.app', 'acme-abcd.vercel.app'],
     });
     const result = await ensureVercelProject({ ...base, runVercel });
@@ -135,7 +146,7 @@ describe('ensureVercelProject', () => {
 
   it('ignores look-alike names such as other-acme.vercel.app', async () => {
     const { runVercel } = fakeVercel({
-      projectExists: true,
+      project: unlinkedProject,
       domains: ['other-acme.vercel.app', 'acme-teams.vercel.app'],
     });
     const result = await ensureVercelProject({ ...base, runVercel });
@@ -144,7 +155,7 @@ describe('ensureVercelProject', () => {
 
   it('reuses its own domain when the add is refused because it already owns it', async () => {
     const { calls, runVercel } = fakeVercel({
-      projectExists: true,
+      project: unlinkedProject,
       refusalForOwned: true,
     });
     const result = await ensureVercelProject({ ...base, runVercel });
@@ -181,6 +192,97 @@ describe('ensureVercelProject', () => {
     expect(addedNames(calls)).toHaveLength(1);
   });
 
+  it('reuses a project Git-linked to the startup repository without reconnecting it', async () => {
+    const { calls, runVercel } = fakeVercel({
+      project: {
+        name: 'acme',
+        link: { type: 'github', org: 'Me', repo: 'Acme' },
+        latestDeployments: [{ id: 'dpl_1' }],
+        targets: { production: { id: 'dpl_1' } },
+      },
+      domains: ['acme.vercel.app'],
+    });
+    const result = await ensureVercelProject({ ...base, runVercel });
+    expect(result).toEqual({
+      productionUrl: 'https://acme.vercel.app',
+      outcome: 'reused',
+    });
+    expect(calls.some((call) => call[0] === 'git')).toBe(false);
+    expect(calls.some((call) => call[0] === 'project')).toBe(false);
+  });
+
+  it('reuses and Git-connects an unlinked project with no deployment', async () => {
+    const { calls, runVercel } = fakeVercel({
+      project: { name: 'acme', latestDeployments: [], targets: {} },
+    });
+    const result = await ensureVercelProject({ ...base, runVercel });
+    expect(result.outcome).toBe('reused');
+    expect(calls).toContainEqual([
+      'git',
+      'connect',
+      'https://github.com/me/acme',
+      '--yes',
+    ]);
+  });
+
+  it('refuses a project Git-linked to another repository', async () => {
+    const { calls, runVercel } = fakeVercel({
+      project: {
+        name: 'acme',
+        link: { type: 'github', org: 'someone', repo: 'acme' },
+      },
+    });
+    await expect(ensureVercelProject({ ...base, runVercel })).rejects.toThrow(
+      OTHER_OWNER,
+    );
+    expect(calls.map((call) => call[0])).toEqual(['api']);
+  });
+
+  it.each([
+    'gitlab',
+    'github-custom-host',
+  ])('refuses a project linked through %s', async (type) => {
+    const { runVercel } = fakeVercel({
+      project: { name: 'acme', link: { type, org: 'me', repo: 'acme' } },
+    });
+    await expect(ensureVercelProject({ ...base, runVercel })).rejects.toThrow(
+      OTHER_OWNER,
+    );
+  });
+
+  it('refuses an unlinked project that has a production deployment', async () => {
+    const { calls, runVercel } = fakeVercel({
+      project: {
+        name: 'acme',
+        latestDeployments: [],
+        targets: { production: { id: 'dpl_1' } },
+      },
+    });
+    await expect(ensureVercelProject({ ...base, runVercel })).rejects.toThrow(
+      OTHER_OWNER,
+    );
+    expect(calls.map((call) => call[0])).toEqual(['api']);
+  });
+
+  it('refuses an unlinked project that has any deployment', async () => {
+    const { runVercel } = fakeVercel({
+      project: { name: 'acme', latestDeployments: [{ id: 'dpl_1' }] },
+    });
+    await expect(ensureVercelProject({ ...base, runVercel })).rejects.toThrow(
+      OTHER_OWNER,
+    );
+  });
+
+  it('stops before any call when the repository is not recorded yet', async () => {
+    const { calls, runVercel } = fakeVercel();
+    await expect(
+      ensureVercelProject({ ...base, repository: undefined, runVercel }),
+    ).rejects.toThrow(
+      'no repository in startup.config.json — run the repository step first',
+    );
+    expect(calls).toEqual([]);
+  });
+
   it('stops when the project cannot be created', async () => {
     const { runVercel } = fakeVercel({
       createResult: failed('Error: not logged in'),
@@ -214,18 +316,26 @@ describe('writeProductionUrl', () => {
   });
 });
 
-describe('writeVercelRegions', () => {
-  it('sets the region and keeps the git block', () => {
-    const fs = memoryFs({
-      'vercel.json': JSON.stringify({
-        git: { deploymentEnabled: { master: false } },
-      }),
-    });
-    writeVercelRegions({ fs: fs as never, dataRegion: 'eu' });
+describe('writeVercelSettings', () => {
+  const gitBlock = { deploymentEnabled: { master: false } };
+
+  it('pins the Next.js preset and the region, and keeps the git block', () => {
+    const fs = memoryFs({ 'vercel.json': JSON.stringify({ git: gitBlock }) });
+    writeVercelSettings({ fs: fs as never, dataRegion: 'eu' });
     expect(JSON.parse(fs.files['vercel.json'] ?? '')).toEqual({
-      git: { deploymentEnabled: { master: false } },
+      git: gitBlock,
+      framework: 'nextjs',
       regions: ['cdg1'],
     });
     expect(VERCEL_REGION).toEqual({ eu: 'cdg1', us: 'iad1' });
+  });
+
+  it('gives the same file when it runs again', () => {
+    const fs = memoryFs({ 'vercel.json': JSON.stringify({ git: gitBlock }) });
+    writeVercelSettings({ fs: fs as never, dataRegion: 'us' });
+    const first = fs.files['vercel.json'];
+    writeVercelSettings({ fs: fs as never, dataRegion: 'us' });
+    expect(fs.files['vercel.json']).toBe(first);
+    expect(JSON.parse(first ?? '').regions).toEqual(['iad1']);
   });
 });
