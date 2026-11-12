@@ -34,6 +34,23 @@ function setup(envText: string) {
 }
 
 describe('importAutumnKeys', () => {
+  it('reads the keys from the env file it is given', () => {
+    const { fs, op } = setup(
+      `AUTUMN_SECRET_KEY=${SANDBOX_KEY}\nAUTUMN_PROD_SECRET_KEY=${PRODUCTION_KEY}\n`,
+    );
+    const result = importAutumnKeys({
+      op,
+      fs,
+      vault: 'startup-acme',
+      envPath: '/tmp/atmn-login/.env',
+    });
+    expect(result).toEqual({ local: true, production: true });
+    expect(fs.readFileSync).toHaveBeenCalledWith(
+      '/tmp/atmn-login/.env',
+      'utf8',
+    );
+  });
+
   it('moves both keys to their items', () => {
     const { fs, op } = setup(
       `AUTUMN_SECRET_KEY=${SANDBOX_KEY}\nAUTUMN_PROD_SECRET_KEY=${PRODUCTION_KEY}\n`,

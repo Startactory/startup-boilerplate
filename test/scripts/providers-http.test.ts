@@ -35,6 +35,23 @@ describe('requestJson', () => {
     });
   });
 
+  it('uses the detail field when the provider sends one', async () => {
+    const fetch = vi.fn(async () =>
+      fakeResponse(403, { detail: 'Upgrade your plan' }),
+    );
+    const call = requestJson({
+      provider: 'posthog',
+      fetch: asFetch(fetch),
+      method: 'POST',
+      url: 'https://api.example.com/x',
+      token: 'secret-token',
+    });
+    await expect(call).rejects.toMatchObject({
+      status: 403,
+      message: 'Upgrade your plan',
+    });
+  });
+
   it('returns 404 as a normal result and sends auth headers', async () => {
     const fetch = vi.fn(async (_url: string, _init: unknown) =>
       fakeResponse(404, { message: 'nope' }),

@@ -68,6 +68,20 @@ export function resolveEnvValues({ path, op, fs }) {
   return values;
 }
 
+const PUBLIC_PREFIX = 'NEXT_PUBLIC_';
+
+function cliErrorMessage(stderr) {
+  const text = (stderr || '').trim();
+  const json = text.slice(text.indexOf('{'));
+  try {
+    const message = JSON.parse(json)?.message;
+    if (typeof message === 'string' && message) return message;
+  } catch {
+    // not a JSON error body; fall back to the last line
+  }
+  return text.split('\n').pop();
+}
+
 export function pushEnv({ values, target, run }) {
   const pushable = [...values.keys()]
     .filter((k) => !VERCEL_MANAGED.has(k))
@@ -76,18 +90,21 @@ export function pushEnv({ values, target, run }) {
   let failed = 0;
   for (const key of pushable) {
     // Remove first so re-runs are idempotent; a missing var makes this a no-op.
-    run('vercel', ['env', 'rm', key, target, '--yes'], { stdio: 'ignore' });
-    const res = run('vercel', ['env', 'add', key, target], {
-      input: values.get(key),
-      encoding: 'utf8',
+    run('vercel', ['env', 'rm', key, '--environment', target, '--yes'], {
+      stdio: 'ignore',
     });
+    // the CLI refuses a NEXT_PUBLIC_ value that looks like a credential unless told it is public
+    const typeArgs = key.startsWith(PUBLIC_PREFIX) ? ['--type', 'config'] : [];
+    const res = run(
+      'vercel',
+      ['env', 'add', key, '--environment', target, ...typeArgs],
+      { input: values.get(key), encoding: 'utf8' },
+    );
     if (res.status === 0) {
       console.log(`  pushed  ${key}`);
       ok += 1;
     } else {
-      console.error(
-        `  FAILED  ${key}: ${(res.stderr || '').trim().split('\n').pop()}`,
-      );
+      console.error(`  FAILED  ${key}: ${cliErrorMessage(res.stderr)}`);
       failed += 1;
     }
   }
@@ -108,7 +125,7 @@ export function main({ argv, op, run, fs }) {
     return 1;
   }
   if (run('vercel', ['--version'], { encoding: 'utf8' }).status !== 0) {
-    console.error('Vercel CLI not found. Install it: pnpm add -g vercel');
+    console.error('Vercel CLI not found. Install it: npm i -g vercel@latest');
     return 1;
   }
 

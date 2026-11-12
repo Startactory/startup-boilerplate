@@ -8,7 +8,8 @@ export class ProviderError extends Error {
 }
 
 function messageFrom(json, status) {
-  const candidate = json?.message ?? json?.error?.message ?? json?.error;
+  const candidate =
+    json?.message ?? json?.error?.message ?? json?.error ?? json?.detail;
   if (typeof candidate === 'string' && candidate) return candidate;
   return `request failed with status ${status}`;
 }
