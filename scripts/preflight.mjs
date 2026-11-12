@@ -72,7 +72,11 @@ async function exitsZero(run, command, args) {
 
 async function checkTools({ commandExists, run }) {
   const results = [
-    verdict('tool:node', commandExists('node'), 'install Node.js 20 or newer'),
+    verdict(
+      'tool:node',
+      commandExists('node'),
+      'install Node.js, the version in .nvmrc (brew install node)',
+    ),
     verdict('tool:pnpm', commandExists('pnpm'), 'npm i -g pnpm'),
     verdict(
       'tool:op',
@@ -273,13 +277,14 @@ function defaultCommandExists(name) {
   return spawnSync('which', [name], { stdio: 'ignore' }).status === 0;
 }
 
-function createRunner(token) {
+export function createRunner({ token, spawn = spawnSync, env = process.env }) {
   return async (command, args) => {
-    const result = spawnSync(command, args, {
+    const result = spawn(command, args, {
       encoding: 'utf8',
-      env: token
-        ? { ...process.env, OP_SERVICE_ACCOUNT_TOKEN: token }
-        : process.env,
+      env:
+        token && command === 'op'
+          ? { ...env, OP_SERVICE_ACCOUNT_TOKEN: token }
+          : env,
     });
     return {
       code: result.status ?? 1,
@@ -310,7 +315,7 @@ async function main() {
     const results = await runPreflight({
       config: readConfigFile(),
       commandExists: defaultCommandExists,
-      run: createRunner(token),
+      run: createRunner({ token }),
       op: createOp(),
     });
     for (const { name, ok, fix } of results) {

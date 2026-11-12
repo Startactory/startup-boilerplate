@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { runPreflight } from '../../scripts/preflight.mjs';
+import { createRunner, runPreflight } from '../../scripts/preflight.mjs';
 
 const SECRET = 'super-secret-value';
 const ALL_KEYS = [
@@ -161,6 +161,14 @@ describe('runPreflight', () => {
     expect(results[0]?.fix).toContain('idea');
   });
 
+  it('points tool:node at the version pinned in .nvmrc', async () => {
+    const results = await preflight({ existing: ['node'] });
+    expect(results.find((r) => r.name === 'tool:node')).toMatchObject({
+      ok: false,
+      fix: 'install Node.js, the version in .nvmrc (brew install node)',
+    });
+  });
+
   it('fails tool:database when neither psql nor docker exists', async () => {
     const results = await preflight({ existing: ['psql', 'docker'] });
     expect(failedNames(results)).toEqual(['tool:database']);
@@ -266,5 +274,48 @@ describe('runPreflight', () => {
   it('passes dash0 when the dataset does not exist yet', async () => {
     const results = await preflight({ fetch: fakeFetch({ dash0Status: 404 }) });
     expect(failedNames(results)).toEqual([]);
+  });
+});
+
+describe('createRunner', () => {
+  function recordingRunner(token: string | undefined) {
+    const envs = new Map<string, Record<string, string | undefined>>();
+    const spawn = (
+      command: string,
+      _args: string[],
+      options: { env: Record<string, string | undefined> },
+    ) => {
+      envs.set(command, options.env);
+      return { status: 0, stdout: 'out', stderr: '' };
+    };
+    const run = createRunner({
+      token,
+      spawn: spawn as never,
+      env: { PATH: '/usr/bin' } as never,
+    });
+    return { envs, run };
+  }
+
+  it('gives the service account token to op and to no other command', async () => {
+    const { envs, run } = recordingRunner(SECRET);
+    for (const command of ['op', 'gh', 'vercel']) {
+      expect(await run(command, ['--version'])).toEqual({
+        code: 0,
+        stdout: 'out',
+        stderr: '',
+      });
+    }
+    expect(envs.get('op')).toEqual({
+      PATH: '/usr/bin',
+      OP_SERVICE_ACCOUNT_TOKEN: SECRET,
+    });
+    expect(envs.get('gh')).toEqual({ PATH: '/usr/bin' });
+    expect(envs.get('vercel')).toEqual({ PATH: '/usr/bin' });
+  });
+
+  it('gives op no token when the Keychain has none', async () => {
+    const { envs, run } = recordingRunner(undefined);
+    await run('op', ['item', 'list']);
+    expect(envs.get('op')).toEqual({ PATH: '/usr/bin' });
   });
 });
