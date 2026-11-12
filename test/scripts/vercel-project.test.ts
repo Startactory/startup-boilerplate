@@ -10,13 +10,54 @@ type Result = { code: number; stdout: string; stderr: string };
 
 const ok: Result = { code: 0, stdout: '', stderr: '' };
 const failed = (stderr: string): Result => ({ code: 1, stdout: '', stderr });
+const json = (body: unknown): Result => ({
+  code: 0,
+  stdout: JSON.stringify(body),
+  stderr: '',
+});
 
-function fakeVercel(handlers: Record<string, (args: string[]) => Result>) {
+type Account = {
+  projectExists?: boolean;
+  domains?: string[];
+  takenElsewhere?: string[];
+  refusalForOwned?: boolean;
+  unrelatedAddError?: boolean;
+  gitConnect?: Result;
+  createResult?: Result;
+};
+
+function fakeVercel(account: Account = {}) {
   const calls: string[][] = [];
-  const runVercel = async (args: string[]) => {
+  let listReads = 0;
+  const domains = [...(account.domains ?? [])];
+  const runVercel = async (args: string[]): Promise<Result> => {
     calls.push(args);
-    const handler = handlers[args.slice(0, 2).join(' ')];
-    return handler ? handler(args) : ok;
+    if (args[0] === 'project') return account.createResult ?? ok;
+    if (args[0] === 'git') return account.gitConnect ?? ok;
+    if (args[0] !== 'api') return ok;
+    const path = args[1] ?? '';
+    if (path === '/v9/projects/acme') {
+      return account.projectExists
+        ? json({ name: 'acme' })
+        : failed('Error: 404 not_found');
+    }
+    if (path.startsWith('/v9/projects/acme/domains')) {
+      listReads += 1;
+      const visible =
+        account.refusalForOwned && listReads === 1 ? [] : [...domains];
+      return json({ domains: visible.map((name) => ({ name })) });
+    }
+    const name = args[args.length - 1]?.replace('name=', '') ?? '';
+    if (account.unrelatedAddError) return failed('Error: not logged in');
+    if (account.refusalForOwned && name === 'acme.vercel.app') {
+      domains.push(name);
+      return failed('409 domain is already assigned to this project');
+    }
+    if (account.takenElsewhere?.includes(name)) {
+      return failed('409 domain is already assigned to another project');
+    }
+    domains.push(name);
+    return json({ name });
   };
   return { calls, runVercel };
 }
@@ -26,6 +67,9 @@ const base = {
   repository: 'me/acme',
   randomSuffix: () => 'abcd',
 };
+
+const addedNames = (calls: string[][]) =>
+  calls.filter((call) => call[2] === '-X').map((call) => call[call.length - 1]);
 
 function memoryFs(initial: Record<string, string>) {
   const files = { ...initial };
@@ -40,73 +84,80 @@ function memoryFs(initial: Record<string, string>) {
 
 describe('ensureVercelProject', () => {
   it('creates the project and gives it <slug>.vercel.app', async () => {
-    const { calls, runVercel } = fakeVercel({});
+    const { calls, runVercel } = fakeVercel();
     const result = await ensureVercelProject({ ...base, runVercel });
     expect(result).toEqual({
       productionUrl: 'https://acme.vercel.app',
       outcome: 'created',
     });
-    expect(calls).toEqual([
-      ['project', 'create', 'acme'],
-      ['link', '--yes', '--project', 'acme'],
-      ['git', 'connect', 'https://github.com/me/acme', '--yes'],
-      ['domains', 'add', 'acme.vercel.app', 'acme'],
+    expect(calls.map((call) => call.slice(0, 2).join(' '))).toEqual([
+      'api /v9/projects/acme',
+      'project create',
+      'link --yes',
+      'git connect',
+      'api /v9/projects/acme/domains?limit=100',
+      'api /v10/projects/acme/domains',
     ]);
+    expect(calls).toContainEqual([
+      'git',
+      'connect',
+      'https://github.com/me/acme',
+      '--yes',
+    ]);
+    expect(addedNames(calls)).toEqual(['name=acme.vercel.app']);
   });
 
-  it('falls back to a random suffix when the name is taken', async () => {
+  it('falls back to a random suffix when the name is taken elsewhere', async () => {
     const { calls, runVercel } = fakeVercel({
-      'domains add': (args) =>
-        args[2] === 'acme.vercel.app'
-          ? failed('Error: domain is already in use by another account')
-          : ok,
+      takenElsewhere: ['acme.vercel.app'],
     });
     const result = await ensureVercelProject({ ...base, runVercel });
     expect(result.productionUrl).toBe('https://acme-abcd.vercel.app');
-    expect(calls.at(-1)).toEqual([
-      'domains',
-      'add',
-      'acme-abcd.vercel.app',
-      'acme',
+    expect(addedNames(calls)).toEqual([
+      'name=acme.vercel.app',
+      'name=acme-abcd.vercel.app',
     ]);
   });
 
-  it('reuses the existing *.vercel.app domain without adding one', async () => {
+  it('reuses the existing domain without adding one', async () => {
     const { calls, runVercel } = fakeVercel({
-      'project create': () => failed('Error: project already exists'),
-      'project inspect': () => ({
-        code: 0,
-        stdout: JSON.stringify({
-          name: 'acme',
-          alias: ['acme-abcd.vercel.app'],
-          latest: 'acme-x7k2m9pqr-team.vercel.app',
-        }),
-        stderr: '',
-      }),
+      projectExists: true,
+      domains: ['acme-teams.vercel.app', 'acme-abcd.vercel.app'],
     });
     const result = await ensureVercelProject({ ...base, runVercel });
     expect(result).toEqual({
       productionUrl: 'https://acme-abcd.vercel.app',
       outcome: 'reused',
     });
-    expect(calls.some((call) => call[0] === 'domains')).toBe(false);
+    expect(addedNames(calls)).toEqual([]);
+    expect(calls.some((call) => call[0] === 'project')).toBe(false);
   });
 
-  it('adds a domain to an existing project that has none', async () => {
+  it('ignores look-alike names such as other-acme.vercel.app', async () => {
     const { runVercel } = fakeVercel({
-      'project create': () => failed('project already exists'),
-      'project inspect': () => ({ code: 0, stdout: '{}', stderr: '' }),
+      projectExists: true,
+      domains: ['other-acme.vercel.app', 'acme-teams.vercel.app'],
+    });
+    const result = await ensureVercelProject({ ...base, runVercel });
+    expect(result.productionUrl).toBe('https://acme.vercel.app');
+  });
+
+  it('reuses its own domain when the add is refused because it already owns it', async () => {
+    const { calls, runVercel } = fakeVercel({
+      projectExists: true,
+      refusalForOwned: true,
     });
     const result = await ensureVercelProject({ ...base, runVercel });
     expect(result).toEqual({
       productionUrl: 'https://acme.vercel.app',
       outcome: 'reused',
     });
+    expect(addedNames(calls)).toEqual(['name=acme.vercel.app']);
   });
 
   it('tolerates a repository that is already connected', async () => {
     const { runVercel } = fakeVercel({
-      'git connect': () => failed('Error: already connected to me/acme'),
+      gitConnect: failed('Error: already connected to me/acme'),
     });
     const result = await ensureVercelProject({ ...base, runVercel });
     expect(result.outcome).toBe('created');
@@ -114,32 +165,29 @@ describe('ensureVercelProject', () => {
 
   it('fails when every candidate name is taken', async () => {
     const { calls, runVercel } = fakeVercel({
-      'domains add': () => failed('domain is already in use'),
+      takenElsewhere: ['acme.vercel.app', 'acme-abcd.vercel.app'],
     });
     await expect(ensureVercelProject({ ...base, runVercel })).rejects.toThrow(
       'no free *.vercel.app name for acme after 3 tries',
     );
-    expect(calls.filter((call) => call[0] === 'domains')).toHaveLength(3);
+    expect(addedNames(calls)).toHaveLength(3);
   });
 
   it('stops on an unrelated domain error', async () => {
-    const { calls, runVercel } = fakeVercel({
-      'domains add': () => failed('Error: not logged in'),
-    });
+    const { calls, runVercel } = fakeVercel({ unrelatedAddError: true });
     await expect(ensureVercelProject({ ...base, runVercel })).rejects.toThrow(
-      'vercel domains add failed: Error: not logged in',
+      'vercel api domain add failed: Error: not logged in',
     );
-    expect(calls.filter((call) => call[0] === 'domains')).toHaveLength(1);
+    expect(addedNames(calls)).toHaveLength(1);
   });
 
   it('stops when the project cannot be created', async () => {
-    const { calls, runVercel } = fakeVercel({
-      'project create': () => failed('Error: not logged in'),
+    const { runVercel } = fakeVercel({
+      createResult: failed('Error: not logged in'),
     });
     await expect(ensureVercelProject({ ...base, runVercel })).rejects.toThrow(
       'vercel project create failed',
     );
-    expect(calls).toHaveLength(1);
   });
 });
 

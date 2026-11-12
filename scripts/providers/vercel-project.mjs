@@ -7,10 +7,10 @@ export const VERCEL_REGION = { eu: 'cdg1', us: 'iad1' };
 
 const MAX_DOMAIN_TRIES = 3;
 const SUFFIX_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
-const PROJECT_EXISTS_PATTERN = /already exists|already (?:in use|taken)/i;
+const NOT_FOUND_PATTERN = /404|not[ _-]?found/i;
 const REPOSITORY_CONNECTED_PATTERN = /already connected/i;
-const DOMAIN_TAKEN_PATTERN =
-  /already (?:in use|assigned|taken|exists|registered)|is taken|not available|unavailable|belongs to|another (?:project|account|team)/i;
+const DOMAIN_REFUSED_PATTERN =
+  /409|already|in use|taken|assigned|not allowed|not available|unavailable/i;
 
 function defaultRunVercel(args) {
   const result = spawnSync('vercel', args, { encoding: 'utf8' });
@@ -31,13 +31,43 @@ function failure(step, result) {
   const detail = `${result.stderr}${result.stdout}`.trim().split('\n')[0] ?? '';
   return new Error(`${step} failed${detail ? `: ${detail}` : ''}`);
 }
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
 
-function findOwnDomain({ output, slug }) {
-  const pattern = new RegExp(
-    `\\b${slug}(?:-[a-z0-9]{4})?\\.vercel\\.app\\b`,
-    'i',
+async function callApi({ runVercel, args }) {
+  const result = await runVercel(['api', ...args]);
+  const body = parseJson(result.stdout);
+  const ok = result.code === 0 && !body?.error;
+  return { ok, body, result };
+}
+
+async function projectExists({ runVercel, slug }) {
+  const response = await callApi({ runVercel, args: [`/v9/projects/${slug}`] });
+  if (response.ok) return true;
+  const text = `${response.result.stderr}${response.result.stdout}`;
+  if (NOT_FOUND_PATTERN.test(text)) return false;
+  throw failure('vercel api project lookup', response.result);
+}
+
+async function findOwnDomain({ runVercel, slug }) {
+  const response = await callApi({
+    runVercel,
+    args: [`/v9/projects/${slug}/domains?limit=100`],
+  });
+  if (!response.ok) throw failure('vercel api domain list', response.result);
+  const names = (response.body?.domains ?? []).map((domain) => domain.name);
+  const exact = `${slug}.vercel.app`;
+  const suffixed = new RegExp(`^${slug}-[a-z0-9]{4}\\.vercel\\.app$`);
+  return (
+    names.find((name) => name === exact) ??
+    names.find((name) => suffixed.test(name)) ??
+    null
   );
-  return pattern.exec(output)?.[0].toLowerCase() ?? null;
 }
 
 async function addVercelDomain({ runVercel, slug, randomSuffix }) {
@@ -46,10 +76,25 @@ async function addVercelDomain({ runVercel, slug, randomSuffix }) {
       attempt === 0
         ? `${slug}.vercel.app`
         : `${slug}-${randomSuffix()}.vercel.app`;
-    const result = await runVercel(['domains', 'add', domain, slug]);
-    if (result.code === 0) return domain;
-    if (!DOMAIN_TAKEN_PATTERN.test(`${result.stderr}${result.stdout}`)) {
-      throw failure('vercel domains add', result);
+    const added = await callApi({
+      runVercel,
+      args: [
+        `/v10/projects/${slug}/domains`,
+        '-X',
+        'POST',
+        '-F',
+        `name=${domain}`,
+      ],
+    });
+    if (added.ok) return domain;
+    // A refused add may mean this very project already owns the name.
+    if ((await findOwnDomain({ runVercel, slug })) === domain) return domain;
+    if (
+      !DOMAIN_REFUSED_PATTERN.test(
+        `${added.result.stderr}${added.result.stdout}`,
+      )
+    ) {
+      throw failure('vercel api domain add', added.result);
     }
   }
   throw new Error(
@@ -63,12 +108,10 @@ export async function ensureVercelProject({
   repository,
   randomSuffix = defaultRandomSuffix,
 }) {
-  const created = await runVercel(['project', 'create', slug]);
-  const projectExisted =
-    created.code !== 0 &&
-    PROJECT_EXISTS_PATTERN.test(`${created.stderr}${created.stdout}`);
-  if (created.code !== 0 && !projectExisted) {
-    throw failure('vercel project create', created);
+  const projectExisted = await projectExists({ runVercel, slug });
+  if (!projectExisted) {
+    const created = await runVercel(['project', 'create', slug]);
+    if (created.code !== 0) throw failure('vercel project create', created);
   }
 
   const linked = await runVercel(['link', '--yes', '--project', slug]);
@@ -87,21 +130,9 @@ export async function ensureVercelProject({
     throw failure('vercel git connect', connected);
   }
 
-  if (projectExisted) {
-    const inspected = await runVercel(['project', 'inspect', slug, '--json']);
-    if (inspected.code !== 0) {
-      throw failure('vercel project inspect', inspected);
-    }
-    const existing = findOwnDomain({
-      output: `${inspected.stdout}${inspected.stderr}`,
-      slug,
-    });
-    if (existing) {
-      return { productionUrl: `https://${existing}`, outcome: 'reused' };
-    }
-  }
-
-  const domain = await addVercelDomain({ runVercel, slug, randomSuffix });
+  const existing = await findOwnDomain({ runVercel, slug });
+  const domain =
+    existing ?? (await addVercelDomain({ runVercel, slug, randomSuffix }));
   return {
     productionUrl: `https://${domain}`,
     outcome: projectExisted ? 'reused' : 'created',
