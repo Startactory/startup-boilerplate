@@ -1,3 +1,4 @@
+import 'server-only';
 import { pro } from '../../../autumn.config';
 import {
   getStartupProfile,
@@ -22,7 +23,9 @@ export function getProPricing(): ProPricing {
 
   const freeTrial = pro.freeTrial;
   const trialDays =
-    freeTrial?.durationType === 'day' ? freeTrial.durationLength : 0;
+    freeTrial?.durationType === 'day'
+      ? Math.max(0, freeTrial.durationLength)
+      : 0;
 
   return {
     amount: price.amount,

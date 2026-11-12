@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   getStartupProfile,
   type LegalIdentity,
@@ -77,5 +77,57 @@ describe('vatRegime', () => {
 
   it('is vat when the company has a VAT number', () => {
     expect(vatRegime(companyLegal)).toBe('vat');
+  });
+});
+
+describe('getProPricing trial days', () => {
+  async function loadPricingWithFreeTrial(freeTrial: unknown) {
+    vi.resetModules();
+    vi.doMock('../../../autumn.config', () => ({
+      pro: { price: { amount: 20, interval: 'month' }, freeTrial },
+    }));
+    const priceLine = await import('./price-line');
+    return priceLine.getProPricing();
+  }
+
+  afterEach(() => {
+    vi.doUnmock('../../../autumn.config');
+    vi.resetModules();
+  });
+
+  it('returns the trial length when the trial is in days', async () => {
+    const pricing = await loadPricingWithFreeTrial({
+      durationLength: 14,
+      durationType: 'day',
+      cardRequired: true,
+    });
+    expect(pricing.trialDays).toBe(14);
+  });
+
+  it('returns zero trial days when the trial is not in days', async () => {
+    const pricing = await loadPricingWithFreeTrial({
+      durationLength: 1,
+      durationType: 'month',
+      cardRequired: true,
+    });
+    expect(pricing.trialDays).toBe(0);
+  });
+
+  it('clamps a zero-length trial to zero days', async () => {
+    const pricing = await loadPricingWithFreeTrial({
+      durationLength: 0,
+      durationType: 'day',
+      cardRequired: false,
+    });
+    expect(pricing.trialDays).toBe(0);
+  });
+
+  it('clamps a negative trial length to zero days', async () => {
+    const pricing = await loadPricingWithFreeTrial({
+      durationLength: -7,
+      durationType: 'day',
+      cardRequired: false,
+    });
+    expect(pricing.trialDays).toBe(0);
   });
 });
