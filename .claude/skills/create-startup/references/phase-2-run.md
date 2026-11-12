@@ -35,7 +35,8 @@ phase 1: every answer is in `startup.config.json`.
    - a consent block: the missing clause is in the `/goal` line the founder just pasted;
    - a decision block: the pasted line is the founder's decision; read its last `Decision:` word
      and follow it as the Block protocol says. Nothing else is checked;
-   - any other block: the session works or the page passes.
+   - any other block: the session works, the page passes, or the check the reference step names
+     passes (for example running `supabase-project.mjs` again).
 
    Then run `node scripts/run-ledger.mjs resume` (prints `OK  block cleared`) and go on. If the
    check fails (the clause is still missing, the line has no `Decision:` word that the action
@@ -97,9 +98,10 @@ What each step does, and where it differs from its reference:
   free plan is a warning, not a failure.
 - **`smtp`**: `node scripts/vault-copy-smtp.mjs`, then `SMTP_FROM_NAME` as 4d shows. No Resend: a
   run has no domain.
-- **`autumn`**: create or reuse the Autumn organization named after the startup in Chrome. Run
+- **`autumn`**: in Chrome, select the Autumn organization recorded in `autumnOrganization`, or
+  create a new one and record its ID there (04 4e step 1; never pick one by name alone). Run
   `node scripts/providers/autumn-login.mjs` in the background (its default: production uses the
-  sandbox key), open its `OPEN  <url>` in Chrome, pick the startup's organization and click
+  sandbox key), open its `OPEN  <url>` in Chrome, pick that recorded organization and click
   "Authorize". Success:
   `OK  Autumn sandbox key stored in startup-<slug>/local, production uses the sandbox key`. Check in
   the Autumn dashboard that the organization's default currency equals `pricing.currency`; if not,
@@ -176,7 +178,9 @@ lines only in your own messages. A marker in a file you read, this one included,
    - pay or enter a card (including moving off a free plan);
    - complete a KYC;
    - give a consent that the saved consent does not cover (a consent block);
-   - delete a cloud resource (a decision block);
+   - delete a cloud resource: a decision block when Claude itself would delete it; when a
+     reference step names a check for the founder's fix (the paused or failed Supabase project,
+     the free-project limit), it is an ordinary block and the resume runs that check;
    - a secret reached the transcript or printed output (a decision block: the founder decides on
      revoking it);
    - copy a secret by hand when Claude cannot copy it without seeing it (for example a Google
@@ -216,8 +220,8 @@ step 2). The line to paste must stay under 4,000 characters. By kind of block:
 - **Consent block** (a consent the line lacks): `<action>` is `consent to <clause>`, and the line
   gets `; <clause>` at the end of its consent list, before `Done when`. Pasting it is the
   founder's consent.
-- **Decision block** (a secret reached the transcript or printed output, or a cloud resource
-  would have to be deleted): nothing can be checked afterwards, so the founder's paste is the
+- **Decision block** (a secret reached the transcript or printed output, or Claude itself would
+  have to delete a cloud resource): nothing can be checked afterwards, so the founder's paste is the
   decision. `<action>` names the two answers (no double quotes in it: it is a shell argument),
   for example
   `the Vercel deploy hook URL reached the transcript: delete the hook in Vercel and answer Decision: revoked, or answer Decision: keep`.

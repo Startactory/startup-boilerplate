@@ -98,13 +98,16 @@ call's 2-minute default: run the script in the background and read its output wh
 project's first password is random and never leaves the script; step 3 replaces it. Success
 prints `OK  Supabase project <ref> <created|reused> in <region>`. Note the `ref`.
 
+A project named after the slug that is `GOING_DOWN` (being deleted) or `REMOVED` counts as gone:
+the script creates a new one and does not count it against the free limit.
+
 Failures:
 
 - `Supabase project <ref> still <status> after 10 minutes — re-run to keep waiting`: run it again;
   it reuses that project and never creates a second one.
 - `Supabase project <ref> is <status> — the founder restores or deletes it in the Supabase
-  dashboard`: the project named after the slug is paused (`INACTIVE`: free projects pause after a
-  week without activity) or failed (`INIT_FAILED`, `RESTORE_FAILED`, `PAUSE_FAILED`) and will
+  dashboard`: the project named after the slug is paused (`INACTIVE` or `PAUSED`: free projects
+  pause after a week without activity) or failed (`INIT_FAILED`, `RESTORE_FAILED`, `PAUSE_FAILED`) and will
   never become healthy. Restoring it uses a free-project slot and deleting it is on the closed
   list, so in phase 2 it is a `BLOCKED_ON_FOUNDER` case, with an action such as
   `in the Supabase dashboard, restore project <ref> or delete it`. On resume,
@@ -329,9 +332,19 @@ uses the sandbox (Stripe test mode) until the founder goes live after the run. D
 handler, `AutumnProvider`, and the `AUTUMN_SECRET_KEY` entry in `env.ts`); the boilerplate ships
 it.
 
-1. **Create or reuse the Autumn organization.** Claude in Chrome, signed in to Autumn: create an
-   organization named after the startup, or select it when it already exists. It is a separate
-   org per startup; there is no secret on that page.
+1. **Create or reuse the Autumn organization.** Claude in Chrome, signed in to Autumn. It is a
+   separate org per startup; there is no secret on that page. Never pick an organization by its
+   name alone: a same-named one may belong to another startup, and step 2's `atmn push` would
+   overwrite its plans.
+   - When `startup.config.json` has `autumnOrganization`, select the organization whose ID (as
+     the organization's settings page shows it) equals it, and no other. If none does, it is an
+     ordinary `BLOCKED_ON_FOUNDER` case with the action
+     `in Autumn, give my account access to organization <autumnOrganization> again`; on resume,
+     look for it again.
+   - Otherwise, create a new organization named after the startup, even when one with that name
+     already exists (if Autumn refuses a duplicate name, name it `<name> (<slug>)`). Right after
+     the creation, read its ID on its settings page, write it to `startup.config.json` as
+     `autumnOrganization` and commit it, so a re-run reuses this one.
 2. **Log in the CLI and move the keys into the vault.** Run in the background:
 
    ```bash
@@ -340,7 +353,8 @@ it.
 
    It runs `atmn login` in a throwaway directory (so `atmn` never asks to overwrite `.env`) and
    prints `OPEN  <url>` instead of opening a browser. Open that URL in Chrome, check that the
-   organization selector shows the startup's org, and click "Authorize" (covered by the phase 1
+   organization selector shows the org recorded in `autumnOrganization` (by ID when the selector
+   shows it, since names can repeat), and click "Authorize" (covered by the phase 1
    consent). The script then validates the keys, stores the sandbox key in `startup-<slug>/local`
    and in `startup-<slug>/production` (its default: production uses the sandbox key), deletes the
    throwaway directory, and regenerates both env files. Success prints

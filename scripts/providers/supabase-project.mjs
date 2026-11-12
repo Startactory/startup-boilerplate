@@ -7,7 +7,8 @@ import { readMasterKeys } from './master-keys.mjs';
 const API_HOST = 'https://api.supabase.com';
 const HEALTHY_STATUS = 'ACTIVE_HEALTHY';
 const FREE_PLAN_ACTIVE_PROJECTS = 2;
-const NOT_ACTIVE_STATUSES = new Set(['INACTIVE', 'PAUSED', 'REMOVED']);
+const GONE_STATUSES = new Set(['REMOVED', 'GOING_DOWN']);
+const NOT_ACTIVE_STATUSES = new Set(['INACTIVE', 'PAUSED', ...GONE_STATUSES]);
 const NEVER_HEALTHY_STATUSES = new Set([
   'INACTIVE',
   'PAUSED',
@@ -133,7 +134,7 @@ export async function ensureSupabaseProject({
     organizationId: organization.id,
   });
   const existing = projects.find(
-    (p) => p.name === slug && p.status !== 'REMOVED',
+    (p) => p.name === slug && !GONE_STATUSES.has(p.status),
   );
 
   let target = existing;
