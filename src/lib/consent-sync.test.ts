@@ -48,4 +48,16 @@ describe('createConsentSync', () => {
     expect(analytics.start).toHaveBeenCalledTimes(1);
     expect(analytics.stop).not.toHaveBeenCalled();
   });
+
+  it('does nothing on the first sync when seeded with the consent at load', () => {
+    const analytics = { start: vi.fn(), stop: vi.fn() };
+    const sync = createConsentSync({
+      read: () => 'granted',
+      analytics,
+      initial: 'granted',
+    });
+    sync();
+    expect(analytics.start).not.toHaveBeenCalled();
+    expect(analytics.stop).not.toHaveBeenCalled();
+  });
 });

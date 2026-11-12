@@ -56,9 +56,7 @@ function resolveCurrency(currency) {
       `pricing.currency "${code}" must be a 3-letter ISO 4217 code`,
     );
   }
-  try {
-    new Intl.NumberFormat('en', { style: 'currency', currency: code });
-  } catch {
+  if (!Intl.supportedValuesOf('currency').includes(code)) {
     throw new Error(`pricing.currency "${code}" is not a valid currency code`);
   }
   return code;

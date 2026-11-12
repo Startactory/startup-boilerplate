@@ -20,9 +20,11 @@ function readConsent(): Consent {
   return readConsentFromCookieString(document.cookie);
 }
 
+// Consent at load is already applied by instrumentation-client, so it seeds the sync.
 const syncAnalyticsWithConsent = createConsentSync({
   read: readConsent,
   analytics,
+  initial: typeof document === 'undefined' ? undefined : readConsent(),
 });
 
 // Cookie changes fire no event, so a choice made in another tab is picked up when this tab regains attention.

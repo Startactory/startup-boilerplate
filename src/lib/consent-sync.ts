@@ -4,11 +4,13 @@ import type { Consent } from '@/lib/consent';
 export function createConsentSync({
   read,
   analytics,
+  initial,
 }: {
   read: () => Consent;
   analytics: Analytics;
+  initial?: Consent;
 }): () => void {
-  let applied: Consent | null = null;
+  let applied: Consent | null = initial ?? null;
 
   return function sync(): void {
     const current = read();
