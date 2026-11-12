@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,9 +14,10 @@ const INVITATION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
 
 type Props = {
   microsoftEnabled: boolean;
+  logo: ReactNode;
 };
 
-export function SignInForm({ microsoftEnabled }: Props) {
+export function SignInForm({ microsoftEnabled, logo }: Props) {
   const t = useTranslations('SignIn');
   const searchParams = useSearchParams();
   const invitationParam = searchParams.get('invitation') ?? '';
@@ -44,15 +45,7 @@ export function SignInForm({ microsoftEnabled }: Props) {
 
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background">
-      <Image
-        src="/logo.svg"
-        alt=""
-        width={64}
-        height={64}
-        className="rounded-md"
-        aria-hidden
-        priority
-      />
+      {logo}
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-base font-semibold">

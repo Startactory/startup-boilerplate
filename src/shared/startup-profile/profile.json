@@ -1,0 +1,14 @@
+{
+  "name": "",
+  "brand": {
+    "icon": "Sparkles",
+    "accent": "#2f3130"
+  },
+  "currency": "EUR",
+  "legal": {
+    "termsVersion": "0",
+    "founderName": "",
+    "contactEmail": "",
+    "company": null
+  }
+}

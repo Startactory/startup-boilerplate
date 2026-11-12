@@ -43,6 +43,10 @@ Nothing loads `.env.prod` by accident.
 1. Use the Node version in `.nvmrc` (`nvm use` if available).
 2. `pnpm install` — this also runs husky's `prepare` and builds the allowed native deps
    (`sharp`, `esbuild`, …). Expect it to take a bit on first run.
+3. `node scripts/sync-startup-profile.mjs` — turns the `brand`, `legal` and `pricing.currency`
+   written in Step 1d into `src/shared/startup-profile/profile.json` and `src/app/brand.css`. It
+   needs the installed dependencies and ends with `OK  startup profile synced (<name>)`; on a
+   `FAIL` line fix the named field in `startup.config.json` and re-run.
 
 ## 3b. Start a local Postgres and create the database
 

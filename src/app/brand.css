@@ -1,0 +1,11 @@
+:root:not(.dark) {
+  --charcoal: #2f3130;
+  --charcoal-deep: #1f2120;
+  --charcoal-soft: #edece6;
+  --primary: #2f3130;
+  --ring: #2f3130;
+  --chart-1: #2f3130;
+  --sidebar-primary: #2f3130;
+  --sidebar-accent-foreground: #2f3130;
+  --sidebar-accent: #edece6;
+}

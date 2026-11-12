@@ -156,6 +156,7 @@ const eslintConfig = defineConfig([
     'drizzle/**',
     'public/**',
     '.claude/worktrees/**',
+    '.superpowers/**',
   ]),
   {
     files: ['**/*.{js,jsx,ts,tsx}'],

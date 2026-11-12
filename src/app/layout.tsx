@@ -1,9 +1,11 @@
 import './globals.css';
+import './brand.css';
 
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import type { ReactNode } from 'react';
+import { CookieBanner } from '@/components/cookie-consent/cookie-banner';
 import { PostHogProvider } from '@/components/posthog-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { VersionGuard } from '@/components/version-guard';
@@ -41,6 +43,7 @@ export default async function RootLayout({
             <VersionGuard />
             {children}
             <Toaster position="bottom-right" />
+            <CookieBanner />
           </PostHogProvider>
         </NextIntlClientProvider>
       </body>

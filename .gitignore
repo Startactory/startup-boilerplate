@@ -40,3 +40,6 @@ next-env.d.ts
 
 # Claude Code worktrees (local only)
 .claude/worktrees/
+
+# Brainstorming companion mockups
+.superpowers/

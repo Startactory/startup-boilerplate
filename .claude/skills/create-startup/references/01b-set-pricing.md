@@ -93,6 +93,7 @@ Add a `pricing` block to `startup.config.json` (keep the existing fields):
     "customer": "individual",
     "amount": 19,
     "interval": "month",
+    "currency": "EUR",
     "trialDays": 14,
     "cardRequired": true,
     "rationale": "Freelancers pay about 30-60 per contract review today; 19 is well under the value and above the 9 trap.",
@@ -101,8 +102,10 @@ Add a `pricing` block to `startup.config.json` (keep the existing fields):
 }
 ```
 
-`source` is `founder` or `derived`. `interval` is `month` or `year`. `trialDays` is `0` for no
-trial. `deferred` lists pricing shapes the founder asked for that the code cannot sell yet.
+`source` is `founder` or `derived`. `interval` is `month` or `year`. `currency` is the ISO code
+shown on the storefront price (default `EUR`); it must match the Autumn organization's default
+currency. `trialDays` is `0` for no trial. `deferred` lists pricing shapes the founder asked for
+that the code cannot sell yet.
 
 ## 5. Write `autumn.config.ts`
 
@@ -123,6 +126,11 @@ Autumn sandbox, and Step 6 pushes it to production.
 
 Once saved, tell the founder the pricing is final (they can change it any time by editing
 `autumn.config.ts` and running `pnpm dlx atmn push`) and move to Step 1c.
+
+**Changing the price later.** The terms of sale show the price, the trial and the currency. On any
+change to `price`, `trialDays` or `currency`, also bump `legal.termsVersion` in
+`startup.config.json` to today's date and re-run `node scripts/sync-startup-profile.mjs`, so
+customers accept the new terms. Tell the founder this when they ask to change the price.
 
 ---
 

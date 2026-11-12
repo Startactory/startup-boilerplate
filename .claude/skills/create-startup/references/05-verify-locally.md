@@ -27,8 +27,13 @@ here.
 4. Exercise the core surface: create the organization on the onboarding page (it asks only for a
    name), invite a member, and reach the dashboard past the paywall (it is an empty page by
    design). Watch the dev logs for errors.
-5. If PostHog was configured, confirm events land in the PostHog project.
-6. If Autumn is wired, open the pricing/paywall surface and confirm the `useCustomer` state loads
+5. Check the storefront from Step 1d while signed out (private window): open `/` and
+   `/legal/notice` in both languages. The headline and sentence read well, the button shows the
+   right price and trial, the accent and logo render, the legal notice names the founder and the
+   contact email, and the cookie banner appears. If anything is wrong, fix the copy or the config,
+   re-run `node scripts/sync-startup-profile.mjs` and look again.
+6. If PostHog was configured, confirm events land in the PostHog project.
+7. If Autumn is wired, open the pricing/paywall surface and confirm the `useCustomer` state loads
    (a checkout can be tested in Step 6 against Stripe test mode).
 
 ## 5c. Pass the gate

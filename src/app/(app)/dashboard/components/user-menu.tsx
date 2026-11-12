@@ -1,9 +1,10 @@
 'use client';
 
-import { LogOut, Settings } from 'lucide-react';
+import { Cookie, LogOut, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
+import { openCookiePreferences } from '@/components/cookie-consent/consent-store';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -92,6 +93,10 @@ export function UserMenu({ firstName, lastName, email, image }: Props) {
             <Settings className="size-3.5" />
             {t('settings')}
             <DropdownMenuShortcut>⌘,</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={openCookiePreferences}>
+            <Cookie className="size-3.5" />
+            {t('manageCookies')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut}>

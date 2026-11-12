@@ -5,7 +5,13 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['**/*.test.ts', '**/*.test.tsx'],
-    exclude: ['node_modules', '.next', 'dist', '.claude/worktrees/**'],
+    exclude: [
+      'node_modules',
+      '.next',
+      'dist',
+      '.claude/worktrees/**',
+      '.superpowers/**',
+    ],
   },
   resolve: {
     alias: {
