@@ -106,14 +106,14 @@ What each step does, and where it differs from its reference:
      (6g), so the first CI run is green;
   5. `git push -u origin master`, the first push: it runs CI and its `migrate` job, then
      `production.yml` calls the deploy hook (6j item 1). Follow each run without a prompt: take the
-     id with `gh run list --branch master --limit 1 --json databaseId -q '.[0].databaseId'`
-     (add `--workflow production.yml` for the deploy run, once CI is done), then
-     `gh run watch <id> --exit-status`;
+     id with
+     `gh run list --branch master --workflow ci.yml --limit 1 --json databaseId -q '.[0].databaseId'`
+     (retry a few times until a run appears; `--workflow production.yml` for the deploy run, once
+     CI is done), then `gh run watch <id> --exit-status`;
   6. branch protection (6i); a 403 goes in the report.
 
   Skip the rest of 06: 6a (the URL is `productionUrl`), 6b (phase 1), 6f (go-live, in
-  `after-the-run.md`), 6h (both Google redirect URIs exist already) and 6j item 2, whose real
-  checkout the smoke test below replaces.
+  `after-the-run.md`) and 6j item 2, which is the smoke test below.
 
 ## Smoke test
 

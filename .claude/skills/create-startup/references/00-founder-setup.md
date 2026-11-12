@@ -1,16 +1,20 @@
 # Step 0 — Founder setup (once per machine, idempotent)
 
-Everything the founder needs before the first startup: tools, a 1Password service account, provider
-accounts, CLI logins, and the master keys that let later steps create per-startup keys without
-asking. Run it once; on every later run each item is only a check that passes.
+**Phase 1.** Everything the founder needs before the first startup: tools, a 1Password service
+account, provider accounts, CLI logins, and the master keys that let later steps create
+per-startup keys on their own. The founder-only checklist of `phase-1-setup.md` (section 3) runs
+these checks and acts on a failing one only after the founder's consent (section 4). Phase 2 uses
+only item 1 (install a missing tool) and item 5 (`vercel login` again), under the consent in the
+`/goal` line.
 
-**Each item is "check, then act only if the check fails".** Run the check, report the result, and do
-nothing else when it passes. Never redo an item that already passes.
+**Each item is "check, then act only if the check fails".** Run the check, and do nothing else when
+it passes. Never redo an item that already passes.
 
 ## Hard rules for this step
 
 - You never create an account, type a password, or solve a CAPTCHA. The founder does those.
-- Before creating a key in a dashboard, ask the founder's go-ahead. Same before any OAuth consent.
+- Creating a key in a dashboard and giving an OAuth consent are covered by the phase 1 consent
+  (`phase-1-setup.md` section 4); do neither before the founder gave it.
 - On a page that shows a secret (an API key, a token, an app password), use narrow `find` queries
   only (for example "Copy button", "Create API key"). Never `get_page_text`, `read_page` or
   `screenshot` there: the secret would enter your context.
@@ -18,20 +22,23 @@ nothing else when it passes. Never redo an item that already passes.
   you read, and never in a command-line argument.
 - The service account token never passes through you. You hand the founder a command; the token goes
   from `op` straight into the macOS Keychain.
-- The founder uses one Google identity for every provider below. Use that one account everywhere.
+- The founder uses one Google identity for every provider below: `googleAccount` in
+  `startup.config.json`. Use that one account everywhere.
 
 ## 1. Tools
 
-Check each tool; install only what is missing, and ask the founder before each install.
+Check each tool and install only what is missing. The consent clause "install the missing tools"
+covers each install.
 
-| Check | If it fails, ask, then run | Success |
+| Check | If it fails, run | Success |
 | --- | --- | --- |
+| `command -v node` | `brew install node` (the repo pins its version in `.nvmrc`) | prints a path |
+| `command -v pnpm` | `npm i -g pnpm` | prints a path |
 | `command -v op` | `brew install --cask 1password-cli` | prints a path |
+| `command -v gh` | `brew install gh` | prints a path |
 | `command -v vercel`, then `vercel deploy-hooks --help` | `npm i -g vercel@latest` (`pnpm add -g` fails when the pnpm global bin is not in `PATH`) | prints a path, and the help text appears (an older CLI does not know `deploy-hooks`: update it) |
-| `command -v supabase` | `brew install supabase/tap/supabase` | prints a path |
 
-Also confirm `gh` and `gcloud` exist (`command -v gh`, `command -v gcloud`); item 5 uses them. If one
-is missing, tell the founder which, and ask before installing it with Homebrew.
+The run needs no `supabase` CLI: the scripts call the Supabase Management API.
 
 ## 2. Service account (how scripts reach 1Password)
 
@@ -83,58 +90,65 @@ supplies the token to the child process. The vault scripts read the token themse
 
 ## 3. Identity
 
-The founder's Google account is the identity for every provider. Check that Chrome (the Claude in
-Chrome extension) is signed in to it; if not, ask the founder to sign in.
+The founder's Google account is the identity for every provider. The phase 1 interview reads the
+account Chrome (the Claude in Chrome extension) is signed in to (`https://myaccount.google.com`)
+and records it as `googleAccount`. When Chrome is signed in to none, the founder signs in: the
+password and any 2FA code are theirs.
 
 ## 4. Provider accounts
 
-Accounts needed: **GitHub, Vercel, Supabase, PostHog, Autumn, Stripe, Resend, Dash0, Google Cloud**.
-PostHog and Dash0 are in the founder's usual region (`EU` or `US`, see `data-region.md`); a startup
-in the other region adds that region's accounts later.
+Accounts the run needs: **Google (the Google Cloud console), GitHub, Vercel, Supabase, PostHog,
+Autumn, Dash0**. PostHog and Dash0 are in the startup's region (`EU` or `US`, see
+`data-region.md`); a startup in the other region adds that region's accounts. Stripe and Resend
+are not needed for the run: Stripe comes with going live, Resend with a custom domain
+(`after-the-run.md`).
 
 **Check**, per provider: open its dashboard in Chrome and look at the page. A signed-in dashboard
 (not a login page) passes. Use narrow `find` queries ("Sign in", "Continue with Google") to tell.
 
-**If signed out:** open the sign-in page and ask the founder to click "Continue with Google" (GitHub
-for Supabase) and finish any CAPTCHA, phone or 2FA step themselves. When they say it is done, reload
-the dashboard and confirm the session. You never create the account or type credentials. Check the
-signed-in address on each dashboard: a provider that needs a phone number the founder already used
-elsewhere (Vercel, for example) may be on another of the founder's accounts, which is fine once they
-confirm it.
+**If signed out**, follow the sign-in rule of `phase-1-setup.md` (section 3, item 2): the founder
+says once, for all the signed-out providers together, where they already have an account. For a
+confirmed existing account, open its sign-in page, click "Continue with Google" (GitHub for
+Supabase) and pick `googleAccount` on the account chooser. For any other provider the founder
+clicks it and finishes the sign-up: creating an account is theirs. The founder also types any
+password, 2FA code, phone code or CAPTCHA. Then reload the dashboard and confirm the session.
+Check the signed-in address on each dashboard: a provider that needs a phone number the founder
+already used elsewhere (Vercel, for example) may be on another of the founder's accounts, which is
+fine once they confirm it.
 
-**Ask once, up front,** whether you may accept each provider's terms of service and the CLI consent
-pages on the founder's behalf (they chose this stack, so they know these providers). With that yes,
-tick the terms box on a sign-up's legal-consent page (Dash0 shows one after Google sign-in) and click
-"Authorize" / "Allow Access" on the CLI consent pages below. Without it, the founder clicks them.
+In phase 2, a login page means signing in again the same way ("Continue with Google", then
+`googleAccount`); a password, 2FA or CAPTCHA prompt is a block (`phase-2-run.md`).
+
+The phase 1 consent covers the providers' terms of service and CLI consent pages: tick the terms
+box on a sign-up's legal-consent page (Dash0 shows one after Google sign-in) and click
+"Authorize" / "Allow Access" on the CLI consent pages below. If the founder struck that clause,
+they click them.
 
 **Then set each account up**, once per founder:
 
 - **Supabase:** an organization on the **Free** plan (`dashboard/new`: name `startup-factory`, plan
   "Free - $0/month"). Startups are projects in it; Free allows 2 active projects.
 - **Dash0:** one organization per region, created in the region's data storage location
-  (`data-region.md`). New Dash0 organizations start on a 14-day trial, then need a subscription:
-  tell the founder.
+  (`data-region.md`) when the founder signs up. New Dash0 organizations start on a 14-day trial,
+  then need a subscription; the phase 1 briefing says so.
 - **PostHog:** nothing; each startup gets its own organization from `posthog-projects.mjs`.
-
-Stripe is only connected to Autumn later; here the account just has to exist.
 
 ## 5. CLI logins
 
 | Check | If it fails | Success |
 | --- | --- | --- |
-| `gh auth status` | founder runs `gh auth login` | logged in to github.com |
+| `gh auth status`, with the `workflow` scope when `gh config get git_protocol` prints `https` | the founder runs `gh auth login --web -s workflow` (or `gh auth refresh -s workflow`) in a terminal | logged in to github.com |
 | `vercel whoami` | `vercel login` in a Claude terminal tab | prints the username |
-| `gcloud auth list` | founder runs `gcloud auth login` | an active account |
 
 `vercel login` prints a device URL (`vercel.com/oauth/device?user_code=…`). Open it in Chrome, check
-the signed-in account, and click "Allow Access" (with the up-front yes). Vercel may then ask for the
-founder's 2FA code: the founder types it. The device code expires after a few minutes; if the
-command has exited, run it again. No Vercel token goes in the vault: later steps use the
-`vercel login` session.
+the signed-in account, and click "Allow Access" (covered by the phase 1 consent). Vercel may then
+ask for the founder's 2FA code: the founder types it (in phase 2, that is a block). The device code
+expires after a few minutes; if the command has exited, run it again. No Vercel token goes in the
+vault: later steps use the `vercel login` session. Phase 1 does this login last, so the session is
+still fresh when phase 2 starts.
 
-There is no `supabase login`: the Supabase CLI and scripts use `SUPABASE_ACCESS_TOKEN` from the
-master keys (`node scripts/with-vault.mjs run -- supabase …` with
-`SUPABASE_ACCESS_TOKEN=op://startup-founder/master-keys/SUPABASE_ACCESS_TOKEN`).
+There is no `supabase login`: the Supabase scripts read `SUPABASE_ACCESS_TOKEN` from the master
+keys.
 
 ## 6. Master keys (and SMTP)
 
@@ -149,20 +163,21 @@ node scripts/vault-put.mjs --list-fields master-keys
 
 It prints one field name per line, or `none` when the item does not exist yet (then every field is
 missing). Compare with the table, keeping only the
-rows for the founder's region `<R>` (`EU` or `US`).
+rows for the startup's region `<R>` (`EU` or `US`).
 
 | Field | Where (dashboard path) | Permission |
 | --- | --- | --- |
-| `RESEND_FULL_ACCESS_API_KEY` | Resend → API Keys → Create | Full access |
 | `SUPABASE_ACCESS_TOKEN` | Supabase → Account → Access Tokens → Generate new token | expires Never, resource access "Organization" = `startup-factory`, preset "Full access" |
 | `POSTHOG_PERSONAL_API_KEY_<R>` | PostHog (region account) → Settings → Personal API keys | expires Never, all access, scopes `organization:write` and `project:write` (each startup gets its own organization) |
 | `DASH0_AUTH_TOKEN_<R>` | Dash0 (region org) → Settings → Auth Tokens | all actions, no dataset restriction (managing tokens requires it) |
 | `DASH0_API_URL_<R>`, `DASH0_OTLP_ENDPOINT_<R>` | Dash0 → Organization Settings → Endpoints | not secret |
+| `RESEND_FULL_ACCESS_API_KEY` (custom domain only, after the run) | Resend → API Keys → Create | Full access |
 
-Another region's keys are added when the first startup in that region runs.
+Another region's keys are added when the first startup in that region runs. The run needs no
+Resend key: `after-the-run.md` creates it when the startup gets a custom domain.
 
-**For each missing field**, ask the founder's go-ahead ("I will create a <provider> key for
-`<FIELD>` with <permission>, then store it in 1Password. OK?"). On a yes:
+**For each missing field** (the phase 1 consent covers creating these keys; the founder acts only
+if a page asks for a password or a 2FA code):
 
 1. In Chrome, go to the dashboard path, create the key with the listed permission, and stop at the
    page that shows it. Use `find` queries only ("Create", "Copy").
@@ -176,14 +191,16 @@ Another region's keys are added when the first startup in that region runs.
 
    Success: `OK  <FIELD> stored in startup-founder/master-keys (<n> chars)`. An `ERROR` line means
    nothing was written (wrong or empty clipboard): go back to the page and copy again. If the
-   provider showed the key only once and it is lost, delete that key in the dashboard (ask first)
-   and create a new one.
+   provider showed the key only once and it is lost, create a new key and store it. Never delete
+   the lost one (deleting is the founder's); the end-of-run report lists it under old keys left
+   for cleanup.
 
 The two Dash0 endpoints are not secret; copy each the same way, one command per field.
 
-### SMTP (only when a startup will use SMTP)
+### SMTP
 
-SMTP is the no-domain email option. Claude cannot create a Gmail app password, so the founder does:
+SMTP is the no-domain email option, and every run uses it (a run has no domain). Claude cannot
+create a Gmail app password, so the founder does:
 
 1. In their Google account (Security, 2-Step Verification on, then App passwords) the founder
    creates an app password and copies it themselves.
@@ -194,12 +211,13 @@ SMTP is the no-domain email option. Claude cannot create a Gmail app password, s
    printf %s '<gmail address>' | node scripts/vault-put.mjs --vault startup-founder master-keys SMTP_USER
    ```
 
-   The address is not a secret, so you may take it from the founder in chat. The app password never
-   passes through you.
+   The address is not a secret: it is the SMTP Gmail address from the phase 1 interview (default
+   `googleAccount`). The app password never passes through you.
 
-Check for these two fields the same way as above. Skip this section when no startup uses SMTP.
+Check for these two fields the same way as above.
 
 ## Done
 
-Report a short checklist: tools, service account (`startup-founder: existing`), provider sessions,
-CLI logins, master-key field names present, SMTP present or skipped. Then continue with step 1.
+Every check of this file passes: tools, service account (`startup-founder: existing`), provider
+sessions, CLI logins, and the master-key field names (SMTP included). At the end of phase 1,
+`node scripts/preflight.mjs` checks the tools, the vault, the master keys and the CLI sessions again.

@@ -1,14 +1,16 @@
 # Step 3 — Install & build the local environment
 
-Build the **local** development environment: dependencies, a local Postgres, and a `.env` filled
-with local values. Production is a separate environment, finished in Step 6. Do not mix them.
+**Phase 2, step `local-env`.** Build the **local** development environment: dependencies, a local
+Postgres, and a `.env` filled with local values. Production is a separate environment, finished in
+Step 6. Do not mix them.
 
-**Do this yourself — nothing here requires the user.** No accounts, no keys, no commands handed
-over for someone else to run. Execute it, report what happened, move on. Asking the user to paste
-anything is a failure of this step.
+**Do this yourself — nothing here requires the founder.** No accounts, no keys, no commands handed
+over for someone else to run, no question. Execute it and move on.
 
-The vault, the 1Password CLI (`op`) and the service account token come from step 0. If `op` is
-missing, go back to step 0.
+The vault, the 1Password CLI (`op`) and the service account token come from phase 1
+(`00-founder-setup.md` items 1 and 2), and the preflight checked them. A missing `op` is
+installed as item 1 does; a missing or rejected service account token is the founder's (item 2,
+in Terminal.app), so in phase 2 it is a block.
 
 ## The two-environment model (read this before touching any env file)
 
@@ -16,9 +18,9 @@ missing, go back to step 0.
 | --- | --- | --- |
 | Database | local Postgres on this machine | Supabase session pooler |
 | `DATABASE_SSL` | `allow` | `require` |
-| App / auth URL | `http://localhost:3000` | `https://<prod-domain>` |
+| App / auth URL | `http://localhost:3000` | `productionUrl` from `startup.config.json` |
 | Secrets | generated for local | generated separately for production |
-| Autumn | sandbox key (`am_sk_test_…`) | production key |
+| Autumn | sandbox key (`am_sk_test_…`) | the same sandbox key until go-live, then the live key |
 | Lives in | 1Password `startup-<slug>/local`; the file is regenerated from it | 1Password `startup-<slug>/production`; secret lines are `op://` references |
 | Used by | `pnpm dev` on this machine | pushed to the Vercel project |
 
@@ -42,25 +44,44 @@ Nothing loads `.env.prod` by accident.
 
 1. Use the Node version in `.nvmrc` (`nvm use` if available).
 2. `pnpm install` — this also runs husky's `prepare` and builds the allowed native deps
-   (`sharp`, `esbuild`, …). Expect it to take a bit on first run.
+   (`sharp`, `esbuild`, …). Phase 1 may already have run it; running it again is safe.
 3. `node scripts/sync-startup-profile.mjs` — turns the `brand`, `legal` and `pricing.currency`
    written in Step 1d into `src/shared/startup-profile/profile.json` and `src/app/brand.css`. It
    needs the installed dependencies and ends with `OK  startup profile synced (<name>)`; on a
    `FAIL` line fix the named field in `startup.config.json` and re-run.
+4. Commit the two generated files on `master` (the first push is still to come, in 6j):
+
+   ```bash
+   git add src/shared/startup-profile/profile.json src/app/brand.css
+   git commit -m "chore: sync the startup profile"
+   ```
+
+   Nothing to commit (a re-run) is fine.
 
 ## 3b. Start a local Postgres and create the database
 
 Name the database after the `slug` from `startup.config.json`, so several projects can share one
-Postgres server.
+Postgres server. Phase 1 made sure Postgres or Docker is on the machine (checklist item 5; the
+preflight's `tool:database` check).
 
-If Postgres already runs locally, create the database:
+If Postgres already runs locally, create the database (`already exists` on a re-run is fine):
 
 ```bash
 createdb "<slug>"
 ```
 
+3d connects as `postgres` / `postgres`. When `psql -U postgres -d postgres -c 'select 1'` fails
+with `role "postgres" does not exist` (a Homebrew Postgres names its superuser after the macOS
+user), create that local role once:
+
+```bash
+createuser -s postgres
+psql -d postgres -c "ALTER ROLE postgres PASSWORD 'postgres'"
+```
+
 Otherwise start one with Docker, with the credentials the connection string expects
-(`postgres` / `postgres` on port 5432):
+(`postgres` / `postgres` on port 5432). When `docker info` fails because Docker Desktop is not
+running, open it (`open -a Docker`) and wait until `docker info` succeeds.
 
 ```bash
 docker run -d --name "<slug>-postgres" \
@@ -72,7 +93,8 @@ docker run -d --name "<slug>-postgres" \
   postgres:17
 ```
 
-Wait until it accepts connections. A running container is not necessarily ready:
+On a re-run, a container named `<slug>-postgres` may already exist: `docker start "<slug>-postgres"`
+instead. Wait until it accepts connections. A running container is not necessarily ready:
 
 ```bash
 until docker exec "<slug>-postgres" pg_isready -U postgres -q; do sleep 1; done && echo "postgres ready"
@@ -80,9 +102,6 @@ until docker exec "<slug>-postgres" pg_isready -U postgres -q; do sleep 1; done 
 
 If port 5432 is taken by another Postgres, reuse that server (`createdb "<slug>"`) or map another
 host port and use that port in 3d. Do not run two servers silently.
-
-If neither Postgres nor Docker is installed, tell the user and ask which one to install. This is the
-only local prerequisite the skill cannot set up alone.
 
 ## 3c. Create the vault items and populate `.env`
 
@@ -98,8 +117,8 @@ generated locally and never printed.` and `Remaining variables need an account �
 If it fails, nothing was written. Read the message:
 
 - `no 1Password service account token in the Keychain (startup-factory-op) — run step 0, item 2`
-  or `1Password rejected the service account token — run step 0, item 2`: go back to step 0,
-  item 2, then re-run.
+  or `1Password rejected the service account token — run step 0, item 2`: only the founder can
+  redo step 0, item 2 (in Terminal.app), so in phase 2 this is a block; after the resume, re-run.
 - `1Password rate limit reached for the service account — retry in an hour`: wait, then re-run.
 
 What it does:
@@ -138,20 +157,22 @@ appears, read it; an `ERROR` line means nothing was written.
 
 ## 3e. What is deliberately *not* done here
 
-These need an external account. Step 4 obtains every one of them with no paste: a script calls the
-provider API with the founder's master keys (step 0), or Claude in Chrome moves the value through
-the clipboard or a downloaded file straight into the vault. Be honest with the user about which
-parts are fully automatic and which ask for one click.
+These need an external account. Step 4 obtains every one of them with no paste and no question: a
+script calls the provider API with the founder's master keys (phase 1), or Claude in Chrome moves
+the value through the clipboard or a downloaded file straight into the vault, under the phase 1
+consent.
 
-| Variable | How Step 4 gets it | Founder step |
-| --- | --- | --- |
-| production `DATABASE_URL` (4a) | Supabase MCP creates the project; `supabase-database.mjs` resets the password and stores the URL | approve the cost |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (4b) | Claude in Chrome creates two OAuth clients; downloaded JSON or the Copy buttons go to the vault | go-ahead |
-| `NEXT_PUBLIC_POSTHOG_KEY` (4c) | PostHog API: two projects, `<name> (local)` and `<name>` | none |
-| `RESEND_API_KEY` (4d) | Resend API: two sending-only keys (needs a domain in Resend); otherwise SMTP from the vault | none |
-| SMTP credentials (4d) | copied from `startup-founder/master-keys` | none (the Gmail app password was created in step 0) |
-| `AUTUMN_SECRET_KEY` (4e) | `scripts/providers/autumn-login.mjs` runs `atmn login` and stores the keys | nothing (Claude approves the consent page) |
-| `OTEL_EXPORTER_OTLP_*` (4f) | Dash0 API: dataset `<slug>` and a dataset-scoped ingest token | none |
+| Variable | How Step 4 gets it |
+| --- | --- |
+| production `DATABASE_URL` (4a) | `supabase-project.mjs` creates the project on the Free plan through the Management API; `supabase-database.mjs` resets the password and stores the URL |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (4b) | Claude in Chrome creates two OAuth clients; each downloaded JSON goes to the vault |
+| `NEXT_PUBLIC_POSTHOG_KEY` (4c) | PostHog API: two projects, `<name> (local)` and `<name>` |
+| SMTP credentials (4d) | copied from `startup-founder/master-keys` (the Gmail app password was created in phase 1) |
+| `AUTUMN_SECRET_KEY` (4e) | `scripts/providers/autumn-login.mjs` runs `atmn login` and stores the sandbox key in both items; Claude approves the consent page |
+| `OTEL_EXPORTER_OTLP_*` (4f) | Dash0 API: dataset `<slug>` and a dataset-scoped ingest token |
+
+`RESEND_API_KEY` stays empty: a run has no domain and uses SMTP. Resend comes with a custom domain
+(`after-the-run.md`).
 
 ## 3f. Sanity check
 
@@ -163,5 +184,6 @@ cut -d= -f1 .env
 grep -c '^DATABASE_URL=postgresql://postgres:postgres@localhost' .env
 ```
 
-The first lists the variable names (the three secrets must be among them); the count must be `1`.
-Then move to Step 4.
+The first lists the variable names (the two generated secrets must be among them); the count must
+be `1`.
+Then `node scripts/run-ledger.mjs done local-env`.

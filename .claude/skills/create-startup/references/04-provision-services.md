@@ -1,14 +1,28 @@
 # Step 4 — Provision & configure services
 
-Fill every remaining value of the two environments. The founder pastes nothing. Each service uses
-one of three channels, and every secret goes into 1Password (`startup-<slug>/local` or
-`startup-<slug>/production`), never into text you read. After each service, tell the user what you
-set (names and statuses only) and move on. Re-read `src/shared/env.ts` if unsure about a name,
-format, or whether a var is required.
+**Phase 2.** Each section is one step of the run, closed with
+`node scripts/run-ledger.mjs done <id>` once its success line appeared:
 
-**First**, surface the accounts the user needs (Step "Prerequisites" in SKILL.md). The founder's
-provider accounts and master keys come from step 0; if a script says a key is missing in
-`startup-founder/master-keys`, send the user back to step 0 for that key and resume here.
+| Section | Step id |
+| --- | --- |
+| 4a Supabase | `supabase` |
+| 4b Google OAuth | `google-oauth` |
+| 4c PostHog | `posthog` |
+| 4d Email (SMTP) | `smtp` |
+| 4e Autumn | `autumn` |
+| 4f Dash0 | `dash0` |
+
+Fill every remaining value of the two environments. The founder pastes nothing and is asked
+nothing. Each service uses one of three channels, and every secret goes into 1Password
+(`startup-<slug>/local` or `startup-<slug>/production`), never into text you read. After each
+service, print what you set (names and statuses only) and move on. Re-read `src/shared/env.ts` if
+unsure about a name, format, or whether a var is required.
+
+The founder's provider accounts, Chrome sessions and master keys were set up in phase 1
+(`phase-1-setup.md` section 3, with the procedures of `00-founder-setup.md`), and the preflight
+checked the master keys. If a script still reports a key missing in `startup-founder/master-keys`,
+create it as `00-founder-setup.md` item 6 does (covered by the consent); a page that demands a
+password or a 2FA code is a block.
 
 Where each value lives: the local `.env` is regenerated from the `local` item, `.env.prod` from the
 `production` item (secret lines are `op://` references). **Supabase (4a) and Dash0 (4f) are
@@ -16,9 +30,9 @@ production-only.** Every provider script writes to the vault first and regenerat
 itself; there is no copy from `.env` to `.env.prod` in Step 6. If you ever need to regenerate a
 file by hand: `node scripts/vault-sync.mjs --env local|production`.
 
-Order matters a little: do **Supabase** first (project creation takes a few minutes and fixes the
-data region), then the other services, then Autumn last (it depends on the billing code being
-present).
+Order matters a little: do **Supabase** first (it creates the `production` item's database and
+fixes the data region), then the other services, then Autumn (it depends on the billing code being
+present), then Dash0.
 
 Regions never vary per service. Every region comes from `startup.config.json` `dataRegion`, through
 `references/data-region.md`.
@@ -55,49 +69,45 @@ call `get_page_text`, `read_page` or `screenshot` there, and do not read the pag
 with JavaScript. If you must see the page to navigate, do it before the secret appears or after
 you leave it.
 
-Ask the founder's go-ahead before an OAuth consent screen and before creating a key in a
-dashboard. Never create an account, type a password or solve a CAPTCHA: if a page demands one,
-stop and hand that single click to the founder.
+OAuth consents, dashboard keys and the file downloads below are covered by the phase 1 consent in
+the `/goal` line. Never create an account, type a password or solve a CAPTCHA: a page that demands
+one is a block (`phase-2-run.md`, "Block protocol"). Check the Chrome session of a site right
+before the step that drives it (`phase-2-run.md`, "Rules for the whole run").
 
-Tell the user where they are — "that's 3 of 6" — so the remaining work is visible.
+Announce where you are ("4c, 3 of 6") so the run's progress is visible in the transcript.
 
 ---
 
-## 4a. Supabase — production database (MCP: `supabase`, then a script)
+## 4a. Supabase — production database (two scripts)
 
 Fills, in the **`production`** item: `DATABASE_URL`, `DATABASE_SSL`. Supabase only hosts the
 production Postgres; the boilerplate uses no Supabase Storage or API keys. Never write this
-database into `.env`.
+database into `.env`. No MCP and no cost question: the scripts use the Supabase Management API with
+`SUPABASE_ACCESS_TOKEN` from the master keys, and create on the Free plan only.
 
-### 1. Pick the organization
+### 1. Create or reuse the project
 
-`list_organizations`. If there is more than one, ask which to use; otherwise take the only one.
+```bash
+node scripts/providers/supabase-project.mjs
+```
 
-### 2. Get cost approval before creating anything
+It finds the organization `startup-factory`, reuses a project named after the `slug` or creates
+one in the Supabase region `references/data-region.md` gives for `dataRegion` (it cannot be moved
+later), and waits until it is `ACTIVE_HEALTHY` (up to 10 minutes). The project's first password is
+random and never leaves the script; step 3 replaces it. Success prints
+`OK  Supabase project <ref> <created|reused> in <region>`. Note the `ref`.
 
-Creating a project can be billable. Do not skip the MCP's cost-confirmation flow:
+Failures:
 
-1. `get_cost` for a new project in that organization.
-2. **Show the amount to the user and get an explicit yes.** Creating a paid resource on someone's
-   account without asking is not yours to decide.
-3. `confirm_cost`, and keep the returned confirmation id: `create_project` requires it.
+- `Supabase project <ref> still <status> after 10 minutes — re-run to keep waiting`: run it again;
+  it reuses that project and never creates a second one.
+- `Supabase organization "startup-factory" not found — run step 0`, `… is on a paid plan — the run
+  creates free projects only`, or `Supabase Free plan allows 2 active projects and startup-factory
+  has <n> — pause one or upgrade (founder action)`: the founder's (an organization, a plan, a
+  pause or a deletion), so in phase 2 a block. The preflight's `supabase-quota` check normally
+  catches these first.
 
-### 3. Create the project
-
-`create_project` with:
-
-- `name` — the `slug` from Step 1
-- `region` — the Supabase region `references/data-region.md` gives for `startup.config.json`
-  `dataRegion` (it cannot be moved later)
-- `db_pass` — a random throwaway (for example 24 random base64url characters). It is in the MCP
-  call, so treat it as burned: the script in step 5 replaces it at once with a password that never
-  enters the transcript. Do not store it anywhere.
-- `confirm_cost_id` — from step 2
-
-Then poll `get_project` until `status` is `ACTIVE_HEALTHY`. Provisioning takes a minute or two, and
-every later call fails confusingly if you race it. Note the project `ref`.
-
-### 4. Seed `.env.prod`
+### 2. Seed `.env.prod`
 
 ```bash
 node scripts/init-env.mjs --apply --file .env.prod
@@ -106,9 +116,9 @@ node scripts/init-env.mjs --apply --file .env.prod
 This creates the `production` item with its **own** secrets, generated independently of the local
 ones: a leaked local secret must not forge a production session. Success ends with
 `startup-<slug>/production updated; .env.prod regenerated (<n> keys)`. The app URL stays on
-localhost until Step 6 sets the production URL.
+localhost until Step 6e sets `productionUrl`.
 
-### 5. Replace the throwaway password and store `DATABASE_URL`
+### 3. Replace the password and store `DATABASE_URL`
 
 ```bash
 node scripts/providers/supabase-database.mjs --ref <ref>
@@ -121,14 +131,14 @@ pooler host itself (user `postgres.<ref>`, port 5432), writes `DATABASE_URL` and
 `OK  database password created, DATABASE_URL stored in startup-<slug>/production`.
 
 - It reads `SUPABASE_ACCESS_TOKEN` from `startup-founder/master-keys`. If it reports the key is
-  missing, send the user to step 0.
+  missing, create it as `00-founder-setup.md` item 6 does.
 - On `database password set but connection failed: <code>` the password is already replaced and
   stored. The script already retries the connection for about a minute while the new password
   propagates. If it still fails, run the same command again: it checks the stored URL, reuses it
   when it works and re-syncs `.env.prod`, so a re-run after a failed check is safe. Do not add
   `--rotate`; it never rotates on a network error.
-- `--rotate` is for a deliberate password rotation only (a leaked password), not for retries. On
-  an already deployed startup, re-run the 6g push of `.env.prod` to Vercel and
+- `--rotate` is for a deliberate password rotation only (a leaked password, after the run), not for
+  retries. On an already deployed startup, re-run the 6g push of `.env.prod` to Vercel and
   `node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/DATABASE_URL`
   afterwards, or production and CI keep the old password.
 
@@ -140,25 +150,28 @@ Do not run a manual connection check: the script already connected.
 
 Fills: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in **both** items, with a separate OAuth client
 per environment. Email/password is disabled, so without this **no one can sign in**. Better Auth
-mounts at `/auth` (not `/api/auth`).
+mounts at `/auth` (not `/api/auth`). One pass: the production URL is already known
+(`productionUrl`, written in phase 1 by `06-deploy-production.md` 6b), so both redirect URIs are
+set now.
 
-Load the Chrome tools in one ToolSearch call and read the `chrome-browser` skill first. The founder
-is already signed in to Google (step 0). Ask the founder's go-ahead before starting, then in
-Chrome:
+Load the Chrome tools in one ToolSearch call and read the `chrome-browser` skill first. Check that
+Chrome is signed in to Google as `googleAccount`. On a re-run, reuse the Google project and its
+Auth Platform setup, and create only a client whose item still lacks it:
+`node scripts/vault-put.mjs --list-fields local` (or `production`) lists `GOOGLE_CLIENT_ID` and
+`GOOGLE_CLIENT_SECRET` by name once they are stored. Then in Chrome:
 
-1. https://console.cloud.google.com → create a project named after the startup.
+1. https://console.cloud.google.com → create a project named after the startup (or select it when
+   it already exists).
 2. **Google Auth Platform → Get started** (`console.cloud.google.com/auth/overview`): app name
-   (startup name), user support email (the founder), audience **External**, contact email (the
-   founder), tick the Google API Services User Data Policy (covered by the step 0 up-front yes),
-   **Create**. Then **Data Access** → add scopes `.../auth/userinfo.email` and
-   `.../auth/userinfo.profile` (the code requests these), and **Audience → Test users** → add the
-   founder's Google account while the app is in "Testing". If the Google Cloud console first shows
-   its own terms dialog, tick it (same up-front yes) and keep the founder's real country.
+   (startup name), user support email `googleAccount`, audience **External**, contact email
+   `googleAccount`, tick the Google API Services User Data Policy (covered by the consent to
+   accept the providers' terms), **Create**. Then **Data Access** → add scopes
+   `.../auth/userinfo.email` and `.../auth/userinfo.profile` (the code requests these). If the
+   Google Cloud console first shows its own terms dialog, tick it (same consent) and keep the
+   country it shows.
 3. **Clients → Create client → Application type: Web application**, twice:
    - `<name> (local)` with redirect URI `http://localhost:3000/auth/callback/google`
-   - `<name>` with redirect URI `https://<prod-domain>/auth/callback/google` when
-     `startup.config.json` has the domain. If it does not, create the client with no production
-     redirect URI; Step 6h adds it once the domain is known.
+   - `<name>` with redirect URI `<productionUrl>/auth/callback/google`
 4. After creating each client, the dialog shows its ID and secret. This page shows a secret: follow
    the Chrome rule above (narrow `find` only). Click **Download JSON** (`find "Download JSON"`),
    then store the file:
@@ -179,11 +192,22 @@ Chrome:
    ID and the secret ("Copy to clipboard: GOCSPX-…"), so any `find` or `read_page` that matches
    them puts the secret in the transcript. `find "Download JSON"` is safe (checked live).
 
-   Fallback when no Download JSON button is offered: ask the founder to click the client secret's
-   Copy button themselves, then run `node scripts/vault-put.mjs --from-clipboard <env> GOOGLE_CLIENT_SECRET`;
-   the same for the client ID with `GOOGLE_CLIENT_ID`. A client ID in the secret slot (or the
-   reverse) is rejected by validation. If a secret did reach the transcript, delete that client
-   (ask first) and create a new one.
+   Fallback when no Download JSON button is offered: the ID and secret must be copied by hand,
+   which only the founder can do without the secret reaching you (`phase-2-run.md`, closed list:
+   "copy a secret by hand"). In phase 2 that is a block, with an action such as
+   `copy the <client> Google client ID, run node scripts/vault-put.mjs --from-clipboard <env> GOOGLE_CLIENT_ID in the repo; same for the secret and GOOGLE_CLIENT_SECRET`.
+   The founder runs both commands before copying the `/goal` line, which overwrites the clipboard.
+   On resume, `node scripts/vault-put.mjs --list-fields <env>` must list both names. A client ID
+   in the secret slot (or the reverse) is rejected by validation.
+
+   If a secret did reach the transcript, that is a block too: the founder decides whether to
+   delete that client (never you). Once they did, create a new one. A client from an earlier
+   attempt whose file never reached the vault stays; the end-of-run report lists it under old
+   keys left for cleanup.
+5. **Publish the app** so anyone can sign in to the live site (covered by the consent):
+   **Audience → Publish app**, from "Testing" to "In production". When Google requires a home page
+   and a privacy policy (**Branding**), give `<productionUrl>` and `<productionUrl>/legal/privacy`.
+   No test users are needed.
 
 (Microsoft OAuth is optional and left as a TODO — the code enables it automatically if
 `MICROSOFT_CLIENT_ID/SECRET` are set; redirect URI `/auth/callback/microsoft`.)
@@ -210,38 +234,27 @@ production analytics. It stores each project's `phc_…` key in the matching ite
 (plus `and startup-<slug>/local` when the local project exists). It is idempotent: re-running reuses
 the organization and the projects.
 
-On the free plan the local project is refused, so it is skipped with a warning. Local analytics are
-then a clean no-op (the key stays empty), which is fine. A missing master key, or an error naming a
-missing scope, means step 0 is incomplete (the key needs `organization:write` and `project:write`).
+On the free plan the local project is refused, so it is skipped with a warning, not a failure.
+Local analytics are then a clean no-op (the key stays empty), which is fine. A missing master key,
+or an error naming a missing scope (the key needs `organization:write` and `project:write`), means
+the master key is wrong: create a new one with the right scopes as `00-founder-setup.md` item 6
+does (the old key stays; the report lists it for cleanup), then re-run.
 
 ---
 
-## 4d. Email — Resend or SMTP
+## 4d. Email — SMTP during the run, Resend with a domain
 
-`env.ts` requires the vars of the **selected** provider only. Choose based on whether the startup's
-domain exists in Resend (`startup.config.json.domain`, roadmap item 4 verifies it):
+`env.ts` requires the vars of the **selected** provider only. A run has no domain
+(`startup.config.json` `domain` is `""`), so it uses **SMTP with the Gmail app password**: it
+works without a domain.
 
-**Domain present in Resend → Resend** (better for production deliverability):
+The phase 1 consent states this fact and the founder accepted it: a Gmail app password cannot be
+split per environment, and `env.ts` requires the selected provider's credentials at boot, locally
+too. So the founder's app password sits in this startup's local `.env` and in the production item.
+Resend replaces it as soon as the startup has a domain; migrate before scaling invites (Gmail caps
+at about 500 emails a day).
 
-```bash
-node scripts/providers/resend-keys.mjs
-```
-
-It creates (or reuses) two sending-only keys scoped to the domain, one per environment, and stores
-`RESEND_API_KEY` and `RESEND_FROM_EMAIL` (`noreply@<domain>`) in the matching items. Success prints
-`OK  Resend local <state>, production <state>, scoped to <domain>, stored in …`. If it reports
-"no domain in startup.config.json" or "domain … is not in Resend", the domain step is not done:
-use SMTP for now. A key that exists remotely while the vault lost it is rotated by the script.
-
-**No domain yet → SMTP (Gmail app password)** — works without a domain, fine to start.
-
-Say this exception out loud to the founder before running it: a Gmail app password cannot be split
-per environment, and `env.ts` requires the selected provider's credentials at boot, locally too. So
-the founder's app password will sit in this startup's local `.env`, and in the production item.
-Resend stays the default as soon as the startup has a domain; migrate before scaling invites (Gmail
-caps at about 500 emails a day).
-
-The app password was created once in step 0 and lives in `startup-founder/master-keys`. Copy it:
+The app password was created once in phase 1 and lives in `startup-founder/master-keys`. Copy it:
 
 ```bash
 node scripts/vault-copy-smtp.mjs
@@ -251,28 +264,42 @@ It copies `SMTP_USER` and `SMTP_PASS` from the founder vault into both items, se
 `SMTP_FROM_EMAIL` to `SMTP_USER` (Gmail rewrites otherwise) and `EMAIL_PROVIDER=smtp`, and
 regenerates `.env` and `.env.prod`. Success prints
 `OK  SMTP_USER, SMTP_PASS, SMTP_FROM_EMAIL and EMAIL_PROVIDER stored in startup-<slug>/local and startup-<slug>/production`.
-Failures: "missing in startup-founder/master-keys: …" means step 0 has no app password yet;
-"no 1Password item …" means run 3c (and 4a step 4) first. `SMTP_HOST` and `SMTP_PORT` are already
-set by `init-env.mjs`. Optionally set `SMTP_FROM_NAME` to the startup name:
+Failures: "missing in startup-founder/master-keys: …" means phase 1 has no app password yet; only
+the founder can create one (`00-founder-setup.md` item 6, SMTP), so in phase 2 it is a block.
+"no 1Password item …" means run 3c (and 4a step 2) first. `SMTP_HOST` and `SMTP_PORT` are already
+set by `init-env.mjs`. Then set `SMTP_FROM_NAME` to the startup name:
 
 ```bash
 printf %s "<name>" | node scripts/vault-put.mjs local SMTP_FROM_NAME
 printf %s "<name>" | node scripts/vault-put.mjs production SMTP_FROM_NAME
 ```
 
+**Resend, once the startup has a domain** (after the run only, `after-the-run.md`, "A custom
+domain, with Resend"; better for production deliverability):
+
+```bash
+node scripts/providers/resend-keys.mjs
+```
+
+It creates (or reuses) two sending-only keys scoped to the domain, one per environment, and stores
+`RESEND_API_KEY` and `RESEND_FROM_EMAIL` (`noreply@<domain>`) in the matching items. Success prints
+`OK  Resend local <state>, production <state>, scoped to <domain>, stored in …`. If it reports
+"no domain in startup.config.json" or "domain … is not in Resend", the domain step is not done:
+keep SMTP for now. A key that exists remotely while the vault lost it is rotated by the script.
+
 ---
 
-## 4e. Autumn — payments (Claude in Chrome + CLI) — do this last
+## 4e. Autumn — payments (Claude in Chrome + CLI)
 
-Fills: `AUTUMN_SECRET_KEY` in the `local` item (sandbox key, `am_sk_test_…`). The production key is
-swapped in at Step 6. Depends on the **billing integration being present in the code**
-(`autumn.config.ts`, the `/api/autumn/[...all]` handler, `AutumnProvider`, and the
-`AUTUMN_SECRET_KEY` entry in `env.ts`). If those aren't there yet, do the billing integration
-first, then return here.
+Fills: `AUTUMN_SECRET_KEY` with the sandbox key (`am_sk_test_…`) in **both** items: production
+uses the sandbox (Stripe test mode) until the founder goes live after the run. Depends on the
+**billing integration being present in the code** (`autumn.config.ts`, the `/api/autumn/[...all]`
+handler, `AutumnProvider`, and the `AUTUMN_SECRET_KEY` entry in `env.ts`); the boilerplate ships
+it.
 
-1. **Create the Autumn organization.** Claude in Chrome, signed in to Autumn (step 0): create an
-   organization named after the startup. It is a separate org per startup; there is no secret on
-   that page.
+1. **Create or reuse the Autumn organization.** Claude in Chrome, signed in to Autumn: create an
+   organization named after the startup, or select it when it already exists. It is a separate
+   org per startup; there is no secret on that page.
 2. **Log in the CLI and move the keys into the vault.** Run in the background:
 
    ```bash
@@ -281,28 +308,33 @@ first, then return here.
 
    It runs `atmn login` in a throwaway directory (so `atmn` never asks to overwrite `.env`) and
    prints `OPEN  <url>` instead of opening a browser. Open that URL in Chrome, check that the
-   organization selector shows the startup's org, and click "Authorize" (with the up-front yes from
-   step 0). The script then validates the keys, stores the sandbox key in `startup-<slug>/local`
-   and the production key in `startup-<slug>/production`, deletes the throwaway directory, and
-   regenerates both env files. Success prints
-   `OK  Autumn sandbox key stored in startup-<slug>/local, production key <stored|not found> in startup-<slug>/production`.
+   organization selector shows the startup's org, and click "Authorize" (covered by the phase 1
+   consent). The script then validates the keys, stores the sandbox key in `startup-<slug>/local`
+   and in `startup-<slug>/production` (its default: production uses the sandbox key), deletes the
+   throwaway directory, and regenerates both env files. Success prints
+   `OK  Autumn sandbox key stored in startup-<slug>/local, production uses the sandbox key`.
    Failures: "atmn login never opened a browser" or "atmn login failed" mean run it again (the
    consent page expires after a few minutes); "… is a live key" means the wrong environment was
-   chosen; "no 1Password item …" means run 3c and 4a step 4 first.
+   chosen; "no 1Password item …" means run 3c and 4a step 2 first.
 
-   If the founder ran `atmn login` by hand instead, `node scripts/vault-import-autumn-keys.mjs`
-   moves the keys it wrote to `.env` into the vault.
-3. **Push the product/pricing config** to Autumn's sandbox:
+   If `atmn login` was run by hand instead, `node scripts/vault-import-autumn-keys.mjs` moves the
+   keys it wrote to `.env` into the vault (sandbox for production too, by default).
+3. **Check the currency.** The plan amounts are in the Autumn organization's default currency, and
+   the storefront shows `pricing.currency`. In the Autumn dashboard (the organization's settings),
+   check that the default currency equals `pricing.currency`. If it does not, change the
+   organization's default to `pricing.currency` before pushing any price (covered by the consent).
+4. **Push the product/pricing config** to Autumn's sandbox:
 
    ```bash
    pnpm dlx atmn push --yes
    ```
 
-   The products/plans live in `autumn.config.ts`; Step 1b already set the `pro` price and trial.
-   To change the pricing, go back to `references/01b-set-pricing.md`.
-4. **Test mode only for now.** The Autumn sandbox comes with its own test Stripe account, so you
-   connect nothing and add no Stripe key to this app (Autumn manages the Stripe webhooks). Live
-   Stripe and the production key are Step 6.
+   The products/plans live in `autumn.config.ts`; phase 1 already set the `pro` price and trial
+   (`references/01b-set-pricing.md`).
+5. **Test mode only.** The Autumn sandbox comes with its own test Stripe account, so you connect
+   nothing and add no Stripe key to this app (Autumn manages the Stripe webhooks). Never run
+   `atmn push -p` while production uses the sandbox: live Stripe, the live key and the production
+   push are going live (`after-the-run.md`).
 
 ---
 
@@ -322,8 +354,8 @@ mixed with real traffic and billed like it. To inspect local telemetry, see
 The founder keeps **one Dash0 organization** for all their startups (in the region
 `references/data-region.md` gives for `dataRegion`; fixed when the organization is created); each
 startup gets its own **dataset** and its own **ingest token**. Dash0 has no free tier (14-day
-trial, then billed per log record, span and metric data point); say so if the founder has no
-organization yet (that is step 0).
+trial, then billed per log record, span and metric data point): the phase 1 briefing and consent
+name it, and the preflight's `dash0` check proved the organization still answers.
 
 ```bash
 node scripts/providers/dash0-dataset.mjs
@@ -336,12 +368,13 @@ ingest-only token scoped to it, and stores the endpoint and the headers
 `.env.prod`. Success prints
 `OK  dataset <slug> <state>, ingest token <state>, stored in startup-<slug>/production`.
 It is idempotent, and rotates a token the vault lost. An "is not a valid Dash0 dataset id" error
-means the slug does not fit Dash0 (3-26 letters, digits, `-` or `_`): tell the user before
-changing anything.
+means the slug does not fit Dash0 (3-26 letters, digits, `-` or `_`); the preflight's slug rule
+already fits it, so never rename the slug in phase 2.
 
-Verify in Step 6j, after the first production deploy: the dataset shows logs from service
-`<slug>` in Dash0 within a minute. On Vercel Hobby this OTLP export is the only path; Dash0's Vercel
-log drain (build and request logs) needs Vercel Pro.
+Logs reach the dataset once production gets traffic. Phase 2 does not wait for them; the live
+checks after going live (`after-the-run.md`, "Go live") look for logs from service `<slug>`. On
+Vercel Hobby this OTLP export is the only path; Dash0's Vercel log drain (build and request logs)
+needs Vercel Pro.
 
 ---
 
@@ -364,5 +397,5 @@ count is the number of secrets. No value is printed.
 Every **required** var is populated (secret lines in `.env.prod` are `op://` references), formats
 are correct, and optional ones are either set or left as an explicit `# TODO` line. `DATABASE_URL`
 in `.env` still points at localhost, and the `production` item holds the Supabase pooler URL the
-4a script connected to. Never print or open a secret value to check this.
-Then move to Step 5 to verify.
+4a script connected to. Never print or open a secret value to check this. This check closes the
+`dash0` step; Step 5 comes next.

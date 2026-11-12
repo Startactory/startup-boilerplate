@@ -1,19 +1,22 @@
 # Data region — one answer, every service
 
-Step 1 records `dataRegion` (`eu` or `us`) and `gdpr` (`true` or `false`) in
-`startup.config.json`. Every later step reads them from there. Never ask the founder again, and
-never pick a region per service by taste: a single US service is enough to move EU personal data
-out of the EU.
+The phase 1 interview records `dataRegion` (`eu` or `us`) and `gdpr` (`true` or `false`) in
+`startup.config.json` (`01-name-startup.md` item 3; default `eu`). Every later step reads them from
+there. No later step asks the founder again, and none picks a region per service by taste: a single
+US service is enough to move EU personal data out of the EU.
 
 ## Region per service
 
+The pairs are fixed: `eu` → Supabase `eu-west-3` + Vercel `cdg1`; `us` → Supabase `us-east-1` +
+Vercel `iad1`.
+
 | Service | `eu` | `us` | Where it is set |
 | --- | --- | --- | --- |
-| Supabase (Postgres) | `eu-west-3` (Paris) or `eu-central-1` (Frankfurt) | `us-east-1` | project creation (4a) — cannot change later |
-| Vercel Functions | `cdg1` (Paris) or `fra1` (Frankfurt) | `iad1` (default) | `"regions"` in `vercel.json` (Step 6) — keep it next to the database |
+| Supabase (Postgres) | `eu-west-3` (Paris) | `us-east-1` | `supabase-project.mjs` at project creation (4a) — cannot change later |
+| Vercel Functions | `cdg1` (Paris) | `iad1` | `"regions"` in `vercel.json`, written by `vercel-project.mjs` (6b) — next to the database |
 | PostHog | `https://eu.i.posthog.com` | `https://us.i.posthog.com` | `NEXT_PUBLIC_POSTHOG_HOST` — `scripts/init-env.mjs` derives it from `dataRegion` |
 | Dash0 | an organization created in `eu-west-1` | an organization created in a US region | the organization's endpoint (4f) |
-| Resend | domain region `eu-west-1` | domain region `us-east-1` | when the domain is added (4d) |
+| Resend | domain region `eu-west-1` | domain region `us-east-1` | when the domain is added, after the run (`after-the-run.md`) |
 
 PostHog and Dash0 fix the region per **account / organization**, not per project. An EU startup
 needs the founder's EU PostHog account and EU Dash0 organization. A founder who runs both EU and

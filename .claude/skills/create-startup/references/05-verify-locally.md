@@ -1,7 +1,8 @@
 # Step 5 — Verify locally
 
-The app must run and pass the repo's done-gate before you deploy. `CLAUDE.md` defines the gate as
-`pnpm validate`.
+**Phase 2, step `verify-local`.** The app must run and pass the repo's done-gate before you deploy.
+`CLAUDE.md` defines the gate as `pnpm validate`. Claude does every check here, the browser part
+included; the founder is not involved.
 
 ## 5a. Apply the database schema
 
@@ -17,24 +18,26 @@ If it can't connect, check that the local Postgres is running and that `.env` ha
 env, so a good `.env` is enough. The production database is migrated by CI in Step 6, never from
 here.
 
-## 5b. Boot and smoke-test
+## 5b. Boot and check in the browser
 
-1. `pnpm dev` (Next 16 + Turbopack). The `next-devtools` MCP connects automatically now — use it
-   (`get_errors`, `get_routes`) to diagnose anything that fails.
-2. Open `http://localhost:3000`.
-3. Sign in with **Google** (email/password is disabled — Google is the only provider unless
-   Microsoft was configured).
-4. Exercise the core surface: create the organization on the onboarding page (it asks only for a
-   name), invite a member, and reach the dashboard past the paywall (it is an empty page by
-   design). Watch the dev logs for errors.
-5. Check the storefront from Step 1d while signed out (private window): open `/` and
-   `/legal/notice` in both languages. The headline and sentence read well, the button shows the
-   right price and trial, the accent and logo render, the legal notice names the founder and the
-   contact email, and the cookie banner appears. If anything is wrong, fix the copy or the config,
-   re-run `node scripts/sync-startup-profile.mjs` and look again.
-6. If PostHog was configured, confirm events land in the PostHog project.
-7. If Autumn is wired, open the pricing/paywall surface and confirm the `useCustomer` state loads
-   (a checkout can be tested in Step 6 against Stripe test mode).
+1. `pnpm dev` (Next 16 + Turbopack) in the background. There is no `next-devtools` MCP in a run:
+   read the dev server's output to diagnose anything that fails.
+2. Load the Chrome tools in one ToolSearch call and read the `chrome-browser` skill, then use Claude
+   in Chrome on `http://localhost:3000`.
+3. First, signed out, check the storefront from Step 1d: open `/` and `/legal/notice` in both
+   languages. The headline and sentence read well, the button shows the right price and trial,
+   the accent and logo render, the legal notice names the founder and the contact email, and the
+   cookie banner appears (refuse it: nothing in this check needs analytics). If anything is wrong,
+   fix the copy or the config, re-run `node scripts/sync-startup-profile.mjs`, commit the change on
+   `master`, and look again.
+4. Sign in with **Google** as `googleAccount` (email/password is disabled — Google is the only
+   provider unless Microsoft was configured). The phase 1 consent covers signing in to the app
+   with the founder's account, Google's consent screen included.
+5. Create the organization on the onboarding page (it asks only for a name; use the startup's
+   name, or reuse it on a re-run) and reach the paywall: the terms checkbox and the upgrade
+   button show, with no Autumn error in the browser console or the dev server's output. Stop there;
+   the dashboard behind the paywall is an empty page by design, and no checkout runs here.
+6. Stop `pnpm dev`.
 
 ## 5c. Pass the gate
 
@@ -43,8 +46,7 @@ pnpm validate
 ```
 
 This runs `type-check && check (biome) && lint && check:boundaries && test`. It must be green
-before deploying. If the domain-boundaries checker complains (e.g. after the Autumn integration),
-fix the ownership/edges in `scripts/boundaries/manifest.mjs` rather than working around it — see
-`CLAUDE.md`.
+before deploying. If the domain-boundaries checker complains, fix the ownership/edges in
+`scripts/boundaries/manifest.mjs` rather than working around it — see `CLAUDE.md`.
 
-Report what you verified (with evidence — the actual command output), then proceed to Step 6.
+Then `node scripts/run-ledger.mjs done verify-local`.

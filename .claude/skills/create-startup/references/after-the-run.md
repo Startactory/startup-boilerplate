@@ -36,11 +36,19 @@ review of the generated templates. Until then production stays on the Autumn san
    AUTUMN_PROD_SECRET_KEY=op://startup-<slug>/production/AUTUMN_SECRET_KEY node scripts/with-vault.mjs run -- pnpm dlx atmn push -p --yes
    ```
 
+   Success ends with the products listed as pushed to production. If `atmn` still reads the
+   sandbox key from `.env`, stop and report it rather than push to the wrong environment.
 6. **Push the env again**: `node scripts/push-env-to-vercel.mjs --file .env.prod`, then the same
    with `--apply`.
 7. **Redeploy**: commit the item 1 changes (`startup.config.json` and the synced profile) on a
    branch and merge its PR; CI migrates and deploys. With nothing to commit, redeploy the current
    production deployment from the Vercel dashboard. Then `node scripts/smoke-test.mjs`.
+8. **Live checks**, with the founder present. The founder runs a real checkout on the live URL with
+   their own card (a small live charge, or a Stripe test clock) to confirm Autumn end-to-end; you
+   never enter a card. Then confirm that PostHog receives production events, and that the Dash0
+   dataset shows production logs from service `<slug>` with traces linked. Serverless functions
+   can freeze before a batch is sent: if requests show in Vercel's logs but not in Dash0, report
+   it rather than assume it works.
 
 ## A custom domain, with Resend
 

@@ -127,8 +127,9 @@ No question to the founder. It runs the reference steps in this order, each clos
 | `smoke-test` | `node scripts/smoke-test.mjs` and the browser check |
 | `report` | the end-of-run report below |
 
-Phase 2 never runs a real or live charge: the 6j checkout is replaced by the browser check, which
-stops at the Stripe test-mode checkout page. Phase 2 stops on `SMOKE TEST PASSED` plus
+Phase 2 never runs a real or live charge: the live checkout waits for going live
+(`references/after-the-run.md`), and the browser check stops at the Stripe test-mode checkout
+page. Phase 2 stops on `SMOKE TEST PASSED` plus
 `BROWSER CHECK PASSED`, or on a `BLOCKED_ON_FOUNDER:` line printed after the founder's latest
 `/goal` message, when a human-only action is needed.
 
