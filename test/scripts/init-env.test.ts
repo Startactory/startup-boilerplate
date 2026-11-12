@@ -17,7 +17,7 @@ describe('planInitialValues', () => {
   it('generates secrets only when unset', () => {
     const list = plan(new Map([['BETTER_AUTH_SECRET', 'already-set']]));
     expect(entry(list, 'BETTER_AUTH_SECRET').next).toBeNull();
-    expect(entry(list, 'EARLY_ACCESS_PEPPER').next).toMatch(/^[0-9a-f]{64}$/);
+    expect(entry(list, 'ENCRYPTION_KEY').next).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('derives the PostHog host from dataRegion', () => {

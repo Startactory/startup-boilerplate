@@ -7,7 +7,7 @@ This is a real system with real users.
 > **Correctness > cleverness · Simplicity > abstraction · Explicitness > magic · Consistency > preference.**
 
 Single Next.js app. This repo is a **reusable startup boilerplate** — the user-facing brand is per-startup and undecided; **never hard-code a product name in user-visible copy**.
-Included base: auth, organizations, early-access onboarding, paywall + billing, email, rate-limit, i18n. **Everything behind the paywall is the startup's own product** — the dashboard ships as an empty page and features are built on top of this base from the founder's idea. Don't add product features to the boilerplate itself.
+Included base: auth, organizations (onboarding asks only for the organization name), paywall + billing (the only access gate), email, rate-limit, i18n. **Everything behind the paywall is the startup's own product** — the dashboard ships as an empty page and features are built on top of this base from the founder's idea. Don't add product features to the boilerplate itself.
 
 ---
 
@@ -72,7 +72,7 @@ src/
   app/               Next.js App Router UI
     (public)/        unauthenticated routes
     (app)/           authenticated routes (gated by layout.tsx)
-    api/             route handlers — the ONLY server entry point (billing, early-access, locale, …)
+    api/             route handlers — the ONLY server entry point (billing, organization, locale, …)
     auth/[...all]/   Better Auth handler
   shared/            logger, env, telemetry, errors-http, utils
   i18n/              messages + request config
@@ -139,7 +139,6 @@ Domains and their tables:
 |---|---|---|
 | `auth` | `user`, `session`, `account`, `verification` | `infra/auth/auth`, `application/me/get-current-user`, `application/me/organization-scope` |
 | `organization` | `organization`, `member`, `invitation` (writes also via better-auth org plugin) | `application/organization/*` use cases |
-| `early-access` | `early_access_code` | `application/early-access/redeem` |
 | `billing` | none (Autumn owns billing state) | `application/billing/get-app-entitlement` |
 | `rate-limit` / `email` | none (platform, open to all) | `apply-rate-limit`, `email-sender` |
 

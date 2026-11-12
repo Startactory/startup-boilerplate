@@ -97,9 +97,7 @@ cut -d= -f1 .env.prod
 grep -c '=op://' .env.prod
 ```
 
-The count of `op://` lines is the number of secrets; no value is printed. A consequence to expect:
-the early-access pepper differs from local, so codes hashed locally do not work in production
-(6j seeds production codes).
+The count of `op://` lines is the number of secrets; no value is printed.
 
 ## 6f. Switch Autumn + Stripe to live
 
@@ -145,7 +143,6 @@ push those. Everything else comes from `.env.prod`, whose secret lines are `op:/
 | `DATABASE_URL` | ✅ | vault `production` item, Supabase **session pooler**, port 5432 (4a) |
 | `DATABASE_SSL` | — | `require` (4a) |
 | `BETTER_AUTH_SECRET` | ✅ | vault `production` item, generated in Step 4a (`init-env --file .env.prod`) |
-| `EARLY_ACCESS_PEPPER` | ✅ | vault `production` item, generated in Step 4a |
 | `ENCRYPTION_KEY` | — | vault `production` item, generated in Step 4a |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ✅ | vault `production` item, the production OAuth client (4b) |
 | `AUTUMN_SECRET_KEY` | ✅ **in production** | vault `production` item, Autumn production key (4e) — `assertBillingConfigured` fails the build without it |
@@ -245,22 +242,17 @@ Checklist before the first deploy — every line must be true:
    ```
    A red `migrate` job usually means a wrong `DATABASE_URL` secret; a failed Vercel build with
    `Invalid environment variables` means a variable is missing in 6g.
-2. Seed an early-access code for production, hashed with the **production** pepper:
-   ```bash
-   node scripts/with-vault.mjs run --env-file .env.prod -- pnpm tsx scripts/hash-early-access-code.ts <code>
-   ```
-   Insert the hash per the script's output, with the Supabase MCP `execute_sql` on the production
-   project. Skip only if the user confirms the gate is disabled.
-3. Smoke-test on the live URL:
+2. Smoke-test on the live URL:
    - Sign in with Google (confirms prod OAuth + secure cookies + `trustedOrigins`).
-   - Create an organization and reach the dashboard (Supabase Postgres in prod).
+   - Create an organization (the onboarding asks only for its name) and reach the dashboard
+     past the paywall (Supabase Postgres in prod).
    - Open pricing and run a real checkout in Stripe (a live small charge or a test-clock) to
      confirm Autumn end-to-end.
    - Confirm PostHog receives prod events.
    - Confirm the Dash0 dataset shows production logs from service `<slug>`, with traces linked.
      Serverless functions can freeze before a batch is sent: if requests show in Vercel's logs but
      not in Dash0, report it rather than assume it works.
-4. Report the live URL and a final per-service status checklist. When `gdpr` is `true`, include
+3. Report the live URL and a final per-service status checklist. When `gdpr` is `true`, include
    each item of the "When `gdpr` is `true`" list in `references/data-region.md` as **needs action**
    until it is built.
 

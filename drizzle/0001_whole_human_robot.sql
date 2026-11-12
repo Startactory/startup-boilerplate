@@ -1,0 +1,1 @@
+DROP TABLE "early_access_code" CASCADE;

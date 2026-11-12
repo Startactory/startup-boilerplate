@@ -24,7 +24,6 @@ import { syncEnvFile } from './vault-sync.mjs';
 
 const SECRETS = {
   BETTER_AUTH_SECRET: () => crypto.randomBytes(32).toString('base64'),
-  EARLY_ACCESS_PEPPER: () => crypto.randomBytes(32).toString('hex'),
   ENCRYPTION_KEY: () => crypto.randomBytes(32).toString('hex'),
 };
 
