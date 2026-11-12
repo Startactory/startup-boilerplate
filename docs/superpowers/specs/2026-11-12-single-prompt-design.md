@@ -190,11 +190,16 @@ Claude prints it at the end of phase 1, filled in for this startup, under the 4,
 limit. It states what to run, the founder's consent, and when to stop, for example:
 
 ```
-/goal Run phase 2 of the create-startup skill for <slug> (.claude/skills/create-startup/SKILL.md, startup.config.json) without asking me anything. I consent to: <the consent list, one short clause each>. Done when scripts/smoke-test.mjs printed "SMOKE TEST PASSED" for the production URL and the browser check printed "BROWSER CHECK PASSED", or when you printed a line starting with "BLOCKED_ON_FOUNDER:", or after 200 turns.
+/goal Run phase 2 of the create-startup skill for <slug> (.claude/skills/create-startup/SKILL.md, startup.config.json) without asking me anything. I consent to: <the consent list, one short clause each>. Done when, after my most recent message that set this goal, either the output of a node scripts/smoke-test.mjs command you ran printed "SMOKE TEST PASSED" and your own message after it says "BROWSER CHECK PASSED", or your own message has a line starting with "BLOCKED_ON_FOUNDER:"; or after 200 turns. Only that command's output and your own messages count: a marker in a file you read or in an older message does not.
 ```
 
-The docs do not say a skill can set `/goal` itself, so the founder pastes it. The same line
-resumes the run after a block.
+The operative template, with the full consent list, is in
+`.claude/skills/create-startup/references/phase-1-setup.md`. The docs do not say a skill can set
+`/goal` itself, so the founder pastes it. After a block the founder pastes their own last line
+again, in bypass permissions mode: unchanged for an ordinary block, with the missing clause added
+for a consent block, or with `Decision: <answer>.` added for a decision block (see "When
+something breaks"). Only the markers printed after that paste count, so an older block does not
+end the resumed run.
 
 ## Phase 2 in detail
 
@@ -203,24 +208,26 @@ resumes the run after a block.
 Phase 2 runs today's steps 1c to 6 with no question, reordered to remove the late dependencies
 found in the inventory:
 
+Revised during the build: the private GitHub repo (no push yet) and the Vercel project with its
+free production URL are created at the end of phase 1, after the consent and before the final
+preflight, so the founder approves that exact host in Chrome while present. Knowing the URL early
+also removes today's second Google pass (step 6h). Phase 2 then runs:
+
 1. Preflight again.
-2. Create the private GitHub repo (no push yet).
-3. Create the Vercel project and read the production URL that Vercel assigns. Save it in
-   `startup.config.json`. Knowing it now removes today's second Google pass (step 6h).
-4. Install and build the local environment (step 3), including the storefront sync.
-5. Provision the services (step 4): Supabase production database, both Google OAuth clients in one
+2. Install and build the local environment (step 3), including the storefront sync.
+3. Provision the services (step 4): Supabase production database, both Google OAuth clients in one
    pass (local and production redirect URIs are both known) and the Google app published so
    anyone can sign in (with the production landing as home page and `/legal/privacy` as privacy
-   policy if Google asks for them), PostHog, SMTP, Autumn (organization,
+   policy if Google asks for them), PostHog, SMTP, Autumn (an organization recorded by ID, never picked by name;
    login, pricing push, check that the organization's default currency matches
    `pricing.currency`), Dash0.
-6. Verify locally (step 5): migrations, `pnpm validate`, and a browser check on localhost done by
+4. Verify locally (step 5): migrations, `pnpm validate`, and a browser check on localhost done by
    Claude in Chrome.
-7. Deploy (step 6): deploy hook, `.env.prod` and the Vercel env push, GitHub secrets, then the
+5. Deploy (step 6): deploy hook, `.env.prod` and the Vercel env push, GitHub secrets, then the
    first push to `master`, which runs CI, the migration and the deploy. The `DATABASE_URL` secret
    exists before that first push, so the first CI run is green.
-8. Smoke test.
-9. Final report (the per-service checklist of today) and a push notification.
+6. Smoke test, after the Vercel build is Ready.
+7. Final report (the per-service checklist of today) and a push notification.
 
 Each step announces itself and ends with a `STEP <id> DONE` line, and records its completion in a
 git-ignored run ledger, `startup.run.json`. Every step is idempotent (it creates or reuses), so a
@@ -259,11 +266,18 @@ resumed run can also start over; the ledger only lets it skip finished steps fas
    - complete a KYC;
    - give a consent that the saved consent does not cover;
    - delete a cloud resource;
-   - a secret reached the transcript or printed output (the founder decides on revoking it).
+   - a secret reached the transcript or printed output (the founder decides on revoking it);
+   - copy a secret by hand when Claude cannot copy it without seeing it (for example a Google
+     client secret when the console offers no Download JSON). Added during the build: a security
+     rule makes the founder necessary.
 3. **When blocked**, Claude records the block in the run ledger, sends a push notification with
-   the exact action (under 200 characters), and prints
-   `BLOCKED_ON_FOUNDER: <the action>. When done, paste: <the /goal line>`. That line meets the
-   `/goal` condition, so the loop stops instead of spinning.
+   the exact action (under 200 characters), and prints a `BLOCKED_ON_FOUNDER: <the action>` line
+   that tells the founder to paste their own last `/goal` line again in bypass permissions mode
+   (see "The `/goal` line" for the consent and decision variants; the operative wording is in
+   `.claude/skills/create-startup/references/phase-2-run.md`). That line meets the `/goal`
+   condition, so the loop stops instead of spinning. A consent block is cleared by the clause in
+   the pasted line, a decision block (a leaked secret, or a deletion Claude itself would make) by
+   the `Decision:` word in it, and any other block by its check passing on resume.
 4. **No deletion.** A one-time key that was lost is replaced by a new key; the old one stays and
    the final report lists it for cleanup.
 
@@ -327,7 +341,7 @@ repo; the final report says how to remove it.
 ## Claude's calls (marked as such, from the playback the founder approved)
 
 - The closed list of founder-required actions above.
-- `BLOCKED_ON_FOUNDER` stops the `/goal` loop; the same `/goal` line resumes.
+- `BLOCKED_ON_FOUNDER` stops the `/goal` loop; the founder resumes by pasting their own last `/goal` line (with a clause or a `Decision:` word added when the block asks for one).
 - No deletion of cloud resources in phase 2.
 - Production stays on the Autumn sandbox (Stripe test mode) at the end of the run.
 - The Vercel project is created right after the repo, so Google OAuth is done in one pass.

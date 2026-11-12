@@ -61,7 +61,9 @@ async function readProject({ runVercel, slug }) {
   if (response.ok) {
     if (isProject(response.body)) return response.body;
     // why: the project JSON can hold deploy hook URLs, so its text is never echoed
-    throw new Error('vercel api project lookup failed: the answer is not a project');
+    throw new Error(
+      'vercel api project lookup failed: the answer is not a project',
+    );
   }
   const text = `${response.result.stderr}${response.result.stdout}`;
   if (NOT_FOUND_PATTERN.test(text)) return null;
