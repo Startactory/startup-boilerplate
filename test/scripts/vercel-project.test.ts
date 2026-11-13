@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   checkVercelName,
+  configureVercelProject,
   ensureVercelProject,
   VERCEL_REGION,
   writeProductionUrl,
-  writeVercelSettings,
 } from '../../scripts/providers/vercel-project.mjs';
 
 type Result = { code: number; stdout: string; stderr: string };
@@ -82,6 +82,9 @@ function memoryFs(initial: Record<string, string>) {
     readFileSync: (path: string) => files[path],
     writeFileSync: (path: string, text: string) => {
       files[path] = text;
+    },
+    unlinkSync: (path: string) => {
+      delete files[path];
     },
   };
 }
@@ -303,24 +306,29 @@ describe('ensureVercelProject', () => {
     expect(calls).toEqual([]);
   });
 
+  const VERCEL_ENV_LOCAL =
+    '# Created by Vercel CLI\nVERCEL_OIDC_TOKEN="oidc-secret"\n';
+
   function linkWrites({
     fs,
     runVercel,
     linkResult,
+    envLocal = VERCEL_ENV_LOCAL,
   }: {
     fs: ReturnType<typeof memoryFs>;
     runVercel: (args: string[]) => Promise<Result>;
     linkResult?: Result;
+    envLocal?: string;
   }) {
     return async (args: string[]) => {
       if (args[0] !== 'link') return runVercel(args);
       fs.files['.gitignore'] = `${fs.files['.gitignore']}.env*\n`;
-      fs.files['.env.local'] = 'VERCEL_OIDC_TOKEN="oidc-secret"\n';
+      fs.files['.env.local'] = envLocal;
       return linkResult ?? ok;
     };
   }
 
-  it('restores .gitignore and reports the .env.local the Vercel CLI wrote', async () => {
+  it('restores .gitignore and removes the .env.local the Vercel CLI wrote', async () => {
     const fs = memoryFs({ '.gitignore': BOILERPLATE_GITIGNORE });
     const log = vi.fn();
     const { runVercel } = fakeVercel();
@@ -331,17 +339,52 @@ describe('ensureVercelProject', () => {
       runVercel: linkWrites({ fs, runVercel }),
     });
     expect(fs.files['.gitignore']).toBe(BOILERPLATE_GITIGNORE);
-    expect(fs.files['.env.local']).toBe('VERCEL_OIDC_TOKEN="oidc-secret"\n');
+    expect('.env.local' in fs.files).toBe(false);
     expect(log.mock.calls).toEqual([
       ['OK  .gitignore restored to its content from before vercel link'],
-      [
-        'NOTE  .env.local was written by the Vercel CLI (VERCEL_OIDC_TOKEN); it is git-ignored and was kept',
-      ],
+      ['OK  removed .env.local written by vercel link'],
     ]);
     expect(JSON.stringify(log.mock.calls)).not.toContain('oidc-secret');
   });
 
-  it('restores .gitignore even when vercel link fails', async () => {
+  it('keeps a new .env.local that holds more than VERCEL_OIDC_TOKEN', async () => {
+    const fs = memoryFs({ '.gitignore': BOILERPLATE_GITIGNORE });
+    const log = vi.fn();
+    const { runVercel } = fakeVercel();
+    const envLocal = `${VERCEL_ENV_LOCAL}OTHER_KEY="value"\n`;
+    await ensureVercelProject({
+      ...base,
+      fs: fs as never,
+      log,
+      runVercel: linkWrites({ fs, runVercel, envLocal }),
+    });
+    expect(fs.files['.env.local']).toBe(envLocal);
+    expect(log.mock.calls).toContainEqual([
+      'NOTE  .env.local was written by vercel link with more than VERCEL_OIDC_TOKEN; it is git-ignored and was kept',
+    ]);
+    expect(JSON.stringify(log.mock.calls)).not.toContain('value');
+  });
+
+  it('keeps an .env.local that existed before vercel link', async () => {
+    const fs = memoryFs({
+      '.gitignore': BOILERPLATE_GITIGNORE,
+      '.env.local': 'VERCEL_OIDC_TOKEN="old"\n',
+    });
+    const log = vi.fn();
+    const { runVercel } = fakeVercel();
+    await ensureVercelProject({
+      ...base,
+      fs: fs as never,
+      log,
+      runVercel: linkWrites({ fs, runVercel }),
+    });
+    expect(fs.files['.env.local']).toBe(VERCEL_ENV_LOCAL);
+    expect(log.mock.calls).toEqual([
+      ['OK  .gitignore restored to its content from before vercel link'],
+    ]);
+  });
+
+  it('restores .gitignore and removes .env.local even when vercel link fails', async () => {
     const fs = memoryFs({ '.gitignore': BOILERPLATE_GITIGNORE });
     const { runVercel } = fakeVercel();
     await expect(
@@ -356,6 +399,7 @@ describe('ensureVercelProject', () => {
       }),
     ).rejects.toThrow('vercel link failed: Error: not logged in');
     expect(fs.files['.gitignore']).toBe(BOILERPLATE_GITIGNORE);
+    expect('.env.local' in fs.files).toBe(false);
   });
 
   it('prints nothing when vercel link leaves .gitignore and .env.local alone', async () => {
@@ -446,26 +490,107 @@ describe('writeProductionUrl', () => {
   });
 });
 
-describe('writeVercelSettings', () => {
-  const gitBlock = { deploymentEnabled: false };
+describe('configureVercelProject', () => {
+  const HOOK_URL =
+    'https://api.vercel.com/v1/integrations/deploy/prj_abc/secrethook';
 
-  it('pins the Next.js preset and the region, and keeps the git block', () => {
-    const fs = memoryFs({ 'vercel.json': JSON.stringify({ git: gitBlock }) });
-    writeVercelSettings({ fs: fs as never, dataRegion: 'eu' });
-    expect(JSON.parse(fs.files['vercel.json'] ?? '')).toEqual({
-      git: gitBlock,
-      framework: 'nextjs',
-      regions: ['cdg1'],
+  function projectAnswer({
+    framework = 'nextjs' as string | null,
+    regions = ['cdg1'],
+  } = {}): Result {
+    return json({
+      name: 'acme',
+      framework,
+      resourceConfig: { fluid: true, functionDefaultRegions: regions },
+      link: { deployHooks: [{ name: 'production', url: HOOK_URL }] },
     });
+  }
+
+  function fakePatch(answer: Result) {
+    const calls: Array<{ args: string[]; input?: string }> = [];
+    const runVercel = async (
+      args: string[],
+      options: { input?: string } = {},
+    ) => {
+      calls.push({ args, input: options.input });
+      return answer;
+    };
+    return { calls, runVercel };
+  }
+
+  it.each([
+    ['eu', 'cdg1'],
+    ['us', 'iad1'],
+  ])('sets the Next.js preset and the %s function region through the API', async (dataRegion, region) => {
+    const { calls, runVercel } = fakePatch(
+      projectAnswer({ regions: [region] }),
+    );
+    const result = await configureVercelProject({
+      runVercel,
+      slug: 'acme',
+      dataRegion,
+    });
+    expect(result).toEqual({ framework: 'nextjs', region });
+    expect(calls).toEqual([
+      {
+        args: ['api', '/v9/projects/acme', '-X', 'PATCH', '--input', '-'],
+        input: JSON.stringify({
+          framework: 'nextjs',
+          resourceConfig: { functionDefaultRegions: [region] },
+        }),
+      },
+    ]);
     expect(VERCEL_REGION).toEqual({ eu: 'cdg1', us: 'iad1' });
   });
 
-  it('gives the same file when it runs again', () => {
-    const fs = memoryFs({ 'vercel.json': JSON.stringify({ git: gitBlock }) });
-    writeVercelSettings({ fs: fs as never, dataRegion: 'us' });
-    const first = fs.files['vercel.json'];
-    writeVercelSettings({ fs: fs as never, dataRegion: 'us' });
-    expect(fs.files['vercel.json']).toBe(first);
-    expect(JSON.parse(first ?? '').regions).toEqual(['iad1']);
+  it('fails when the project keeps another preset or region, without the hook URL', async () => {
+    const { runVercel } = fakePatch(
+      projectAnswer({ framework: null, regions: ['iad1'] }),
+    );
+    const error = await configureVercelProject({
+      runVercel,
+      slug: 'acme',
+      dataRegion: 'eu',
+    }).catch((caught: Error) => caught);
+    expect((error as Error).message).toBe(
+      'vercel api project settings update failed: expected framework nextjs, function regions cdg1, got framework none, function regions iad1',
+    );
+  });
+
+  it('prints the API error with every URL redacted', async () => {
+    const { runVercel } = fakePatch({
+      code: 1,
+      stdout: '',
+      stderr: `\nError: Invalid request, see ${HOOK_URL} (400)\n`,
+    });
+    await expect(
+      configureVercelProject({ runVercel, slug: 'acme', dataRegion: 'eu' }),
+    ).rejects.toThrow(
+      /^vercel api project settings update failed: Error: Invalid request, see <url redacted> \(400\)$/,
+    );
+  });
+
+  it('never echoes an answer that is not JSON', async () => {
+    const { runVercel } = fakePatch({
+      code: 0,
+      stdout: `oops ${HOOK_URL}`,
+      stderr: '',
+    });
+    const error = await configureVercelProject({
+      runVercel,
+      slug: 'acme',
+      dataRegion: 'us',
+    }).catch((caught: Error) => caught);
+    expect((error as Error).message).toBe(
+      'vercel api project settings update failed: expected framework nextjs, function regions iad1, got framework none, function regions none',
+    );
+  });
+
+  it('refuses an unknown data region before any call', async () => {
+    const { calls, runVercel } = fakePatch(projectAnswer());
+    await expect(
+      configureVercelProject({ runVercel, slug: 'acme', dataRegion: 'apac' }),
+    ).rejects.toThrow('dataRegion must be eu or us, got apac');
+    expect(calls).toEqual([]);
   });
 });

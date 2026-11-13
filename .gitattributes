@@ -1,0 +1,4 @@
+# why: generated per startup by scripts/sync-startup-profile.mjs; an upstream merge keeps the startup's copy (git config merge.ours.driver true)
+src/shared/startup-profile/profile.json merge=ours
+src/app/brand.css merge=ours
+public/brand-logo.png binary merge=ours

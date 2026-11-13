@@ -4,19 +4,63 @@ import { runSmokeTest } from '../../scripts/smoke-test.mjs';
 const SITE_URL = 'https://acme.vercel.app';
 const COMMIT = 'aaa';
 const CLIENT_ID = 'client-123.apps.googleusercontent.com';
+const HOOK_URL =
+  'https://api.vercel.com/v1/integrations/deploy/prj_abc/secrethook';
+const BRANCH_FIX =
+  'run node scripts/providers/vercel-deploy-hook.mjs --project acme';
 
 type FakeFetch = ReturnType<typeof fakeFetch>;
+type CommandResult = { status: number; stdout: string; stderr: string };
+
+function headers(contentType: string) {
+  return {
+    get: (name: string) => (name === 'content-type' ? contentType : null),
+  };
+}
 
 function jsonResponse(status: number, body: unknown) {
   return {
     status,
+    headers: headers('application/json'),
     text: async () => JSON.stringify(body),
     json: async () => body,
   };
 }
 
 function htmlResponse(status: number, html: string) {
-  return { status, text: async () => html, json: async () => ({}) };
+  return {
+    status,
+    headers: headers('text/html; charset=utf-8'),
+    text: async () => html,
+    json: async () => ({}),
+  };
+}
+
+function pngResponse(contentType: string) {
+  return {
+    status: 200,
+    headers: headers(contentType),
+    text: async () => '',
+    json: async () => ({}),
+  };
+}
+
+function projectAnswer(productionBranch: string): CommandResult {
+  return {
+    status: 0,
+    stdout: JSON.stringify({
+      name: 'acme',
+      link: {
+        productionBranch,
+        deployHooks: [{ name: 'production', url: HOOK_URL }],
+      },
+    }),
+    stderr: '',
+  };
+}
+
+function fakeRunCommand(answer: CommandResult = projectAnswer('master')) {
+  return vi.fn((_command: string, _args: string[]) => answer);
 }
 
 function googleUrl(redirectUri: string) {
@@ -32,16 +76,19 @@ function fakeFetch({
   redirectUri = `${SITE_URL}/auth/callback/google`,
   missingPath,
   landingHtml = '<h1>Acme</h1>',
+  logoContentType = 'image/png',
 }: {
   commitSha?: string | null;
   redirectUri?: string;
   missingPath?: string;
   landingHtml?: string;
+  logoContentType?: string;
 } = {}) {
   return vi.fn(async (input: string, init?: { method?: string }) => {
     const path = input.replace(SITE_URL, '');
     if (path === missingPath) return htmlResponse(404, 'not found');
     if (path === '/') return htmlResponse(200, landingHtml);
+    if (path === '/brand-logo.png') return pngResponse(logoContentType);
     if (path.startsWith('/legal/')) return htmlResponse(200, 'legal');
     if (path === '/api/version') {
       return jsonResponse(200, { deploymentId: 'dpl', commitSha });
@@ -55,16 +102,20 @@ function fakeFetch({
 
 function run({
   fetch = fakeFetch(),
+  runCommand = fakeRunCommand(),
   countAppliedMigrations = async () => 3,
   expectedName = 'Acme',
 }: {
   fetch?: FakeFetch;
+  runCommand?: ReturnType<typeof fakeRunCommand>;
   countAppliedMigrations?: () => Promise<number>;
   expectedName?: string;
 } = {}) {
   return runSmokeTest({
     url: SITE_URL,
     fetch: fetch as unknown as typeof globalThis.fetch,
+    runCommand,
+    project: 'acme',
     expectedCommit: COMMIT,
     expectedName,
     googleClientId: CLIENT_ID,
@@ -86,11 +137,81 @@ describe('runSmokeTest', () => {
       'legal/terms',
       'legal/privacy',
       'legal/cookies',
+      'brand-logo',
       'version',
+      'production-branch',
       'google-sign-in',
       'migrations',
     ]);
     expect(failedNames(results)).toEqual([]);
+  });
+
+  it('reads the production branch from the Vercel project', async () => {
+    const runCommand = fakeRunCommand();
+    await run({ runCommand });
+    expect(runCommand).toHaveBeenCalledWith('vercel', [
+      'api',
+      '/v9/projects/acme',
+    ]);
+  });
+
+  it('fails production-branch on main and never shows a deploy hook URL', async () => {
+    const results = await run({
+      runCommand: fakeRunCommand(projectAnswer('main')),
+    });
+    expect(results.filter((r: { ok: boolean }) => !r.ok)).toEqual([
+      {
+        name: 'production-branch',
+        ok: false,
+        detail: `Vercel production branch is main, expected master — ${BRANCH_FIX}`,
+      },
+    ]);
+    expect(JSON.stringify(results)).not.toContain('secrethook');
+  });
+
+  it.each([
+    [
+      'a failed command',
+      { status: 1, stdout: '', stderr: `Error: forbidden ${HOOK_URL}\nmore` },
+      'vercel api /v9/projects/acme failed: Error: forbidden <url redacted>',
+    ],
+    [
+      'an answer that is not JSON',
+      { status: 0, stdout: `oops ${HOOK_URL}`, stderr: '' },
+      'vercel api /v9/projects/acme gave an answer without link.productionBranch',
+    ],
+  ])('fails production-branch on %s without the hook URL', async (_label, answer, detail) => {
+    const results = await run({ runCommand: fakeRunCommand(answer) });
+    expect(
+      results.find((r: { name: string }) => r.name === 'production-branch'),
+    ).toEqual({
+      name: 'production-branch',
+      ok: false,
+      detail,
+    });
+    expect(JSON.stringify(results)).not.toContain('secrethook');
+  });
+
+  it('fails brand-logo when the logo is missing', async () => {
+    const results = await run({
+      fetch: fakeFetch({ missingPath: '/brand-logo.png' }),
+    });
+    expect(results.filter((r: { ok: boolean }) => !r.ok)).toEqual([
+      { name: 'brand-logo', ok: false, detail: 'status 404' },
+    ]);
+  });
+
+  it('fails brand-logo when the answer is not a PNG', async () => {
+    const results = await run({
+      fetch: fakeFetch({ logoContentType: 'text/html; charset=utf-8' }),
+    });
+    expect(results.filter((r: { ok: boolean }) => !r.ok)).toEqual([
+      {
+        name: 'brand-logo',
+        ok: false,
+        detail: 'content-type text/html; charset=utf-8, expected image/png',
+      },
+    ]);
   });
 
   it('sends the sign-in request with the production origin', async () => {

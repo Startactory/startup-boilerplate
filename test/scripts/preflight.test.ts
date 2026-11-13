@@ -122,6 +122,8 @@ async function preflight({
   fetch = fakeFetch(),
   readToken = () => 'token',
   loadValidator = loadConfigValidator,
+  nodeVersion = '25.2.1',
+  readNvmrc = (): string => 'v25.2.1\n',
 } = {}) {
   return runPreflight({
     config,
@@ -131,6 +133,8 @@ async function preflight({
     fetch: fetch as unknown as typeof globalThis.fetch,
     readToken,
     loadValidator,
+    nodeVersion,
+    readNvmrc,
   });
 }
 
@@ -146,6 +150,7 @@ describe('runPreflight', () => {
       'dependencies',
       'config',
       'tool:node',
+      'node-version',
       'tool:pnpm',
       'tool:op',
       'tool:gh',
@@ -187,6 +192,49 @@ describe('runPreflight', () => {
       ok: false,
       fix: 'install Node.js, the version in .nvmrc (brew install node)',
     });
+  });
+
+  it('fails node-version when the major version differs from .nvmrc', async () => {
+    const results = await preflight({ nodeVersion: '24.21.0' });
+    expect(failedNames(results)).toEqual(['node-version']);
+    expect(results.find((r) => r.name === 'node-version')?.fix).toBe(
+      'use Node 25.2.1 — prefix commands with export PATH="$HOME/.nvm/versions/node/v25.2.1/bin:$PATH" (or nvm use)',
+    );
+  });
+
+  it('passes node-version on the same major with another minor', async () => {
+    const results = await preflight({ nodeVersion: '25.0.0' });
+    expect(failedNames(results)).toEqual([]);
+  });
+
+  it('accepts an .nvmrc without the v prefix', async () => {
+    const results = await preflight({
+      nodeVersion: '24.21.0',
+      readNvmrc: () => '25',
+    });
+    expect(results.find((r) => r.name === 'node-version')?.fix).toBe(
+      'use Node 25 — prefix commands with export PATH="$HOME/.nvm/versions/node/v25/bin:$PATH" (or nvm use)',
+    );
+  });
+
+  it('fails node-version when .nvmrc cannot be read', async () => {
+    const results = await preflight({
+      readNvmrc: () => {
+        throw new Error('ENOENT');
+      },
+    });
+    expect(results.find((r) => r.name === 'node-version')).toEqual({
+      name: 'node-version',
+      ok: false,
+      fix: 'cannot read .nvmrc — run from the repository root',
+    });
+  });
+
+  it('fails node-version when .nvmrc holds no version', async () => {
+    const results = await preflight({ readNvmrc: () => 'lts/*\n' });
+    expect(results.find((r) => r.name === 'node-version')?.fix).toBe(
+      '.nvmrc holds "lts/*", expected a version like v25.2.1',
+    );
   });
 
   it('fails tool:database when neither psql nor docker exists', async () => {

@@ -3,6 +3,12 @@ import { provisionDeployHook } from '../../scripts/providers/vercel-deploy-hook.
 
 const HOOK_URL =
   'https://api.vercel.com/v1/integrations/deploy/prj_abc/secrethook';
+const SITE_URL = 'https://acme.vercel.app';
+const base = {
+  vault: 'startup-acme',
+  project: 'acme',
+  productionUrl: SITE_URL,
+};
 
 type RunResult = { status: number; stdout: string; stderr: string };
 type Call = { command: string; args: string[]; input?: string };
@@ -54,7 +60,7 @@ function setup({
 function provisionError(options: Answers) {
   const { run, op } = setup(options);
   try {
-    provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' });
+    provisionDeployHook({ ...base, op, run });
   } catch (error) {
     return { message: (error as Error).message, op };
   }
@@ -72,13 +78,8 @@ function listing(url: string): RunResult {
 describe('provisionDeployHook', () => {
   it('creates the hook and pipes it to gh on stdin', () => {
     const { run, op, calls } = setup({ list: emptyList });
-    const result = provisionDeployHook({
-      op,
-      run,
-      vault: 'startup-acme',
-      project: 'acme',
-    });
-    expect(result).toBe('created');
+    const result = provisionDeployHook({ ...base, op, run });
+    expect(result).toEqual({ outcome: 'created', productionUrl: SITE_URL });
     expect(op.writeFields).toHaveBeenCalledWith({
       vault: 'startup-acme',
       item: 'ci',
@@ -94,7 +95,7 @@ describe('provisionDeployHook', () => {
 
   it('sets the Vercel production branch to master before the hook', () => {
     const { run, op, calls } = setup({ list: emptyList });
-    provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' });
+    provisionDeployHook({ ...base, op, run });
     expect(calls[0]).toEqual({
       command: 'vercel',
       args: ['api', '/v9/projects/acme/branch', '-X', 'PATCH', '--input', '-'],
@@ -105,14 +106,13 @@ describe('provisionDeployHook', () => {
       'list',
       'create',
       'set',
+      'set',
     ]);
   });
 
   it('sets the production branch before reusing an existing hook', () => {
     const { run, op, calls } = setup({ list: listing(HOOK_URL) });
-    expect(
-      provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' }),
-    ).toBe('reused');
+    expect(provisionDeployHook({ ...base, op, run }).outcome).toBe('reused');
     expect(calls[0]?.args[1]).toBe('/v9/projects/acme/branch');
   });
 
@@ -137,9 +137,7 @@ describe('provisionDeployHook', () => {
         stderr: `Error: forbidden, see ${HOOK_URL}\n`,
       },
     });
-    expect(() =>
-      provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' }),
-    ).toThrow(
+    expect(() => provisionDeployHook({ ...base, op, run })).toThrow(
       /^vercel api production branch update failed: Error: forbidden, see <url redacted>$/,
     );
     expect(calls).toHaveLength(1);
@@ -170,20 +168,19 @@ describe('provisionDeployHook', () => {
 
   it('targets the repository from startup.config.json', () => {
     const { run, op, calls } = setup({ list: emptyList });
-    provisionDeployHook({
-      op,
-      run,
-      vault: 'startup-acme',
-      project: 'acme',
-      repository: 'me/acme',
-    });
-    const gh = calls.find((call) => call.command === 'gh');
-    expect(gh?.args).toEqual([
-      'secret',
-      'set',
-      'VERCEL_DEPLOY_HOOK_URL',
-      '--repo',
-      'me/acme',
+    provisionDeployHook({ ...base, op, run, repository: 'me/acme' });
+    const gh = calls.filter((call) => call.command === 'gh');
+    expect(gh.map((call) => call.args)).toEqual([
+      ['secret', 'set', 'VERCEL_DEPLOY_HOOK_URL', '--repo', 'me/acme'],
+      [
+        'variable',
+        'set',
+        'PRODUCTION_URL',
+        '--repo',
+        'me/acme',
+        '--body',
+        SITE_URL,
+      ],
     ]);
   });
 
@@ -197,13 +194,8 @@ describe('provisionDeployHook', () => {
         stderr: '',
       },
     });
-    const result = provisionDeployHook({
-      op,
-      run,
-      vault: 'startup-acme',
-      project: 'acme',
-    });
-    expect(result).toBe('reused');
+    const result = provisionDeployHook({ ...base, op, run });
+    expect(result.outcome).toBe('reused');
     expect(calls.some((call) => call.args[1] === 'create')).toBe(false);
     expect(calls.find((call) => call.command === 'gh')?.input).toBe(HOOK_URL);
   });
@@ -216,9 +208,9 @@ describe('provisionDeployHook', () => {
         stderr: 'Error: unknown command deploy-hooks',
       },
     });
-    expect(() =>
-      provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' }),
-    ).toThrow('update the Vercel CLI: npm i -g vercel@latest');
+    expect(() => provisionDeployHook({ ...base, op, run })).toThrow(
+      'update the Vercel CLI: npm i -g vercel@latest',
+    );
     expect(op.writeFields).not.toHaveBeenCalled();
   });
 
@@ -232,7 +224,7 @@ describe('provisionDeployHook', () => {
       list: emptyList,
       create: { status: 0, stdout: `Created ${printed}\n`, stderr: '' },
     });
-    provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' });
+    provisionDeployHook({ ...base, op, run });
     expect(op.writeFields).toHaveBeenCalledWith({
       vault: 'startup-acme',
       item: 'ci',
@@ -243,9 +235,7 @@ describe('provisionDeployHook', () => {
 
   it('sanitizes the URL of an existing hook the same way', () => {
     const { run, op } = setup({ list: listing(`${HOOK_URL}"`) });
-    expect(
-      provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' }),
-    ).toBe('reused');
+    expect(provisionDeployHook({ ...base, op, run }).outcome).toBe('reused');
     expect(op.writeFields).toHaveBeenCalledWith({
       vault: 'startup-acme',
       item: 'ci',
@@ -323,6 +313,54 @@ describe('provisionDeployHook', () => {
     );
   });
 
+  it('sets the production URL as a GitHub variable after the secret', () => {
+    const { run, op, calls } = setup({ list: emptyList });
+    provisionDeployHook({
+      ...base,
+      op,
+      run,
+      productionUrl: `${SITE_URL}/`,
+    });
+    const last = calls[calls.length - 1];
+    expect(last).toEqual({
+      command: 'gh',
+      args: ['variable', 'set', 'PRODUCTION_URL', '--body', SITE_URL],
+      input: undefined,
+    });
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['not https', 'http://acme.vercel.app'],
+    ['with a path', 'https://acme.vercel.app/app'],
+  ])('stops before any call when productionUrl is %s', (_label, productionUrl) => {
+    const { run, op, calls } = setup({ list: emptyList });
+    expect(() =>
+      provisionDeployHook({ ...base, op, run, productionUrl }),
+    ).toThrow(
+      'no productionUrl like https://<name>.vercel.app in startup.config.json — run node scripts/providers/vercel-project.mjs first',
+    );
+    expect(calls).toEqual([]);
+    expect(op.writeFields).not.toHaveBeenCalled();
+  });
+
+  it('reports a failed variable set once the secret is set', () => {
+    const op = { writeFields: vi.fn() };
+    const run = vi.fn((command: string, args: string[]) => {
+      if (command === 'gh' && args[0] === 'variable') {
+        return { status: 1, stdout: '', stderr: 'HTTP 403: forbidden' };
+      }
+      if (command === 'gh') return { status: 0, stdout: '', stderr: '' };
+      if (args[0] === 'api') return projectAnswer('master');
+      if (args[1] === 'list') return emptyList;
+      return created;
+    });
+    expect(() => provisionDeployHook({ ...base, op, run })).toThrow(
+      'gh variable set PRODUCTION_URL failed: HTTP 403: forbidden',
+    );
+    expect(op.writeFields).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the URL out of the error when gh fails', () => {
     const op = { writeFields: vi.fn() };
     const run = vi.fn((command: string, args: string[]) => {
@@ -333,7 +371,7 @@ describe('provisionDeployHook', () => {
     });
     let message = '';
     try {
-      provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' });
+      provisionDeployHook({ ...base, op, run });
     } catch (error) {
       message = (error as Error).message;
     }

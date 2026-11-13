@@ -1,9 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { readStartupConfig } from '../vault/names.mjs';
+import { redactUrls } from './vercel-deploy-hook.mjs';
 
 export const VERCEL_REGION = { eu: 'cdg1', us: 'iad1' };
+const FRAMEWORK = 'nextjs';
+const SETTINGS_STEP = 'vercel api project settings update';
 
 const MAX_DOMAIN_TRIES = 3;
 const SUFFIX_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -14,13 +17,15 @@ const DOMAIN_REFUSED_PATTERN =
   /409|already|in use|taken|assigned|not allowed|not available|unavailable/i;
 const GITIGNORE_PATH = '.gitignore';
 const VERCEL_ENV_PATH = '.env.local';
+const VERCEL_OIDC_LINE = /^VERCEL_OIDC_TOKEN=/;
 const GITIGNORE_RESTORED =
   'OK  .gitignore restored to its content from before vercel link';
-const VERCEL_ENV_WRITTEN =
-  'NOTE  .env.local was written by the Vercel CLI (VERCEL_OIDC_TOKEN); it is git-ignored and was kept';
+const VERCEL_ENV_REMOVED = 'OK  removed .env.local written by vercel link';
+const VERCEL_ENV_KEPT =
+  'NOTE  .env.local was written by vercel link with more than VERCEL_OIDC_TOKEN; it is git-ignored and was kept';
 
-function defaultRunVercel(args) {
-  const result = spawnSync('vercel', args, { encoding: 'utf8' });
+function defaultRunVercel(args, { input } = {}) {
+  const result = spawnSync('vercel', args, { input, encoding: 'utf8' });
   return Promise.resolve({
     code: result.error ? 1 : (result.status ?? 1),
     stdout: result.stdout ?? '',
@@ -170,12 +175,31 @@ function restoreGitignore({ fs, log, before }) {
   log(GITIGNORE_RESTORED);
 }
 
+function holdsOnlyOidcToken(text) {
+  const lines = text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'));
+  return lines.length > 0 && lines.every((line) => VERCEL_OIDC_LINE.test(line));
+}
+
+// why: next dev loads .env.local over .env, outside the two-file model the vault generates
+function removeLinkEnvFile({ fs, log, existedBefore }) {
+  if (existedBefore || !fs.existsSync(VERCEL_ENV_PATH)) return;
+  if (!holdsOnlyOidcToken(fs.readFileSync(VERCEL_ENV_PATH, 'utf8'))) {
+    log(VERCEL_ENV_KEPT);
+    return;
+  }
+  fs.unlinkSync(VERCEL_ENV_PATH);
+  log(VERCEL_ENV_REMOVED);
+}
+
 async function linkProject({ runVercel, slug, fs, log }) {
   const gitignore = readIfPresent({ fs, path: GITIGNORE_PATH });
   const hadVercelEnv = fs.existsSync(VERCEL_ENV_PATH);
   const linked = await runVercel(['link', '--yes', '--project', slug]);
   restoreGitignore({ fs, log, before: gitignore });
-  if (!hadVercelEnv && fs.existsSync(VERCEL_ENV_PATH)) log(VERCEL_ENV_WRITTEN);
+  removeLinkEnvFile({ fs, log, existedBefore: hadVercelEnv });
   if (linked.code !== 0) throw failure('vercel link', linked);
 }
 
@@ -199,7 +223,7 @@ export async function ensureVercelProject({
   slug,
   repository,
   randomSuffix = defaultRandomSuffix,
-  fs = { existsSync, readFileSync, writeFileSync },
+  fs = { existsSync, readFileSync, writeFileSync, unlinkSync },
   log = console.log,
 }) {
   if (!repository) {
@@ -243,21 +267,65 @@ export function writeProductionUrl({
   rewriteJson({ path, fs, update: (config) => ({ ...config, productionUrl }) });
 }
 
-export function writeVercelSettings({
-  path = 'vercel.json',
-  fs = { readFileSync, writeFileSync },
+function firstLine(text) {
+  return (
+    text
+      .split('\n')
+      .map((line) => line.trim())
+      .find(Boolean) ?? ''
+  );
+}
+
+function describeSettings(body) {
+  const reason = body?.error?.message;
+  if (typeof reason === 'string') return reason;
+  const regions = body?.resourceConfig?.functionDefaultRegions;
+  return `framework ${body?.framework ?? 'none'}, function regions ${
+    Array.isArray(regions) ? regions.join(',') : 'none'
+  }`;
+}
+
+function hasSettings({ body, region }) {
+  const regions = body?.resourceConfig?.functionDefaultRegions;
+  return (
+    body?.framework === FRAMEWORK &&
+    Array.isArray(regions) &&
+    regions.length === 1 &&
+    regions[0] === region
+  );
+}
+
+// why: set on the project, not in vercel.json, so a startup's upstream merges never conflict
+export async function configureVercelProject({
+  runVercel = defaultRunVercel,
+  slug,
   dataRegion,
 }) {
-  rewriteJson({
-    path,
-    fs,
-    // A project created by the CLI may keep the "Other" preset, which serves 404s for Next.js.
-    update: (config) => ({
-      ...config,
-      framework: 'nextjs',
-      regions: [VERCEL_REGION[dataRegion]],
-    }),
-  });
+  const region = VERCEL_REGION[dataRegion];
+  if (!region) {
+    throw new Error(`dataRegion must be eu or us, got ${dataRegion}`);
+  }
+  const result = await runVercel(
+    ['api', `/v9/projects/${slug}`, '-X', 'PATCH', '--input', '-'],
+    {
+      input: JSON.stringify({
+        framework: FRAMEWORK,
+        resourceConfig: { functionDefaultRegions: [region] },
+      }),
+    },
+  );
+  if (result.code !== 0) {
+    const reason = redactUrls(firstLine(result.stderr));
+    throw new Error(`${SETTINGS_STEP} failed${reason ? `: ${reason}` : ''}`);
+  }
+  // why: the answer is the whole project, deploy hook URLs included, so only two fields are read
+  const body = parseJson(result.stdout);
+  if (!hasSettings({ body, region })) {
+    throw new Error(
+      `${SETTINGS_STEP} failed: expected framework ${FRAMEWORK}, function regions ${region}, got ${redactUrls(describeSettings(body))}`,
+    );
+  }
+  return { framework: FRAMEWORK, region };
 }
 
 const CHECK_USAGE =
@@ -294,10 +362,14 @@ async function main() {
       repository,
     });
     writeProductionUrl({ productionUrl });
-    writeVercelSettings({ dataRegion });
     console.log(
       `OK  Vercel project ${slug} ${outcome}, production URL ${productionUrl}`,
     );
+    const { framework, region } = await configureVercelProject({
+      slug,
+      dataRegion,
+    });
+    console.log(`OK  Vercel framework ${framework}, function region ${region}`);
   } catch (error) {
     console.error(error.message);
     process.exit(1);

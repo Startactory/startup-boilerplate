@@ -30,3 +30,26 @@ jobs:
         env:
           VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
         run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL"
+
+      # why: the hook answers before the build, and a Preview or cancelled build must not pass
+      - name: Wait for the production deployment
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ -z "$PRODUCTION_URL" ]; then
+            echo "::error::GitHub variable PRODUCTION_URL is not set — run node scripts/providers/vercel-deploy-hook.mjs --project <slug>"
+            exit 1
+          fi
+          deadline=$((SECONDS + 900))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            served=$(curl -fsS --max-time 10 "$PRODUCTION_URL/api/version" | jq -r '.commitSha // empty' || true)
+            if [ "$served" = "$EXPECTED_SHA" ]; then
+              echo "Production serves $EXPECTED_SHA"
+              exit 0
+            fi
+            echo "Production serves ${served:-no readable commit}, waiting for $EXPECTED_SHA"
+            sleep 15
+          done
+          echo "::error::$PRODUCTION_URL still does not serve $EXPECTED_SHA after 15 minutes — the Vercel build failed, was cancelled or was built as a Preview (check the production branch is master)"
+          exit 1
