@@ -38,9 +38,9 @@ async function requestFirstOrganization(input: {
 }
 
 export function OnboardingForm({
-  brandMark,
+  logo,
 }: {
-  brandMark: React.ReactNode;
+  logo: React.ReactNode;
 }): React.ReactElement {
   const t = useTranslations('Onboarding');
   const router = useRouter();
@@ -80,7 +80,7 @@ export function OnboardingForm({
 
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background">
-      {brandMark}
+      {logo}
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-base font-semibold">

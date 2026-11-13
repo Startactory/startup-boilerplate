@@ -19,5 +19,5 @@ export default async function OnboardingPage(): Promise<React.ReactElement> {
   if (pending) {
     redirect(`/accept-invitation/${encodeURIComponent(pending.id)}`);
   }
-  return <OnboardingForm brandMark={<BrandLogo />} />;
+  return <OnboardingForm logo={<BrandLogo />} />;
 }

@@ -14,7 +14,7 @@ export default async function PaywallPage(): Promise<React.ReactElement> {
   const showDevSkip = env().VERCEL_ENV !== 'production';
   return (
     <PaywallView
-      brandMark={<BrandLogo />}
+      logo={<BrandLogo />}
       priceLine={<ProPriceLine className="text-sm font-medium text-ink" />}
       showDevSkip={showDevSkip}
     />

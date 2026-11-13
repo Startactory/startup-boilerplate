@@ -90,11 +90,11 @@ function UpgradeButton(): React.ReactElement {
 }
 
 export function PaywallView({
-  brandMark,
+  logo,
   priceLine,
   showDevSkip,
 }: {
-  brandMark: React.ReactNode;
+  logo: React.ReactNode;
   priceLine: React.ReactNode;
   showDevSkip: boolean;
 }): React.ReactElement {
@@ -102,7 +102,7 @@ export function PaywallView({
 
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6">
-      {brandMark}
+      {logo}
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-base font-semibold">

@@ -1,7 +1,6 @@
 'use client';
 
 import { Building2, Home } from 'lucide-react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -42,23 +41,20 @@ function isActive(pathname: string, href: string, exact: boolean): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function DashboardSidebar({ user }: { user: AuthenticatedUser }) {
+export function DashboardSidebar({
+  user,
+  logo,
+}: {
+  user: AuthenticatedUser;
+  logo: React.ReactNode;
+}): React.ReactElement {
   const t = useTranslations('Nav');
   const pathname = usePathname();
 
   return (
     <Sidebar collapsible="icon" variant="inset">
       <SidebarHeader className="p-1 pt-3">
-        <div className="flex justify-center">
-          <Image
-            src="/logo.svg"
-            alt="Logo"
-            width={32}
-            height={32}
-            className="size-8 rounded-sm"
-            priority
-          />
-        </div>
+        <div className="flex justify-center">{logo}</div>
       </SidebarHeader>
       <SidebarContent className="pt-6">
         <SidebarMenu className="items-center">
