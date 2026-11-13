@@ -35,8 +35,33 @@ describe('syncStartupProfile', () => {
       name: 'Acme Analytics',
       brand: { icon: 'Receipt', accent: '#2f3130' },
       currency: 'USD',
+      defaultLocale: 'fr',
       legal: fullConfig.legal,
     });
+  });
+
+  it('places defaultLocale right after currency', () => {
+    const profile = JSON.parse(contentOf(run(fullConfig), 'profile.json'));
+    expect(Object.keys(profile)).toEqual([
+      'name',
+      'brand',
+      'currency',
+      'defaultLocale',
+      'legal',
+    ]);
+  });
+
+  it('writes the default locale chosen in the config', () => {
+    const profile = JSON.parse(
+      contentOf(run({ ...fullConfig, defaultLocale: 'en' }), 'profile.json'),
+    );
+    expect(profile.defaultLocale).toBe('en');
+  });
+
+  it('rejects an unsupported locale naming defaultLocale', () => {
+    expect(() => run({ ...fullConfig, defaultLocale: 'de' })).toThrow(
+      'defaultLocale',
+    );
   });
 
   it('keeps the consumer mediator in the written profile', () => {

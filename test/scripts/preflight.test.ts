@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createRunner, runPreflight } from '../../scripts/preflight.mjs';
+import {
+  createRunner,
+  loadConfigValidator,
+  runPreflight,
+} from '../../scripts/preflight.mjs';
 
 const SECRET = 'super-secret-value';
 const ALL_KEYS = [
@@ -51,7 +55,7 @@ function fakeRun(overrides: Overrides = {}) {
     const key = [command, ...args].join(' ');
     const base: Result = {
       code: 0,
-      stdout: key === 'gh config get git_protocol' ? 'ssh\n' : '',
+      stdout: key === 'gh config get git_protocol -h github.com' ? 'ssh\n' : '',
       stderr: '',
     };
     if (key === 'gh repo view ada/acme') base.code = 1;
@@ -117,6 +121,7 @@ async function preflight({
   op = fakeOp(),
   fetch = fakeFetch(),
   readToken = () => 'token',
+  loadValidator = loadConfigValidator,
 } = {}) {
   return runPreflight({
     config,
@@ -125,6 +130,7 @@ async function preflight({
     op,
     fetch: fetch as unknown as typeof globalThis.fetch,
     readToken,
+    loadValidator,
   });
 }
 
@@ -137,6 +143,7 @@ describe('runPreflight', () => {
     const results = await preflight();
     expect(failedNames(results)).toEqual([]);
     expect(results.map((r) => r.name)).toEqual([
+      'dependencies',
       'config',
       'tool:node',
       'tool:pnpm',
@@ -158,7 +165,20 @@ describe('runPreflight', () => {
     const { idea: _idea, ...config } = validConfig();
     const results = await preflight({ config });
     expect(failedNames(results)).toEqual(['config']);
-    expect(results[0]?.fix).toContain('idea');
+    expect(results.find((r) => r.name === 'config')?.fix).toContain('idea');
+  });
+
+  it('asks for pnpm install when the dependencies are missing, and runs the other checks', async () => {
+    const results = await preflight({ loadValidator: async () => null });
+    expect(failedNames(results)).toEqual(['dependencies', 'config']);
+    expect(results[0]).toEqual({
+      name: 'dependencies',
+      ok: false,
+      fix: 'pnpm install',
+    });
+    expect(results.find((r) => r.name === 'config')?.fix).toBe(
+      'cannot be checked before pnpm install',
+    );
   });
 
   it('points tool:node at the version pinned in .nvmrc', async () => {
@@ -208,7 +228,7 @@ describe('runPreflight', () => {
 
   it('fails gh-session on https without the workflow scope', async () => {
     const run = fakeRun({
-      'gh config get git_protocol': { stdout: 'https\n' },
+      'gh config get git_protocol -h github.com': { stdout: 'https\n' },
       'gh auth status': { stdout: "Token scopes: 'repo', 'read:org'" },
     });
     const results = await preflight({ run });
@@ -220,10 +240,30 @@ describe('runPreflight', () => {
 
   it('passes gh-session on https with the workflow scope', async () => {
     const run = fakeRun({
-      'gh config get git_protocol': { stdout: 'https\n' },
+      'gh config get git_protocol -h github.com': { stdout: 'https\n' },
       'gh auth status': { stderr: "Token scopes: 'repo', 'workflow'" },
     });
     expect(failedNames(await preflight({ run }))).toEqual([]);
+  });
+
+  it('reads the github.com protocol, not the global one', async () => {
+    const run = fakeRun({
+      'gh config get git_protocol': { stdout: 'https\n' },
+      'gh auth status': { stdout: "Token scopes: 'repo', 'read:org'" },
+    });
+    expect(failedNames(await preflight({ run }))).toEqual([]);
+    expect(run).toHaveBeenCalledWith('gh', [
+      'config',
+      'get',
+      'git_protocol',
+      '-h',
+      'github.com',
+    ]);
+    expect(run).not.toHaveBeenCalledWith('gh', [
+      'config',
+      'get',
+      'git_protocol',
+    ]);
   });
 
   it('fails supabase-quota with two other active projects', async () => {
@@ -274,6 +314,37 @@ describe('runPreflight', () => {
   it('passes dash0 when the dataset does not exist yet', async () => {
     const results = await preflight({ fetch: fakeFetch({ dash0Status: 404 }) });
     expect(failedNames(results)).toEqual([]);
+  });
+});
+
+describe('loadConfigValidator', () => {
+  function importError(code: string, message: string) {
+    return async () => {
+      throw Object.assign(new Error(message), { code });
+    };
+  }
+
+  it('loads the config validator when the dependencies are installed', async () => {
+    const validate = await loadConfigValidator();
+    expect(validate?.({})).toMatchObject({ ok: false });
+  });
+
+  it('returns null when a package is not installed', async () => {
+    const importModule = importError(
+      'ERR_MODULE_NOT_FOUND',
+      "Cannot find package 'valibot' imported from scripts/startup-config.mjs",
+    );
+    expect(await loadConfigValidator({ importModule })).toBeNull();
+  });
+
+  it('rethrows any other import failure', async () => {
+    const importModule = importError(
+      'ERR_MODULE_NOT_FOUND',
+      "Cannot find module 'scripts/startup-config.mjs'",
+    );
+    await expect(loadConfigValidator({ importModule })).rejects.toThrow(
+      'Cannot find module',
+    );
   });
 });
 

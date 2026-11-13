@@ -6,9 +6,18 @@ const HOOK_NAME = 'production';
 const GIT_BRANCH = 'master';
 const URL_FIELD = 'VERCEL_DEPLOY_HOOK_URL';
 const HOOK_URL_PATTERN =
-  /https:\/\/api\.vercel\.com\/v1\/integrations\/deploy\/\S+/;
+  /https:\/\/api\.vercel\.com\/v1\/integrations\/deploy\/[^\s"'`<>]+/;
+const HOOK_URL_SHAPE =
+  /^https:\/\/api\.vercel\.com\/v1\/integrations\/deploy\/[A-Za-z0-9_]+\/[A-Za-z0-9_-]+$/;
+const HOOK_URL_SHAPE_HINT =
+  'https://api.vercel.com/v1/integrations/deploy/<project-id>/<hook-id>';
+const ANY_URL_PATTERN = /https?:\/\/[^\s"'`<>]+/g;
 const UNKNOWN_COMMAND_PATTERN =
   /unknown command|not a valid command|deploy-hooks/i;
+const BRANCH_NOT_FOUND_PATTERN = new RegExp(
+  `branch\\W+${GIT_BRANCH}\\W+not found`,
+  'i',
+);
 
 function defaultRun(command, args, { input } = {}) {
   const result = spawnSync(command, args, { input, encoding: 'utf8' });
@@ -17,6 +26,25 @@ function defaultRun(command, args, { input } = {}) {
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
   };
+}
+
+function redactUrls(text) {
+  return text.replace(ANY_URL_PATTERN, '<url redacted>');
+}
+
+function commandFailure(step, stderr) {
+  const reason = redactUrls(stderr).trim();
+  return new Error(`${step} failed${reason ? `: ${reason}` : ''}`);
+}
+
+function sanitizeHookUrl({ text, source }) {
+  const url = HOOK_URL_PATTERN.exec(text)?.[0];
+  if (!url || !HOOK_URL_SHAPE.test(url)) {
+    throw new Error(
+      `${source} gave no hook URL shaped like ${HOOK_URL_SHAPE_HINT} — nothing stored`,
+    );
+  }
+  return url;
 }
 
 function parseHooks(stdout) {
@@ -44,12 +72,16 @@ function findExistingUrl({ run, project }) {
     if (UNKNOWN_COMMAND_PATTERN.test(result.stderr)) {
       throw new Error('update the Vercel CLI: npm i -g vercel@latest');
     }
-    throw new Error('vercel deploy-hooks list failed');
+    throw commandFailure('vercel deploy-hooks list', result.stderr);
   }
   const hook = parseHooks(result.stdout).find(
     (candidate) => candidate?.name === HOOK_NAME,
   );
-  return typeof hook?.url === 'string' && hook.url ? hook.url : null;
+  if (typeof hook?.url !== 'string' || !hook.url) return null;
+  return sanitizeHookUrl({
+    text: hook.url,
+    source: 'vercel deploy-hooks list',
+  });
 }
 
 function createHook({ run, project }) {
@@ -63,11 +95,17 @@ function createHook({ run, project }) {
     project,
   ]);
   if (result.status !== 0) {
-    throw new Error('vercel deploy-hooks create failed');
+    if (BRANCH_NOT_FOUND_PATTERN.test(result.stderr)) {
+      throw new Error(
+        `${GIT_BRANCH} does not exist on GitHub yet — push ${GIT_BRANCH} first, then run this again`,
+      );
+    }
+    throw commandFailure('vercel deploy-hooks create', result.stderr);
   }
-  const match = HOOK_URL_PATTERN.exec(result.stdout);
-  if (!match) throw new Error('vercel deploy-hooks create printed no hook URL');
-  return match[0];
+  return sanitizeHookUrl({
+    text: result.stdout,
+    source: 'vercel deploy-hooks create',
+  });
 }
 
 export function provisionDeployHook({

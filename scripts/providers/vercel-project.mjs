@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { readStartupConfig } from '../vault/names.mjs';
 
 export const VERCEL_REGION = { eu: 'cdg1', us: 'iad1' };
@@ -12,6 +12,12 @@ const REPOSITORY_CONNECTED_PATTERN = /already connected/i;
 const GITHUB_COM_LINK_TYPES = new Set(['github', 'github-limited']);
 const DOMAIN_REFUSED_PATTERN =
   /409|already|in use|taken|assigned|not allowed|not available|unavailable/i;
+const GITIGNORE_PATH = '.gitignore';
+const VERCEL_ENV_PATH = '.env.local';
+const GITIGNORE_RESTORED =
+  'OK  .gitignore restored to its content from before vercel link';
+const VERCEL_ENV_WRITTEN =
+  'NOTE  .env.local was written by the Vercel CLI (VERCEL_OIDC_TOKEN); it is git-ignored and was kept';
 
 function defaultRunVercel(args) {
   const result = spawnSync('vercel', args, { encoding: 'utf8' });
@@ -152,6 +158,27 @@ async function addVercelDomain({ runVercel, slug, randomSuffix }) {
   );
 }
 
+function readIfPresent({ fs, path }) {
+  return fs.existsSync(path) ? fs.readFileSync(path, 'utf8') : null;
+}
+
+// why: vercel link appends .env* to .gitignore, which overrides the !.env.template exception
+function restoreGitignore({ fs, log, before }) {
+  if (before === null) return;
+  if (readIfPresent({ fs, path: GITIGNORE_PATH }) === before) return;
+  fs.writeFileSync(GITIGNORE_PATH, before);
+  log(GITIGNORE_RESTORED);
+}
+
+async function linkProject({ runVercel, slug, fs, log }) {
+  const gitignore = readIfPresent({ fs, path: GITIGNORE_PATH });
+  const hadVercelEnv = fs.existsSync(VERCEL_ENV_PATH);
+  const linked = await runVercel(['link', '--yes', '--project', slug]);
+  restoreGitignore({ fs, log, before: gitignore });
+  if (!hadVercelEnv && fs.existsSync(VERCEL_ENV_PATH)) log(VERCEL_ENV_WRITTEN);
+  if (linked.code !== 0) throw failure('vercel link', linked);
+}
+
 async function connectRepository({ runVercel, repository }) {
   const connected = await runVercel([
     'git',
@@ -172,6 +199,8 @@ export async function ensureVercelProject({
   slug,
   repository,
   randomSuffix = defaultRandomSuffix,
+  fs = { existsSync, readFileSync, writeFileSync },
+  log = console.log,
 }) {
   if (!repository) {
     throw new Error(
@@ -186,8 +215,7 @@ export async function ensureVercelProject({
     if (created.code !== 0) throw failure('vercel project create', created);
   }
 
-  const linked = await runVercel(['link', '--yes', '--project', slug]);
-  if (linked.code !== 0) throw failure('vercel link', linked);
+  await linkProject({ runVercel, slug, fs, log });
 
   if (!project || !isLinkedTo({ project, repository })) {
     await connectRepository({ runVercel, repository });

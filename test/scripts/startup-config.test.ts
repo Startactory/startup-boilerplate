@@ -51,6 +51,7 @@ describe('validateRunConfig', () => {
       googleCloudProject: 'acme-473215',
       autumnOrganization: 'org_2x9Kd7',
       createdStep: '3',
+      defaultLocale: 'en',
       extra: true,
     };
     expect(validateRunConfig(config)).toEqual({ ok: true });
@@ -73,6 +74,23 @@ describe('validateRunConfig', () => {
   ])('reports a recorded Autumn organization that is blank: "%s"', (autumnOrganization) => {
     expect(issuesOf({ ...validConfig(), autumnOrganization })).toEqual([
       expect.stringMatching(/^autumnOrganization:/),
+    ]);
+  });
+
+  it.each(['fr', 'en'])('accepts the default locale %s', (defaultLocale) => {
+    expect(validateRunConfig({ ...validConfig(), defaultLocale })).toEqual({
+      ok: true,
+    });
+  });
+
+  it.each([
+    'de',
+    'EN',
+    '',
+    1,
+  ])('reports an unsupported default locale naming defaultLocale: %s', (defaultLocale) => {
+    expect(issuesOf({ ...validConfig(), defaultLocale })).toEqual([
+      'defaultLocale: must be fr or en',
     ]);
   });
 

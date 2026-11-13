@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   checkVercelName,
   ensureVercelProject,
@@ -72,10 +72,26 @@ function fakeVercel(account: Account = {}) {
   return { calls, runVercel };
 }
 
+const BOILERPLATE_GITIGNORE = '.env\n.env.*\n!.env.template\n';
+
+function memoryFs(initial: Record<string, string>) {
+  const files = { ...initial };
+  return {
+    files,
+    existsSync: (path: string) => path in files,
+    readFileSync: (path: string) => files[path],
+    writeFileSync: (path: string, text: string) => {
+      files[path] = text;
+    },
+  };
+}
+
 const base = {
   slug: 'acme',
   repository: 'me/acme',
   randomSuffix: () => 'abcd',
+  fs: memoryFs({ '.gitignore': BOILERPLATE_GITIGNORE }) as never,
+  log: () => {},
 };
 
 const unlinkedProject: Project = { name: 'acme', latestDeployments: [] };
@@ -84,17 +100,6 @@ const OTHER_OWNER =
 
 const addedNames = (calls: string[][]) =>
   calls.filter((call) => call[2] === '-X').map((call) => call[call.length - 1]);
-
-function memoryFs(initial: Record<string, string>) {
-  const files = { ...initial };
-  return {
-    files,
-    readFileSync: (path: string) => files[path],
-    writeFileSync: (path: string, text: string) => {
-      files[path] = text;
-    },
-  };
-}
 
 describe('ensureVercelProject', () => {
   it('creates the project and gives it <slug>.vercel.app', async () => {
@@ -296,6 +301,73 @@ describe('ensureVercelProject', () => {
       'no repository in startup.config.json — run the repository step first',
     );
     expect(calls).toEqual([]);
+  });
+
+  function linkWrites({
+    fs,
+    runVercel,
+    linkResult,
+  }: {
+    fs: ReturnType<typeof memoryFs>;
+    runVercel: (args: string[]) => Promise<Result>;
+    linkResult?: Result;
+  }) {
+    return async (args: string[]) => {
+      if (args[0] !== 'link') return runVercel(args);
+      fs.files['.gitignore'] = `${fs.files['.gitignore']}.env*\n`;
+      fs.files['.env.local'] = 'VERCEL_OIDC_TOKEN="oidc-secret"\n';
+      return linkResult ?? ok;
+    };
+  }
+
+  it('restores .gitignore and reports the .env.local the Vercel CLI wrote', async () => {
+    const fs = memoryFs({ '.gitignore': BOILERPLATE_GITIGNORE });
+    const log = vi.fn();
+    const { runVercel } = fakeVercel();
+    await ensureVercelProject({
+      ...base,
+      fs: fs as never,
+      log,
+      runVercel: linkWrites({ fs, runVercel }),
+    });
+    expect(fs.files['.gitignore']).toBe(BOILERPLATE_GITIGNORE);
+    expect(fs.files['.env.local']).toBe('VERCEL_OIDC_TOKEN="oidc-secret"\n');
+    expect(log.mock.calls).toEqual([
+      ['OK  .gitignore restored to its content from before vercel link'],
+      [
+        'NOTE  .env.local was written by the Vercel CLI (VERCEL_OIDC_TOKEN); it is git-ignored and was kept',
+      ],
+    ]);
+    expect(JSON.stringify(log.mock.calls)).not.toContain('oidc-secret');
+  });
+
+  it('restores .gitignore even when vercel link fails', async () => {
+    const fs = memoryFs({ '.gitignore': BOILERPLATE_GITIGNORE });
+    const { runVercel } = fakeVercel();
+    await expect(
+      ensureVercelProject({
+        ...base,
+        fs: fs as never,
+        runVercel: linkWrites({
+          fs,
+          runVercel,
+          linkResult: failed('Error: not logged in'),
+        }),
+      }),
+    ).rejects.toThrow('vercel link failed: Error: not logged in');
+    expect(fs.files['.gitignore']).toBe(BOILERPLATE_GITIGNORE);
+  });
+
+  it('prints nothing when vercel link leaves .gitignore and .env.local alone', async () => {
+    const fs = memoryFs({
+      '.gitignore': BOILERPLATE_GITIGNORE,
+      '.env.local': 'VERCEL_OIDC_TOKEN="old"\n',
+    });
+    const log = vi.fn();
+    const { runVercel } = fakeVercel();
+    await ensureVercelProject({ ...base, fs: fs as never, log, runVercel });
+    expect(log).not.toHaveBeenCalled();
+    expect(fs.files['.gitignore']).toBe(BOILERPLATE_GITIGNORE);
   });
 
   it('stops when the project cannot be created', async () => {
