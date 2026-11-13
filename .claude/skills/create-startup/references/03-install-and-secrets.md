@@ -62,14 +62,15 @@ Nothing loads `.env.prod` by accident.
    (`sharp`, `esbuild`, …). Phase 1 may already have run it; running it again is safe.
 3. `node scripts/sync-startup-profile.mjs` — turns the `brand`, `legal` and `pricing.currency`
    written in Step 1d, and `defaultLocale` (`01-name-startup.md` item 4; absent means `fr`), into
-   `src/shared/startup-profile/profile.json` and `src/app/brand.css`. The app then uses
+   `src/shared/startup-profile/profile.json`, `src/app/brand.css` and `public/brand-logo.png` (the
+   brand mark the invitation email shows). The app then uses
    `defaultLocale` as its default locale. It needs the installed dependencies and ends with
    `OK  startup profile synced (<name>)`; on a `FAIL` line fix the named field in
    `startup.config.json` and re-run.
-4. Commit the two generated files on `master` (the first push is still to come, in 6j):
+4. Commit the three generated files on `master` (the first push is still to come, in 6j):
 
    ```bash
-   git add src/shared/startup-profile/profile.json src/app/brand.css
+   git add src/shared/startup-profile/profile.json src/app/brand.css public/brand-logo.png
    git commit -m "chore: sync the startup profile"
    ```
 

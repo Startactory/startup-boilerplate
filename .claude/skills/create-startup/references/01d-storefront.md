@@ -82,9 +82,11 @@ run always starts with `null` (the preflight refuses anything else).
 
 Do **not** run the sync yet: `scripts/sync-startup-profile.mjs` imports `lucide-react` and
 `valibot`, which exist only after `pnpm install`. Step 3a (phase 2) runs it right after the
-install. It writes `src/shared/startup-profile/profile.json` and `src/app/brand.css` and ends with
+install. It writes `src/shared/startup-profile/profile.json`, `src/app/brand.css` and
+`public/brand-logo.png` (the brand mark as a 512 px PNG: the icon in white on a rounded square of
+the accent, used by emails, which cannot render the icon component) and ends with
 `OK  startup profile synced (<name>)`; a `FAIL` line names the invalid field (`brand.icon`,
-`brand.accent`, `pricing.currency`, `legal.*`). Do not edit those two generated files by hand.
+`brand.accent`, `pricing.currency`, `legal.*`). Do not edit those three generated files by hand.
 
 ## 4. Browser check (later)
 
