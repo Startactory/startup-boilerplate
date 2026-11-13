@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { AutumnError } from 'autumn-js';
 import { err, ok, type Result } from 'neverthrow';
 import * as v from 'valibot';
 import type {
@@ -14,9 +15,29 @@ import { type AppError, externalApi } from '@/core/errors';
 import { env } from '@/shared/env';
 import { log } from '@/shared/logger';
 import { autumnClient } from './client';
-import { AutumnCheckResultSchema } from './schemas';
+import { AutumnCheckResultSchema, AutumnErrorBodySchema } from './schemas';
 
 const PROVIDER = 'autumn';
+const CUSTOMER_NOT_FOUND_CODE = 'customer_not_found';
+
+function parseErrorCode(body: string): string | undefined {
+  try {
+    const parsed = v.safeParse(AutumnErrorBodySchema, JSON.parse(body));
+    return parsed.success ? parsed.output.code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// why: Autumn creates the customer only when the client first calls
+// getOrCreateCustomer, so a brand-new organization has none yet.
+function isCustomerNotFound(error: unknown): boolean {
+  return (
+    error instanceof AutumnError &&
+    error.statusCode === 404 &&
+    parseErrorCode(error.body) === CUSTOMER_NOT_FOUND_CODE
+  );
+}
 
 async function checkAppAccess(
   input: CheckAppAccessInput,
@@ -54,6 +75,12 @@ async function checkAppAccess(
       reason: parsed.output.allowed ? 'entitled' : 'not_entitled',
     });
   } catch (e) {
+    if (isCustomerNotFound(e)) {
+      log.info('billing.check_app_access.no_customer', {
+        organizationId: input.organizationId,
+      });
+      return ok({ allowed: false, reason: 'not_entitled' });
+    }
     log.error('billing.check_app_access.exception', e, {
       organizationId: input.organizationId,
     });

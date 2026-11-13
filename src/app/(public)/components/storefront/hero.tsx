@@ -1,35 +1,10 @@
 import Link from 'next/link';
-import { getLocale, getTranslations } from 'next-intl/server';
+import { getTranslations } from 'next-intl/server';
+import { ProPriceLine } from '@/components/pricing/pro-price-line';
 import { Button } from '@/components/ui/button';
-import { getStartupProfile } from '@/shared/startup-profile/startup-profile';
-import {
-  formatPrice,
-  getProPricing,
-  vatRegime,
-} from '@/shared/storefront/price-line';
 
 export async function Hero(): Promise<React.ReactElement> {
-  const [t, locale] = await Promise.all([
-    getTranslations('Storefront'),
-    getLocale(),
-  ]);
-  const pricing = getProPricing();
-  const price = formatPrice({
-    amount: pricing.amount,
-    currency: pricing.currency,
-    locale,
-  });
-  const priceText =
-    pricing.interval === 'month'
-      ? t('priceMonthly', { price })
-      : t('priceYearly', { price });
-  const vatText =
-    vatRegime(getStartupProfile().legal) === 'franchise'
-      ? t('vat.franchise')
-      : t('vat.included');
-  const trialText =
-    pricing.trialDays > 0 ? t('trial', { days: pricing.trialDays }) : null;
-  const priceLine = [priceText, vatText, trialText].filter(Boolean).join(' · ');
+  const t = await getTranslations('Storefront');
 
   return (
     <section className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-6 px-6 py-16 text-center">
@@ -47,7 +22,7 @@ export async function Hero(): Promise<React.ReactElement> {
         >
           {t('cta')}
         </Button>
-        <p className="text-xs text-slate">{priceLine}</p>
+        <ProPriceLine className="text-xs text-slate" />
       </div>
     </section>
   );

@@ -146,7 +146,7 @@ describe('importAutumnKeys', () => {
   it('throws when .env holds no sandbox key', () => {
     const { fs, op } = setup('OTHER=1\n');
     expect(() => importAutumnKeys({ op, fs, vault: 'startup-acme' })).toThrow(
-      'no Autumn keys in .env — run pnpm dlx atmn login first',
+      'no Autumn keys in .env — run pnpm exec atmn login first',
     );
   });
 

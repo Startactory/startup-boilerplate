@@ -3,6 +3,7 @@ import 'server-only';
 import { eq } from 'drizzle-orm';
 import { err, ok, type Result } from 'neverthrow';
 import { type AppError, notFound, unknown } from '@/core/errors';
+import type { Locale } from '@/i18n/locales';
 import { db } from '@/infra/database/connection';
 import {
   member,
@@ -31,6 +32,7 @@ export async function createOrganizationWithOwner(args: {
   organizationId: string;
   name: string;
   slug: string;
+  locale: Locale;
   ownerUserId: string;
 }): Promise<Result<void, AppError>> {
   try {
@@ -39,6 +41,7 @@ export async function createOrganizationWithOwner(args: {
         id: args.organizationId,
         name: args.name,
         slug: args.slug,
+        locale: args.locale,
       });
       await tx.insert(member).values({
         userId: args.ownerUserId,

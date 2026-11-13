@@ -44,7 +44,10 @@ function mockAuthedUser(): void {
 describe('createFirstOrganization', () => {
   it('returns invalid_input for too-short organization name', async () => {
     mockAuthedUser();
-    const r = await createFirstOrganization({ organizationName: 'x' });
+    const r = await createFirstOrganization({
+      organizationName: 'x',
+      locale: 'en',
+    });
     expect(r).toEqual({ success: false, error: 'invalid_input' });
     expect(mockedCreate).not.toHaveBeenCalled();
   });
@@ -53,6 +56,17 @@ describe('createFirstOrganization', () => {
     mockAuthedUser();
     const r = await createFirstOrganization({
       organizationName: 'a'.repeat(101),
+      locale: 'en',
+    });
+    expect(r).toEqual({ success: false, error: 'invalid_input' });
+    expect(mockedCreate).not.toHaveBeenCalled();
+  });
+
+  it('returns invalid_input for an unsupported locale', async () => {
+    mockAuthedUser();
+    const r = await createFirstOrganization({
+      organizationName: 'Acme',
+      locale: 'de' as never,
     });
     expect(r).toEqual({ success: false, error: 'invalid_input' });
     expect(mockedCreate).not.toHaveBeenCalled();
@@ -60,7 +74,10 @@ describe('createFirstOrganization', () => {
 
   it('returns unauthenticated when no user', async () => {
     mockedUser.mockResolvedValue(err(unauthorized('no')));
-    const r = await createFirstOrganization({ organizationName: 'Acme' });
+    const r = await createFirstOrganization({
+      organizationName: 'Acme',
+      locale: 'en',
+    });
     expect(r).toEqual({ success: false, error: 'unauthenticated' });
   });
 
@@ -72,7 +89,10 @@ describe('createFirstOrganization', () => {
         sessionId: 's',
       } as never),
     );
-    const r = await createFirstOrganization({ organizationName: 'Acme' });
+    const r = await createFirstOrganization({
+      organizationName: 'Acme',
+      locale: 'en',
+    });
     expect(r).toEqual({ success: false, error: 'already_in_org' });
     expect(mockedCreate).not.toHaveBeenCalled();
   });
@@ -81,12 +101,16 @@ describe('createFirstOrganization', () => {
     mockAuthedUser();
     mockedCreate.mockResolvedValueOnce(ok(undefined));
     mockedActivate.mockResolvedValueOnce(ok(undefined));
-    const r = await createFirstOrganization({ organizationName: 'Acme Corp' });
+    const r = await createFirstOrganization({
+      organizationName: 'Acme Corp',
+      locale: 'en',
+    });
     expect(r).toEqual({ success: true, organizationId: 'org-new' });
     expect(mockedCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: 'org-new',
         name: 'Acme Corp',
+        locale: 'en',
         ownerUserId: 'u',
         slug: expect.stringMatching(/^acme-corp-[0-9a-z]+$/),
       }),
@@ -100,7 +124,10 @@ describe('createFirstOrganization', () => {
   it('returns unknown when organization creation fails', async () => {
     mockAuthedUser();
     mockedCreate.mockResolvedValueOnce(err(unknownError('db down')));
-    const r = await createFirstOrganization({ organizationName: 'Acme Corp' });
+    const r = await createFirstOrganization({
+      organizationName: 'Acme Corp',
+      locale: 'en',
+    });
     expect(r).toEqual({ success: false, error: 'unknown' });
     expect(mockedActivate).not.toHaveBeenCalled();
   });
@@ -109,7 +136,10 @@ describe('createFirstOrganization', () => {
     mockAuthedUser();
     mockedCreate.mockResolvedValueOnce(ok(undefined));
     mockedActivate.mockResolvedValueOnce(err(unknownError('boom')));
-    const r = await createFirstOrganization({ organizationName: 'Acme Corp' });
+    const r = await createFirstOrganization({
+      organizationName: 'Acme Corp',
+      locale: 'en',
+    });
     expect(r).toEqual({ success: true, organizationId: 'org-new' });
   });
 });

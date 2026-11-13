@@ -9,8 +9,10 @@ caveman plugin (`.claude/settings.json`) shortens the rest of the session.
 
 Order of work:
 
-1. Briefing (one message).
-2. Interview (one message, one answer), then write the files.
+1. Briefing (one message). It ends with the idea and name question when the founder's first
+   message lacks them.
+2. Interview (one message, one answer, once the idea and the name are known), then write the
+   files.
 3. Run every check of the founder-only checklist. Checks change nothing.
 4. Consent (one message, one "yes").
 5. Work through the failing checklist items, in order.
@@ -37,31 +39,48 @@ One message that tells the founder:
 - **Phase 2 runs in bypass permissions mode**, so no tool approval stops it. What still guards
   it: Claude acts only within the consent given here; it calls the founder only for a human-only
   action (an account, a password, a 2FA code, a CAPTCHA, a payment or card, a KYC, a consent not
-  given here, a deletion, a leaked secret, a secret to copy by hand); it never deletes a cloud
-  resource; it uses free plans only (Dash0 excepted); and no secret reaches the transcript.
+  given here, a deletion, a secret to copy by hand); it never deletes a cloud resource; it uses
+  free plans only (Dash0 excepted); and no secret reaches the transcript. If one does by accident,
+  the run does not stop: Claude goes on with it, and the final report lists it with how to revoke
+  it.
 - **What stays for later** (`after-the-run.md`): the company, Stripe live and its KYC, a custom
   domain with Resend. Until go-live, production uses the Autumn sandbox: anyone can get past the
   paywall with a Stripe test card. The legal texts are templates to have reviewed before selling
   for real.
 
+When the founder's first message lacks the idea or the name, the briefing ends with one question
+for what is missing (both in the same question), and the interview message (section 2) waits for
+that answer: the slug, the GitHub and Vercel name checks, the pricing and the landing copy all
+derive from the idea and the name. When the first message has both, the briefing asks nothing and
+the interview message follows it at once.
+
 ## 2. Interview
 
+The idea and the name are known by now: from the founder's first message, or from their answer to
+the briefing's question.
+
 First gather what the machine can tell, with no question. Load the Chrome tools in one ToolSearch
-call and read the `chrome-browser` skill, then read the Google account Chrome is signed in to
-(`https://myaccount.google.com`): it is the founder's Google identity for the whole run. When `gh`
-is signed in, run `gh api user -q .login` and `gh org list`. When the vault answers, run
+call and read the `chrome-browser` skill, then list **every** Google account Chrome is signed in
+to, not only the default one: open `https://myaccount.google.com/?authuser=0`, then
+`?authuser=1`, `?authuser=2` and so on, and note the address each page shows (a narrow `find` on
+it is enough); stop at the first index that shows a sign-in page or an address already noted. The
+account chooser (the account menu of any Google page) lists them too. Chrome's default account
+(`authuser=0`) is not necessarily the founder's identity for this run. The chosen account is the
+founder's Google identity for the whole run (`googleAccount`). When `gh` is
+signed in, run `gh api user -q .login` and `gh org list`. When the vault answers, run
 `node scripts/vault-put.mjs --list-fields master-keys`. If `startup.config.json` already exists
 (an interrupted phase 1), propose its values.
 
 **Ask** only what Claude cannot infer:
 
-- the idea and the name, only if the first message lacks them;
+- which Google account is the founder's identity (`googleAccount`), when Chrome is signed in to
+  more than one: list the addresses found and propose none of them; when Chrome is signed in to
+  none, the founder signs in first (`00-founder-setup.md` item 3);
 - the founder's full name (legal notice) and contact email (default: the Google identity);
 - the Gmail address for SMTP (default: the Google identity), only when `SMTP_USER` is not in the
   master keys;
 - the GitHub owner, only when `gh org list` shows organizations or `gh` is not signed in yet
-  (default: the personal account);
-- the Google identity itself, only when Chrome is signed in to none.
+  (default: the personal account).
 
 **Derive and show for review**, as the reference steps derive them:
 
@@ -77,6 +96,8 @@ is signed in, run `gh api user -q .login` and `gh org list`. When the vault answ
   taken by anything else, propose another slug.
 - the data region: `eu` by default (`"gdpr": true`, `"dataRegion": "eu"`: the founders are
   established in France); `us` only if the founder says so (`01-name-startup.md` item 3).
+- the site's default language, `defaultLocale` (`01-name-startup.md` item 4): `fr` by default;
+  propose `en` when the founder chose `us` or writes to you in English. The founder's choice wins.
 - the pricing: the proposal of `01b-set-pricing.md` sections 1 to 3 (amount, interval, trial,
   currency `EUR`, a one-sentence rationale).
 - the brand and the landing copy: `01d-storefront.md` section 2 (lucide icon, accent color,
@@ -90,8 +111,10 @@ follow-up question is allowed only for an asked item the answer leaves empty.
 Then write, exactly as steps 1, 1b and 1d do:
 
 - `startup.config.json`, shape below; `domain` is always `""` in a run, `pricing.source` is
-  `founder` when the founder gave the price, and `googleAccount` (required: the preflight's
-  `config` check refuses a config without a valid email there) records the Google identity;
+  `founder` when the founder gave the price, `googleAccount` (required: the preflight's
+  `config` check refuses a config without a valid email there) records the Google identity, and
+  `defaultLocale` is `"fr"` or `"en"` (an optional key: a config without it means `fr`; write it
+  anyway);
 - `package.json` `name` = the slug;
 - the `pro` plan of `autumn.config.ts` (`01b-set-pricing.md` section 5);
 - `Storefront.hero.headline` and `Storefront.hero.subheadline` in `src/i18n/messages/en.json` and
@@ -104,6 +127,7 @@ Then write, exactly as steps 1, 1b and 1d do:
   "domain": "",
   "gdpr": true,
   "dataRegion": "eu",
+  "defaultLocale": "fr",
   "idea": "Contract review assistant for freelance designers",
   "githubOwner": "ada-lovelace",
   "googleAccount": "ada@example.com",
@@ -145,11 +169,21 @@ The run needs neither the `supabase` CLI nor `gcloud`.
    `startup-founder: existing` (or `created`). Action: the founder runs the Terminal.app procedure
    of `00-founder-setup.md` item 2.
 2. **Provider accounts and Chrome sessions**: Google, GitHub, Vercel, Supabase, PostHog (the
-   region's account), Autumn, Dash0. Check: open each dashboard; a dashboard, not a login page,
-   passes (`00-founder-setup.md` item 4). Action: ask the founder once, for all the signed-out
-   providers together, at which of them they already have an account. For a confirmed existing
-   account, open its sign-in page, click "Continue with Google" (GitHub for Supabase) and pick
-   `googleAccount` on the account chooser. For any other provider the founder clicks it and
+   region's account), Autumn, Dash0. Check: open each dashboard (Google:
+   `https://console.cloud.google.com/?authuser=<googleAccount>`); a dashboard, not a login page,
+   passes (`00-founder-setup.md` item 4). Then read which identity each one is signed in to (a
+   narrow `find` on the account menu, or the address or organization the page shows) and compare
+   it with `googleAccount`. A different identity is fine for a provider that phase 2 uses only
+   through its API with a master key (Supabase, also PostHog and Dash0), as long as that
+   provider's master key already exists: item 3 would create a missing one in this Chrome
+   session, so in that account. For a provider that phase 2 drives in Chrome (Google Cloud,
+   Autumn, Vercel's device page), the founder confirms the account or signs in to the right one.
+   This check proves the Chrome session only, never which account an existing master key belongs
+   to: the preflight's `supabase-quota` and `dash0` checks prove that the keys reach the right
+   organization. Action: ask the founder once, for all the signed-out providers together, at
+   which of them they already have an account. For a confirmed existing account, open its sign-in
+   page, click "Continue with Google" (GitHub for Supabase) and pick `googleAccount` on the
+   account chooser. For any other provider the founder clicks it and
    finishes the sign-up: creating an account is theirs. The founder also types any password, 2FA
    code or CAPTCHA. Once per founder: a Supabase organization `startup-factory` on the Free plan,
    and a Dash0 organization in the region's data location, which the founder creates at sign-up
@@ -160,10 +194,18 @@ The run needs neither the `supabase` CLI nor `gcloud`.
    missing one in Chrome and store it from the clipboard, as `00-founder-setup.md` item 6 does;
    the founder acts only if a page demands a password or a 2FA code. No Resend key: it serves a
    custom domain, after the run.
-4. **Gmail app password.** Check: the same listing has `SMTP_USER` and `SMTP_PASS`. Action: only
-   the founder can create the app password (Google account, Security, 2-Step Verification on, App
-   passwords) and copy it; then store both fields as the SMTP part of `00-founder-setup.md` item 6
-   does. The app password never passes through you.
+4. **Gmail app password.** Check: the same listing has `SMTP_USER` and `SMTP_PASS`. Action, for
+   the SMTP Gmail address (`<gmail address>`, `googleAccount` by default): first check
+   2-Step Verification on `https://myaccount.google.com/security?authuser=<gmail address>` with a
+   narrow `find "2-Step Verification"` (it is not a secret page, but read nothing else). When it
+   is off, App passwords only answers "The setting you are looking for is not available for your
+   account", so send the founder first to
+   `https://myaccount.google.com/signinoptions/twosv?authuser=<gmail address>`, and tell them that
+   adding an authenticator app does not turn 2-Step Verification on: they must click "Turn on
+   2-Step Verification". Then only the founder can create the app password, at
+   `https://myaccount.google.com/apppasswords?authuser=<gmail address>`, and copy it; then store
+   both fields as the SMTP part of `00-founder-setup.md` item 6 does. The app password never
+   passes through you.
 5. **A local database**, as step 3b will use it. Check, in this order: a Postgres answers
    (`pg_isready -h localhost -p 5432`); or Homebrew installed one (`brew services list | grep
    '^postgresql'` prints a formula), which 3b starts with `brew services start`; or Docker answers
@@ -172,23 +214,30 @@ The run needs neither the `supabase` CLI nor `gcloud`.
    present, then `docker info` must pass. Action, when none of these passes: install Docker Desktop
    (`brew install --cask docker`) and open it once; the founder accepts its license and types the
    macOS password if asked. Step 3b starts Postgres in it.
-6. **GitHub CLI.** Check: `gh auth status` passes and, when `gh config get git_protocol` prints
-   `https`, shows the `workflow` scope. Action: the founder runs `gh auth login --web -s workflow`
-   (or `gh auth refresh -s workflow`) in a terminal. If the interview could not check the owner or
-   the slug, check them now; when the slug is taken by a repository that is not this startup's
-   (same exception as in section 2), pick a free variant, update
-   `startup.config.json` and `package.json`, and tell the founder.
+6. **GitHub CLI.** Check: `gh auth status` passes and, when
+   `gh config get git_protocol -h github.com` prints `https`, shows the `workflow` scope. Read the
+   github.com value (the one `gh auth status` shows as `Git operations protocol`): the global
+   `gh config get git_protocol` can say `https` while pushes go over `ssh`. Action: the founder
+   runs `gh auth login --web -s workflow` (or `gh auth refresh -s workflow`) in a terminal. If the
+   interview could not check the owner or the slug, check them now; when the slug is taken by a
+   repository that is not this startup's (same exception as in section 2), pick a free variant,
+   update `startup.config.json` and `package.json`, and tell the founder.
 7. **Vercel GitHub App** (`vercel-project.mjs` Git-connects the repo through it). Check: in Chrome,
    `https://github.com/settings/installations` (personal owner) or
    `https://github.com/organizations/<githubOwner>/settings/installations` (organization) lists
-   Vercel. Action: the founder installs it for `githubOwner` from `https://github.com/apps/vercel`,
-   for all repositories (or adds the new repository to its selection right after the `repository`
+   Vercel. Claude only checks that Vercel is listed: its Configure page (which shows "All
+   repositories" or the selected ones) asks for GitHub sudo mode (a password or GitHub Mobile),
+   so Claude never opens it. Repository access is proven when `vercel-project.mjs` runs (section
+   6): `vercel git connect failed: …` then means the founder adds the repository to the app.
+   Action: the founder installs it for `githubOwner` from `https://github.com/apps/vercel`, for
+   all repositories (or adds the new repository to its selection right after the `repository`
    step); for an organization, an organization owner must approve it.
 8. **Site and app permissions.** Open once in Chrome every site phase 2 drives:
-   `console.cloud.google.com`, `accounts.google.com`, the Supabase, PostHog, Autumn, Dash0 and
-   Vercel dashboards, and `checkout.stripe.com`. The founder picks "always allow" for each; the
-   production host and `http://localhost:3000` follow in section 6. Then call `request_access` for
-   the native apps phase 2 may drive (Docker Desktop). Never change your own permission settings.
+   `https://console.cloud.google.com/?authuser=<googleAccount>`, `accounts.google.com`, the
+   Supabase, PostHog, Autumn, Dash0 and Vercel dashboards, and `checkout.stripe.com`. The founder
+   picks "always allow" for each; the production host and `http://localhost:3000` follow in
+   section 6. Then call `request_access` for the native apps phase 2 may drive (Docker Desktop).
+   Never change your own permission settings.
 9. **Vercel CLI.** Check: `vercel whoami` prints the username. Action: `vercel login` as
    `00-founder-setup.md` item 5 describes (you click "Allow Access"; the founder types a 2FA code
    if asked). It is the last sign-in because its device code expires in minutes and its session
@@ -222,10 +271,12 @@ answers once:
   account, create the founder's organization and accept the startup's own terms on the founder's
   behalf.
 
-The same message states two facts the founder accepts with it: email goes through their Gmail (the
-app password is copied into this startup's local `.env` and its production settings; Gmail caps
-at about 500 emails a day), and until go-live any visitor can get past the paywall with a Stripe
-test card.
+The same message states three facts the founder accepts with it: email goes through their Gmail
+(the app password is copied into this startup's local `.env` and its production settings; Gmail
+caps at about 500 emails a day); until go-live any visitor can get past the paywall with a Stripe
+test card; and a secret that reaches the transcript or printed output by accident does not stop
+the run: Claude goes on with it, revokes nothing, and the end-of-run report lists it with how to
+revoke it.
 
 Never write the consent to a file: it travels in the `/goal` line. If the founder strikes a
 clause, leave it out of the line; phase 2 then blocks where it needs it and offers the line with
@@ -241,7 +292,8 @@ action; it must pass before the next item.
 These two phase 2 steps run here, with the founder present: the Vercel Git connection is easier to
 fix in person, and the production URL is then known, so the founder can allow its exact host.
 Keep their ledger ids. Run `pnpm install` first when `node_modules` is missing: the commit hooks
-and the preflight need it.
+and the preflight need it. Run every `node` and `pnpm` command with the `.nvmrc` version on `PATH`
+(`03-install-and-secrets.md` 3a item 1).
 
 1. **`repository`** (`01c-create-repository.md`): the private repo `<githubOwner>/<slug>`, the
    boilerplate kept as a fetch-only `upstream`, `repository` written to `startup.config.json`, and
@@ -250,9 +302,12 @@ and the preflight need it.
    (`gh repo create … --private --source=. --remote=origin`, no `--push`): the first push of
    `master` is phase 2's `deploy`. Done when `gh repo view "<githubOwner>/<slug>"` answers and
    `git remote -v` shows `origin` on it. Then `node scripts/run-ledger.mjs done repository`.
-2. **`vercel-project`** (`06-deploy-production.md` 6b): when the Vercel GitHub App is limited to
-   selected repositories, the founder first adds `<githubOwner>/<slug>` to it (item 7). Then
-   `node scripts/providers/vercel-project.mjs`.
+2. **`vercel-project`** (`06-deploy-production.md` 6b): when the founder said the Vercel GitHub
+   App is limited to selected repositories (item 7), they first add `<githubOwner>/<slug>` to it.
+   Then `node scripts/providers/vercel-project.mjs`. On `vercel git connect failed: …`, the app
+   cannot see the repository: the founder adds it to the app's repository access (the
+   installations page of item 7, Vercel, Configure; its GitHub sudo mode prompt is theirs), then
+   run the script again.
    It creates the Vercel project `<slug>`, or reuses it only when it is this startup's, links and
    Git-connects it, gives it its free domain, and writes `productionUrl` into
    `startup.config.json` and `"framework": "nextjs"` and `"regions"` into `vercel.json`. Success:

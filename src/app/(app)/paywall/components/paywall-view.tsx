@@ -1,7 +1,6 @@
 'use client';
 
 import { AutumnProvider, useCustomer } from 'autumn-js/react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
@@ -67,7 +66,7 @@ function UpgradeButton(): React.ReactElement {
         />
         <Label
           htmlFor="accept-terms"
-          className="text-sm font-normal leading-snug"
+          className="block text-sm font-normal leading-snug"
         >
           {t.rich('acceptTerms', {
             terms: (chunks) => (
@@ -91,23 +90,19 @@ function UpgradeButton(): React.ReactElement {
 }
 
 export function PaywallView({
+  logo,
+  priceLine,
   showDevSkip,
 }: {
+  logo: React.ReactNode;
+  priceLine: React.ReactNode;
   showDevSkip: boolean;
 }): React.ReactElement {
   const t = useTranslations('Paywall');
 
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background p-6">
-      <Image
-        src="/logo.svg"
-        alt=""
-        width={64}
-        height={64}
-        className="rounded-md"
-        aria-hidden
-        priority
-      />
+      {logo}
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-base font-semibold">
@@ -116,6 +111,7 @@ export function PaywallView({
           <CardDescription>{t('subtitle')}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {priceLine}
           <AutumnProvider>
             <UpgradeButton />
           </AutumnProvider>

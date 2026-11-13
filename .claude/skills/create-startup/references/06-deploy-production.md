@@ -9,8 +9,10 @@ Where each part runs:
 
 - **Phase 1, step `vercel-project`**: 6b, right after the `repository` step (`phase-1-setup.md`
   section 6), so the production URL is known before Google OAuth (4b).
-- **Phase 2, step `deploy`**, after Step 5 is green: 6d, 6e, 6g, then the first push (6j item 1),
-  then 6i. 6j item 2 is the `smoke-test` step.
+- **Phase 2, step `deploy`**, after Step 5 is green: 6e, 6g, the first push (6j item 1), 6d at
+  once after that push (Vercel refuses a deploy hook for a branch that does not exist on GitHub
+  yet), then following CI and the deploy run (6j item 1), then 6i. 6j item 2 is the `smoke-test`
+  step.
 - 6a and 6c explain; 6f (going live) is after the run.
 
 Nothing in this step touches `.env`: production values go in `.env.prod`. Below, `<repository>` is
@@ -42,10 +44,14 @@ It does, idempotently:
    startup's: Git-linked to `repository`, or not linked and never deployed (an earlier attempt of
    this step). Any other project of that name stops it (below).
 2. Links the local directory to it (`vercel link`), so the env push and the CLI know the project.
+   `vercel link` also writes a git-ignored `.env.local` with `VERCEL_OIDC_TOKEN` only; leave it
+   (`03-install-and-secrets.md`, the two-environment model).
 3. **Connects it to the GitHub repository** `repository` (never the boilerplate). `vercel link`
    only links the *local directory*: enough to push env vars, but Vercel gets no access to the
    repo. Without the Git connection there is no commit to build, and deploy hooks do not exist (the
-   Deploy Hooks panel only appears for Git-connected projects).
+   Deploy Hooks panel only appears for Git-connected projects). The repository is still empty
+   here, so Vercel keeps its default production branch, `main`; 6d sets it to `master` once
+   `master` exists on GitHub. Until then a build of `master` would be a Preview, not production.
 4. Gives the project its free domain `<slug>.vercel.app`, or `<slug>-<4 random lowercase
    alphanumerics>.vercel.app` when someone else holds that name, and reuses the one it already
    has on a re-run.
@@ -59,7 +65,9 @@ It does, idempotently:
 
 Success prints `OK  Vercel project <slug> <created|reused>, production URL <url>`. On failure it
 prints one line naming the call that failed: `vercel git connect failed: …` means the Vercel
-GitHub App cannot see the repository (checklist item 7); `no free *.vercel.app name for <slug>
+GitHub App cannot see the repository (checklist item 7): the founder adds the repository to the
+app's repository access (its Configure page asks for GitHub sudo mode, which is theirs; in phase
+2 a block), then run the script again; `no free *.vercel.app name for <slug>
 after 3 tries` means run it again; `Vercel project <slug> already exists and belongs to something
 else — pick another slug (founder decision)` means the slug check of `phase-1-setup.md` section 2
 missed a project of the founder's: choose another slug with the founder (in phase 2, a block).
@@ -70,8 +78,10 @@ push is 6j) and run `node scripts/run-ledger.mjs done vercel-project`.
 
 ## 6c. How the pipeline deploys
 
-Deployment is **not** push-triggered. `vercel.json` sets `git.deploymentEnabled.master=false`, so a
-push to `master` does not deploy by itself. Instead:
+Deployment is **not** push-triggered. `vercel.json` sets `"git": { "deploymentEnabled": false }`,
+so no push builds anything on Vercel: not `master`, and no Preview for a branch or a pull request
+(a Preview would build without the production env and fail the PR's "Vercel" check). Production
+deploys only through the deploy hook:
 
 ```
 push to master
@@ -85,13 +95,23 @@ The boilerplate repository itself (`Startactory/startup-boilerplate`) has no dat
 deployment, so both `migrate` and the deploy job skip there; they run in every startup repository.
 
 So migrations always run before the new code goes live, and a red test suite never reaches
-production. `deploymentEnabled: false` blocks push deploys only; deploy hooks still work. Do **not**
-set `github.enabled: false` in `vercel.json`: that one disables deploy hooks and breaks the
-pipeline silently.
+production. `deploymentEnabled: false` blocks push deploys only; deploy hooks still work and build
+the production branch (`master`, set by 6d). Do **not** set `github.enabled: false` in
+`vercel.json`: that one disables deploy hooks and breaks the pipeline silently. Do not add an
+`ignoreCommand` on `$VERCEL_ENV` either: the ignore step does not see it, so it cancels the
+production build too.
 
 ## 6d. Create the deploy hook and give it to CI
 
-One script creates (or reuses) the `production` hook on `master`, stores the URL in
+Run it right after the first push (6j item 1), at once, before CI finishes. Vercel refuses a hook
+for a branch that does not exist on GitHub yet (`Branch "master" not found in the connected Git
+repository. (400)`), and `master` exists there only after that push; `production.yml` reads the
+secret when CI completes, a few minutes later.
+
+One script first sets the project's production branch to `master`
+(`PATCH /v9/projects/<slug>/branch`): 6b Git-connected the project while the repository was
+empty, so Vercel kept `main`, and every hook build of `master` would then be a Preview instead of
+production. Then it creates (or reuses) the `production` hook on `master`, stores the URL in
 `startup-<slug>/ci`, and pipes it to `gh secret set VERCEL_DEPLOY_HOOK_URL`:
 
 ```bash
@@ -99,18 +119,26 @@ node scripts/providers/vercel-deploy-hook.mjs --project <slug>
 ```
 
 The Vercel project must be Git-connected (6b) and the Vercel CLI signed in. The hook URL is a
-bearer credential: it never appears in your output or in argv. Success prints names and statuses
-only. Verify with `gh secret list --repo "<repository>"` (names only). If it errors, read the
-message: `update the
-Vercel CLI: npm i -g vercel@latest` means the Vercel CLI is too old to manage deploy hooks, and a
-missing Git connection means 6b did not finish (run it again). If the hook URL ever reaches the
-transcript or printed output, that is a decision block (`phase-2-run.md`, "Block protocol"): the
-founder decides whether to delete the hook (**Project → Settings → Git → Deploy Hooks**). The
-action is
-`the Vercel deploy hook URL reached the transcript: delete the hook in Vercel and answer Decision: revoked, or answer Decision: keep`.
-On resume, `revoked`: re-run the script, which creates a new hook and gives it to CI; `keep`: go
-on, and the end-of-run report lists the hook as exposed. Never print the project JSON
-(`vercel api /v9/projects/<slug>`): its `link.deployHooks` holds the hook URL.
+bearer credential: it never appears in your output or in argv. Success prints
+`OK  Vercel production branch is master`, then
+`OK  deploy hook production <created|reused>, stored in startup-<slug>/ci, set as GitHub secret`
+(names and statuses only). The branch call's response holds the project JSON, deploy hook URLs
+included: the script reads one field of it and never prints it, and you never call it by hand. Verify with `gh secret list --repo "<repository>"` (names only). If it
+errors, read the message: `update the Vercel CLI: npm i -g vercel@latest` means the Vercel CLI is
+too old to manage deploy hooks, and a missing Git connection means 6b did not finish (run it
+again). `vercel deploy-hooks create failed` before the first push means the branch does not exist
+yet: push first; right after the push, wait 10 seconds and run it again.
+
+If `production.yml` already ran without the secret (its `Trigger Vercel production deploy` step
+failed), re-run that run once the secret is set: `gh run rerun <id> --repo "<repository>"`, with
+the id of that `production.yml` run (6j item 1 shows how to take it), then watch it again.
+
+If the hook URL ever reaches the transcript or printed output, it is not a block
+(`phase-2-run.md`, "When something breaks"): go on with the hook, delete nothing, and the
+end-of-run report lists it under exposed secrets, with how to revoke it: delete the hook in
+**Project → Settings → Git → Deploy Hooks**, then run this script again, which creates a new hook
+and gives it to CI. Never print the project JSON (`vercel api /v9/projects/<slug>`): its
+`link.deployHooks` holds the hook URL.
 
 ## 6e. Finish `.env.prod`
 
@@ -202,7 +230,7 @@ The workflows reference exactly three secrets (check that nothing was added:
 
 | Secret | Used by | Set in |
 | --- | --- | --- |
-| `VERCEL_DEPLOY_HOOK_URL` | `production.yml` — triggers the deploy after CI passes | 6d (`vercel-deploy-hook.mjs`) |
+| `VERCEL_DEPLOY_HOOK_URL` | `production.yml` — triggers the deploy after CI passes | 6d (`vercel-deploy-hook.mjs`), right after the first push |
 | `DATABASE_URL` | `ci.yml` → `migrate` job on `master` | now |
 | `DEV_DATABASE_URL` | `ci.yml` → `migrate` job on `dev` | only if a `dev` branch exists |
 
@@ -219,7 +247,8 @@ Set it **before the first push to `master`** (6j), or the `migrate` job fails it
 
 ## 6i. Protect `master`
 
-Run it right after the first push (6j item 1): `master` does not exist on GitHub before.
+Run it after the first push, the deploy hook and the runs they start (6j item 1, 6d): `master`
+does not exist on GitHub before the push.
 `CLAUDE.md` calls branch protection the only gate a developer cannot bypass locally. Require the CI
 jobs, on the startup's repository written out literally (`<repository>` is `<owner>/<slug>` from
 `startup.config.json`; never `{owner}/{repo}`, which `gh` can fill in with the boilerplate):
@@ -244,7 +273,8 @@ end-of-run report as a follow-up: it does not block deployment.
 Checklist before the first deploy — every line must be true:
 
 - [ ] the Vercel project is **connected to the GitHub repo** (6b, not only `vercel link`)
-- [ ] `gh secret list --repo "<repository>"` shows `VERCEL_DEPLOY_HOOK_URL` and `DATABASE_URL`
+- [ ] `gh secret list --repo "<repository>"` shows `DATABASE_URL` (6g);
+  `VERCEL_DEPLOY_HOOK_URL` comes right after the push (6d)
 - [ ] the env push in 6g succeeded with no missing variable
 
 1. **The first push.** On `master`, with everything committed:
@@ -255,8 +285,11 @@ Checklist before the first deploy — every line must be true:
 
    The husky pre-push hook lets this first push create `master` on the new remote; after it,
    `master` only changes through a branch and a PR that you merge. The push runs `ci.yml` and its
-   `migrate` job, then `production.yml` calls the deploy hook and Vercel builds. Follow each run
-   without a prompt:
+   `migrate` job. **At once**, before CI finishes, create the deploy hook (6d,
+   `node scripts/providers/vercel-deploy-hook.mjs --project <slug>`, which also makes `master`
+   the Vercel production branch): Vercel accepts both only now that `master` exists on GitHub.
+   When CI completes, `production.yml` calls the hook and Vercel builds production. Follow each
+   run without a prompt:
 
    ```bash
    gh run list --repo "<repository>" --branch master --workflow ci.yml --limit 1 --json databaseId -q '.[0].databaseId'
@@ -269,7 +302,10 @@ Checklist before the first deploy — every line must be true:
    when it is cut off (it only reads). Once CI is green, do the same with
    `--workflow production.yml` for the deploy run, which starts when CI completes. A red `migrate`
    job usually means a wrong `DATABASE_URL` secret; a failed Vercel build with
-   `Invalid environment variables` means a variable is missing in 6g.
+   `Invalid environment variables` means a variable is missing in 6g. A red `production.yml` run
+   whose `Trigger Vercel production deploy` step failed because it started before the hook secret
+   existed: once `gh secret list --repo "<repository>"` shows `VERCEL_DEPLOY_HOOK_URL`, run
+   `gh run rerun <id> --repo "<repository>"` with that run's id and watch it again. Then 6i.
 2. **Smoke test** (the `smoke-test` step), every time on the deployed commit:
    1. `git switch master && git pull --ff-only`: after a PR merged on GitHub, the local `HEAD` is
       not the deployed commit. `git rev-parse HEAD` is then the commit `/api/version` must return.

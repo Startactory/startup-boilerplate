@@ -11,11 +11,13 @@ function noop(): void {}
 
 export function DashboardWrapper({
   user,
+  logo,
   children,
 }: {
   user: AuthenticatedUser;
+  logo: ReactNode;
   children: ReactNode;
-}) {
+}): React.ReactElement {
   return (
     <DashboardHeaderBridgeProvider>
       <TooltipProvider delay={0}>
@@ -25,7 +27,7 @@ export function DashboardWrapper({
           className="h-svh overflow-hidden"
           style={{ '--sidebar-width-icon': '2.5rem' } as React.CSSProperties}
         >
-          <DashboardSidebar user={user} />
+          <DashboardSidebar user={user} logo={logo} />
           <SidebarInset className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-linen md:peer-data-[variant=inset]:my-4 md:peer-data-[variant=inset]:mr-2 md:peer-data-[variant=inset]:ml-0">
             {children}
           </SidebarInset>

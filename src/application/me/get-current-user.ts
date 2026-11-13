@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import { cache } from 'react';
 import { getMembership } from '@/application/organization/get-membership';
 import { type AppError, unauthorized } from '@/core/errors';
+import { DEFAULT_LOCALE } from '@/i18n/locales';
 import { auth } from '@/infra/auth/auth';
 
 export type AuthenticatedUser = {
@@ -33,7 +34,7 @@ async function getCurrentUserUncached(): Promise<
     firstName: session.user.firstName,
     lastName: session.user.lastName,
     image: session.user.image ?? null,
-    locale: session.user.locale ?? 'fr',
+    locale: session.user.locale ?? DEFAULT_LOCALE,
     sessionId: session.session.id,
     organizationId: membership.value?.organizationId ?? null,
   });

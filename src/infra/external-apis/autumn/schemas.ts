@@ -5,3 +5,7 @@ import * as v from 'valibot';
 export const AutumnCheckResultSchema = v.object({
   allowed: v.boolean(),
 });
+
+export const AutumnErrorBodySchema = v.object({
+  code: v.string(),
+});

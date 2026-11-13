@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import { getAppEntitlement } from '@/application/billing/get-app-entitlement';
 import { getCurrentUser } from '@/application/me/get-current-user';
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { DashboardMainShell } from './components/dashboard-main-shell';
 import { DashboardWrapper } from './components/dashboard-wrapper';
 import { ToastFromSearchParams } from './components/toast-from-search-params';
@@ -22,7 +23,10 @@ export default async function DashboardLayout({
   if (entitlement.isErr() || !entitlement.value.allowed) redirect('/paywall');
 
   return (
-    <DashboardWrapper user={currentUser.value}>
+    <DashboardWrapper
+      user={currentUser.value}
+      logo={<BrandLogo showName={false} />}
+    >
       <Suspense fallback={null}>
         <ToastFromSearchParams />
       </Suspense>

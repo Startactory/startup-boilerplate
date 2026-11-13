@@ -52,7 +52,7 @@ export function importAutumnKeys({
       throw new Error(`${PRODUCTION_VARIABLE} is not a live key`);
     }
   } else if (!sandboxKey) {
-    throw new Error('no Autumn keys in .env — run pnpm dlx atmn login first');
+    throw new Error('no Autumn keys in .env — run pnpm exec atmn login first');
   }
   const productionKey = liveKey ?? sandboxKey;
   if (sandboxKey?.startsWith(LIVE_KEY_PREFIX)) {

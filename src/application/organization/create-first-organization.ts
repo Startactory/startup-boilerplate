@@ -3,12 +3,14 @@ import 'server-only';
 import * as v from 'valibot';
 import { getCurrentUser } from '@/application/me/get-current-user';
 import { createOrganizationWithOwner } from '@/application/organization/create-organization-with-owner';
+import { LOCALES } from '@/i18n/locales';
 import { setActiveOrganizationOnSession } from '@/infra/auth/active-organization';
 import { log } from '@/shared/logger';
 import { newId } from '@/shared/utils/id';
 
 const InputSchema = v.object({
   organizationName: v.pipe(v.string(), v.minLength(2), v.maxLength(100)),
+  locale: v.picklist(LOCALES),
 });
 
 export type CreateFirstOrganizationInput = v.InferInput<typeof InputSchema>;
@@ -51,6 +53,7 @@ export async function createFirstOrganization(
     organizationId,
     name: parsed.output.organizationName,
     slug: slugify(parsed.output.organizationName),
+    locale: parsed.output.locale,
     ownerUserId: me.id,
   });
   if (created.isErr()) {

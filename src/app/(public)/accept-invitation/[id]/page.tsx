@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { getCurrentUser } from '@/application/me/get-current-user';
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { auth } from '@/infra/auth/auth';
 import { AcceptInvitationContent } from './components/accept-invitation-content';
 
@@ -62,6 +63,7 @@ export default async function AcceptInvitationPage({
           : null
       }
       currentUserEmail={me.value.email}
+      logo={<BrandLogo />}
     />
   );
 }

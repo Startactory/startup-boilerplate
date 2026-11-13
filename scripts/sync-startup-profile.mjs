@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { icons } from 'lucide-react';
 import * as v from 'valibot';
 import { deriveAccentTokens } from './brand/accent.mjs';
-import { Legal } from './startup-config.mjs';
+import { DEFAULT_LOCALE, Legal, SUPPORTED_LOCALES } from './startup-config.mjs';
 import { readStartupConfig } from './vault/names.mjs';
 
 const PROFILE_PATH = 'src/shared/startup-profile/profile.json';
@@ -44,6 +44,16 @@ function resolveCurrency(currency) {
   return code;
 }
 
+function resolveDefaultLocale(locale) {
+  const resolved = locale ?? DEFAULT_LOCALE;
+  if (!SUPPORTED_LOCALES.includes(resolved)) {
+    throw new Error(
+      `defaultLocale "${resolved}" must be ${SUPPORTED_LOCALES.join(' or ')}`,
+    );
+  }
+  return resolved;
+}
+
 function resolveLegal(legal) {
   if (legal === undefined) return NEUTRAL_LEGAL;
   const result = v.safeParse(Legal, legal);
@@ -77,6 +87,7 @@ export function syncStartupProfile({ config, writeFile }) {
     name: config.name ?? '',
     brand,
     currency: resolveCurrency(config.pricing?.currency),
+    defaultLocale: resolveDefaultLocale(config.defaultLocale),
     legal: resolveLegal(config.legal),
   };
   writeFile(PROFILE_PATH, `${JSON.stringify(profile, null, 2)}\n`);

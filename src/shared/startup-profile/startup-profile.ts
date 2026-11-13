@@ -27,6 +27,7 @@ const StartupProfileSchema = v.object({
     accent: v.pipe(v.string(), v.regex(/^#[0-9a-f]{6}$/i)),
   }),
   currency: v.string(),
+  defaultLocale: v.picklist(['fr', 'en']),
   legal: LegalIdentitySchema,
 });
 

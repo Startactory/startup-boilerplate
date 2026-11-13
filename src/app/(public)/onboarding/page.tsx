@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { findPendingInvitationForCurrentUser } from '@/application/invitations/find-pending-for-current-user';
 import { getCurrentUser } from '@/application/me/get-current-user';
+import { BrandLogo } from '@/components/brand/brand-logo';
 import { OnboardingForm } from './components/onboarding-form';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,5 +19,5 @@ export default async function OnboardingPage(): Promise<React.ReactElement> {
   if (pending) {
     redirect(`/accept-invitation/${encodeURIComponent(pending.id)}`);
   }
-  return <OnboardingForm />;
+  return <OnboardingForm logo={<BrandLogo />} />;
 }

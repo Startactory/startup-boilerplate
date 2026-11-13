@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useTransition } from 'react';
@@ -28,13 +27,15 @@ type Props = {
   invitationId: string;
   invitation: InvitationView | null;
   currentUserEmail: string;
+  logo: React.ReactNode;
 };
 
 export function AcceptInvitationContent({
   invitationId,
   invitation,
   currentUserEmail,
-}: Props) {
+  logo,
+}: Props): React.ReactElement {
   const t = useTranslations('AcceptInvitation');
   const tMembers = useTranslations('Members');
   const tErrors = useTranslations('Errors');
@@ -153,15 +154,7 @@ export function AcceptInvitationContent({
 
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background">
-      <Image
-        src="/logo.svg"
-        alt=""
-        width={64}
-        height={64}
-        className="rounded-md"
-        aria-hidden
-        priority
-      />
+      {logo}
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-base font-semibold">

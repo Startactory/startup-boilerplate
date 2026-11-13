@@ -5,6 +5,7 @@
     "accent": "#2f3130"
   },
   "currency": "EUR",
+  "defaultLocale": "fr",
   "legal": {
     "termsVersion": "0",
     "founderName": "",

@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import posthog from 'posthog-js';
@@ -38,7 +37,11 @@ async function requestFirstOrganization(input: {
   }
 }
 
-export function OnboardingForm() {
+export function OnboardingForm({
+  logo,
+}: {
+  logo: React.ReactNode;
+}): React.ReactElement {
   const t = useTranslations('Onboarding');
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -77,15 +80,7 @@ export function OnboardingForm() {
 
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-6 bg-background">
-      <Image
-        src="/logo.svg"
-        alt=""
-        width={64}
-        height={64}
-        className="rounded-md"
-        aria-hidden
-        priority
-      />
+      {logo}
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-base font-semibold">

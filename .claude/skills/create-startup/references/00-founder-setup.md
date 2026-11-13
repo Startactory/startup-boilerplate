@@ -26,7 +26,10 @@ it passes. Never redo an item that already passes.
 - The service account token never passes through you. You hand the founder a command; the token goes
   from `op` straight into the macOS Keychain.
 - The founder uses one Google identity for every provider below: `googleAccount` in
-  `startup.config.json`. Use that one account everywhere.
+  `startup.config.json`. Use that one account everywhere. Chrome can be signed in to several
+  Google accounts, so every Google account page and Google Cloud console URL you open carries
+  `authuser=<googleAccount>` (the address works as the value): it then opens on that account, not
+  on Chrome's default one.
 
 ## 1. Tools
 
@@ -93,14 +96,19 @@ supplies the token to the child process. The vault scripts read the token themse
 
 ## 3. Identity
 
-The founder's Google account is the identity for every provider. The phase 1 interview reads the
-account Chrome (the Claude in Chrome extension) is signed in to (`https://myaccount.google.com`)
-and records it as `googleAccount`. When Chrome is signed in to none, the founder signs in: the
-password and any 2FA code are theirs.
+The founder's Google account is the identity for every provider. Chrome (the Claude in Chrome
+extension) can be signed in to several Google accounts, and its default one (`authuser=0`) is not
+necessarily the founder's. The phase 1 interview lists them all: it opens
+`https://myaccount.google.com/?authuser=0`, then `?authuser=1`, `?authuser=2` and so on, and notes
+the address each one shows, until a sign-in page or an address already noted (the account chooser
+of any Google page lists them too). With one account, that account is `googleAccount`; with
+several, the interview asks the founder which one is theirs for the startup. When Chrome is signed
+in to none, the founder signs in: the password and any 2FA code are theirs.
 
 ## 4. Provider accounts
 
-Accounts the run needs: **Google (the Google Cloud console), GitHub, Vercel, Supabase, PostHog,
+Accounts the run needs: **Google (the Google Cloud console,
+`https://console.cloud.google.com/?authuser=<googleAccount>`), GitHub, Vercel, Supabase, PostHog,
 Autumn, Dash0**. PostHog and Dash0 are in the startup's region (`EU` or `US`, see
 `data-region.md`); a startup in the other region adds that region's accounts. Stripe and Resend
 are not needed for the run: Stripe comes with going live, Resend with a custom domain
@@ -115,9 +123,18 @@ confirmed existing account, open its sign-in page, click "Continue with Google" 
 Supabase) and pick `googleAccount` on the account chooser. For any other provider the founder
 clicks it and finishes the sign-up: creating an account is theirs. The founder also types any
 password, 2FA code, phone code or CAPTCHA. Then reload the dashboard and confirm the session.
-Check the signed-in address on each dashboard: a provider that needs a phone number the founder
-already used elsewhere (Vercel, for example) may be on another of the founder's accounts, which is
-fine once they confirm it.
+
+Check also which identity each dashboard is signed in to (the account menu, or the address or
+organization the page shows) and compare it with `googleAccount`:
+
+- A provider that needs a phone number the founder already used elsewhere (Vercel, for example)
+  may be on another of the founder's accounts, which is fine once they confirm it.
+- A provider that phase 2 uses only through its API with a master key (Supabase, PostHog, Dash0)
+  may be signed in to another account in Chrome: the scripts never use that session. It matters
+  only when item 6 must still create that provider's master key, because the key then belongs to
+  the account Chrome shows.
+- This check proves the Chrome session only. It never proves which account an existing master
+  key belongs to; the preflight's `supabase-quota` and `dash0` checks call the APIs with the keys.
 
 In phase 2, a login page means signing in again the same way ("Continue with Google", then
 `googleAccount`); a password, 2FA or CAPTCHA prompt is a block (`phase-2-run.md`).
@@ -140,7 +157,7 @@ they click them.
 
 | Check | If it fails | Success |
 | --- | --- | --- |
-| `gh auth status`, with the `workflow` scope when `gh config get git_protocol` prints `https` | the founder runs `gh auth login --web -s workflow` (or `gh auth refresh -s workflow`) in a terminal | logged in to github.com |
+| `gh auth status`, with the `workflow` scope when `gh config get git_protocol -h github.com` prints `https` (the github.com value, which `gh auth status` shows as `Git operations protocol`) | the founder runs `gh auth login --web -s workflow` (or `gh auth refresh -s workflow`) in a terminal | logged in to github.com |
 | `vercel whoami` | `vercel login` in a Claude terminal tab | prints the username |
 
 `vercel login` prints a device URL (`vercel.com/oauth/device?user_code=…`). Open it in Chrome, check
@@ -203,19 +220,27 @@ The two Dash0 endpoints are not secret; copy each the same way, one command per 
 ### SMTP
 
 SMTP is the no-domain email option, and every run uses it (a run has no domain). Claude cannot
-create a Gmail app password, so the founder does:
+create a Gmail app password, so the founder does. `<gmail address>` is the SMTP Gmail address
+from the phase 1 interview (default `googleAccount`).
 
-1. In their Google account (Security, 2-Step Verification on, then App passwords) the founder
-   creates an app password and copies it themselves.
-2. Immediately after, you run:
+1. **2-Step Verification first.** Open
+   `https://myaccount.google.com/security?authuser=<gmail address>` and check, with a narrow
+   `find "2-Step Verification"` (not a secret page, but read nothing else), whether it is on.
+   When it is off, App passwords only shows "The setting you are looking for is not available for
+   your account". Send the founder first to
+   `https://myaccount.google.com/signinoptions/twosv?authuser=<gmail address>`, and tell them that
+   adding an authenticator app does not turn 2-Step Verification on: they must click "Turn on
+   2-Step Verification". Check the security page again afterwards.
+2. At `https://myaccount.google.com/apppasswords?authuser=<gmail address>` the founder creates an
+   app password and copies it themselves.
+3. Immediately after, you run:
 
    ```bash
    node scripts/vault-put.mjs --vault startup-founder --from-clipboard master-keys SMTP_PASS
    printf %s '<gmail address>' | node scripts/vault-put.mjs --vault startup-founder master-keys SMTP_USER
    ```
 
-   The address is not a secret: it is the SMTP Gmail address from the phase 1 interview (default
-   `googleAccount`). The app password never passes through you.
+   The address is not a secret. The app password never passes through you.
 
 Check for these two fields the same way as above.
 

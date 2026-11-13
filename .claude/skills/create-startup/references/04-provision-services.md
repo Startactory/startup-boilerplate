@@ -64,10 +64,12 @@ value never appears in a command line, in your output, in a page-text dump or in
    `--vault <name>` overrides the vault; it defaults to `startup-<slug>`.
 
 **Chrome rule on any page that shows a secret** (a client secret, an API key, a token): use narrow
-`find` queries only (for example `find "Copy client secret button"`) and click the result. Never
-call `get_page_text`, `read_page` or `screenshot` there, and do not read the page's form fields
-with JavaScript. If you must see the page to navigate, do it before the secret appears or after
-you leave it.
+`find` queries only (for example `find "Create API key"`) and click the result. Never call
+`get_page_text`, `read_page` or `screenshot` there, and do not read the page's form fields with
+JavaScript. If you must see the page to navigate, do it before the secret appears or after you
+leave it. A `find` returns the 20 closest elements, so on a page where a Copy button's name holds
+the secret even a narrow query can return it: the Google client dialog of 4b allows only
+`find "Download JSON"`.
 
 OAuth consents, dashboard keys and the file downloads below are covered by the phase 1 consent in
 the `/goal` line. Never create an account, type a password or solve a CAPTCHA: a page that demands
@@ -173,22 +175,30 @@ mounts at `/auth` (not `/api/auth`). One pass: the production URL is already kno
 set now.
 
 Load the Chrome tools in one ToolSearch call and read the `chrome-browser` skill first. Check that
-Chrome is signed in to Google as `googleAccount`. On a re-run, reuse the Google project recorded
-in `googleCloudProject` and its Auth Platform setup, and create only a client whose item still
-lacks it: `node scripts/vault-put.mjs --list-fields local` (or `production`) lists
+Chrome is signed in to Google as `googleAccount`:
+`https://myaccount.google.com/?authuser=<googleAccount>` shows that address (a sign-in page means
+signing in again, `phase-2-run.md`). Chrome can hold several Google accounts and the console opens
+on the default one, so every console URL below carries `authuser=<googleAccount>` (`&authuser=…`
+after `?project=…`). Before each creation (the project, each client), check with a narrow
+`find "Google Account"` that the console's account button names `googleAccount`; never on the
+client-created dialog of item 4. On a re-run, reuse the Google project recorded in
+`googleCloudProject` and its Auth Platform setup, and create only a client whose item still lacks
+it: `node scripts/vault-put.mjs --list-fields local` (or `production`) lists
 `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` by name once they are stored. Then in Chrome:
 
 1. **The Google Cloud project.** When `startup.config.json` has `googleCloudProject`, open
-   `https://console.cloud.google.com/auth/overview?project=<googleCloudProject>` and work in that
-   project. Otherwise create a new one at `https://console.cloud.google.com/projectcreate`, named
+   `https://console.cloud.google.com/auth/overview?project=<googleCloudProject>&authuser=<googleAccount>`
+   and work in that project. Otherwise create a new one at
+   `https://console.cloud.google.com/projectcreate?authuser=<googleAccount>`, named
    after the startup, and keep the project ID Google proposes (unique across Google Cloud). Right
    after the creation, write that ID to `startup.config.json` as `googleCloudProject` and commit it
    (on `master` before the first push, through a PR after it), so a re-run finds it. Never select an existing project because it has the
    startup's name: it may belong to something else, and step 5 would publish its OAuth app. A
    project created by an attempt that never recorded its ID stays; the end-of-run report lists it
    for cleanup.
-2. **Google Auth Platform → Get started** (`console.cloud.google.com/auth/overview`): app name
-   (startup name), user support email `googleAccount`, audience **External**, contact email
+2. **Google Auth Platform → Get started**, on the URL of item 1
+   (`https://console.cloud.google.com/auth/overview?project=<googleCloudProject>&authuser=<googleAccount>`):
+   app name (startup name), user support email `googleAccount`, audience **External**, contact email
    `googleAccount`, tick the Google API Services User Data Policy (covered by the consent to
    accept the providers' terms), **Create**. Then **Data Access** → add scopes
    `.../auth/userinfo.email` and `.../auth/userinfo.profile` (the code requests these). If the
@@ -197,9 +207,15 @@ lacks it: `node scripts/vault-put.mjs --list-fields local` (or `production`) lis
 3. **Clients → Create client → Application type: Web application**, twice:
    - `<name> (local)` with redirect URI `http://localhost:3000/auth/callback/google`
    - `<name>` with redirect URI `<productionUrl>/auth/callback/google`
-4. After creating each client, the dialog shows its ID and secret. This page shows a secret: follow
-   the Chrome rule above (narrow `find` only). Click **Download JSON** (`find "Download JSON"`),
-   then store the file:
+4. After creating each client, the "OAuth client created" dialog shows its ID and secret. On that
+   dialog the only read allowed is one `find "Download JSON"` (safe, checked live): no other
+   `find`, not even to close the dialog, and no `read_page`, `get_page_text` or `screenshot`.
+   `find` returns the 20 closest elements, and they include the Copy buttons whose accessible
+   names contain the client ID and the secret ("Copy to clipboard: GOCSPX-…"). Click **Download
+   JSON**, then close the dialog without looking at it: press Escape (the `computer` action `key`
+   with `Escape`). Before any other read of that tab, navigate it to the next URL you need (for
+   example the project's `auth/overview` URL of item 1): a page you navigated to cannot still show
+   the dialog. Store the file:
 
    ```bash
    node scripts/vault-import-google-client.mjs --env local ~/Downloads/<client_secret_….json>
@@ -212,10 +228,6 @@ lacks it: `node scripts/vault-put.mjs --list-fields local` (or `production`) lis
    `deleted <path>`. A `WARNING` line is advisory (for example, an ID or secret shape that looks
    off): read it. On error it prints `kept <path> — fix the error and re-run`; the file stays so you
    can retry. "Not a web client" means the wrong client type was created.
-
-   **Never search for the Copy buttons on this dialog.** Their accessible names contain the client
-   ID and the secret ("Copy to clipboard: GOCSPX-…"), so any `find` or `read_page` that matches
-   them puts the secret in the transcript. `find "Download JSON"` is safe (checked live).
 
    Fallback when no Download JSON button is offered: the ID and secret must be copied by hand,
    which only the founder can do without the secret reaching you (`phase-2-run.md`, closed list:
@@ -232,13 +244,15 @@ lacks it: `node scripts/vault-put.mjs --list-fields local` (or `production`) lis
    the clipboard. On resume, `node scripts/vault-put.mjs --list-fields <env>` must list both
    names. A client ID in the secret slot (or the reverse) is rejected by validation.
 
-   If a secret did reach the transcript, that is a decision block (`phase-2-run.md`, "Block
-   protocol"): the founder decides whether to delete that client (never you). The action is
-   `a Google <env> client secret reached the transcript: delete that client in Google Cloud and answer Decision: revoked, or answer Decision: keep`.
-   On resume, `revoked`: create a new `<env>` client and import its Download JSON; `keep`: go on
-   with that client (import its file if it is still in `~/Downloads`), and the end-of-run report
-   lists its secret as exposed. A client from an earlier attempt whose file never reached the vault
-   stays; the end-of-run report lists it under "left for cleanup".
+   If a secret did reach the transcript or printed output, it is not a block (`phase-2-run.md`,
+   "When something breaks"): go on with that client (import its file if it is still in
+   `~/Downloads`), delete nothing, and the end-of-run report lists its secret under exposed
+   secrets, with how to revoke it: in the Google Auth Platform, Clients, open the `<env>` client,
+   **Add secret**, store the new one with
+   `node scripts/vault-put.mjs --from-clipboard <env> GOOGLE_CLIENT_SECRET` (for `production`,
+   then push the env again as `06-deploy-production.md` 6g does), and only then disable and delete
+   the old secret. A client from an earlier attempt whose file never reached the vault stays; the
+   end-of-run report lists it under "left for cleanup".
 5. **Publish the app** so anyone can sign in to the live site (covered by the consent):
    **Audience → Publish app**, from "Testing" to "In production". When Google requires a home page
    and a privacy policy (**Branding**), give `<productionUrl>` and `<productionUrl>/legal/privacy`.
@@ -366,16 +380,22 @@ it.
    If `atmn login` was run by hand instead, `node scripts/vault-import-autumn-keys.mjs` moves the
    keys it wrote to `.env` into the vault (sandbox for production too, by default).
 3. **Check the currency.** The plan amounts are in the Autumn organization's default currency, and
-   the storefront shows `pricing.currency`. In the Autumn dashboard (the organization's settings),
-   check that the default currency equals `pricing.currency`. If it does not, change the
-   organization's default to `pricing.currency` before pushing any price (covered by the consent).
+   the storefront shows `pricing.currency`. In the Autumn dashboard, the field is under
+   **Settings → Integrations → Stripe → "Checkout defaults" → Default currency** (for the sandbox,
+   `https://app.useautumn.com/sandbox/settings?tab=stripe`); a new organization defaults to USD.
+   Check that it equals `pricing.currency`. If it does not, change it to `pricing.currency` before
+   pushing any price (covered by the consent), and leave the other fields of that panel (the
+   success URL, for example) as they are.
 4. **Push the product/pricing config** to Autumn's sandbox:
 
    ```bash
-   pnpm dlx atmn push --yes
+   pnpm exec atmn push --yes
    ```
 
-   The products/plans live in `autumn.config.ts`; phase 1 already set the `pro` price and trial
+   `pnpm exec` runs the atmn 1.x that `package.json` pins. Never `pnpm dlx atmn`: it fetches atmn
+   2, which refuses this config (`autumn.config.ts was written for atmn 1.x`) and pushes nothing.
+   Success ends with `Push complete!` and the features and plans it created or updated. The
+   products/plans live in `autumn.config.ts`; phase 1 already set the `pro` price and trial
    (`references/01b-set-pricing.md`).
 5. **Test mode only.** The Autumn sandbox comes with its own test Stripe account, so you connect
    nothing and add no Stripe key to this app (Autumn manages the Stripe webhooks). Never run

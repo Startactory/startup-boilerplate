@@ -1,6 +1,8 @@
 import * as v from 'valibot';
 
 export const SLUG_PATTERN_RUN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+export const SUPPORTED_LOCALES = ['fr', 'en'];
+export const DEFAULT_LOCALE = 'fr';
 
 const text = v.string();
 const requiredText = v.pipe(text, v.nonEmpty('must not be empty'));
@@ -71,6 +73,9 @@ export const RunConfig = v.looseObject({
   domain: v.literal('', 'must be empty until a domain is bought'),
   gdpr: v.boolean(),
   dataRegion: v.picklist(['eu', 'us']),
+  defaultLocale: v.optional(
+    v.picklist(SUPPORTED_LOCALES, `must be ${SUPPORTED_LOCALES.join(' or ')}`),
+  ),
   idea: requiredText,
   githubOwner: requiredText,
   googleAccount: email,

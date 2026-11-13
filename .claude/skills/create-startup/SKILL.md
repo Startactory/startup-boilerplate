@@ -33,8 +33,11 @@ Secrets live in **1Password** (the source of truth) and reach it through one of 
 3. **Downloaded file**: a provider's downloaded JSON goes through an import script into the vault.
 
 **Never read a page that shows a secret.** On such a page use narrow `find` queries only, never
-`get_page_text`, `read_page` or `screenshot`. A secret never appears in a command-line argument,
-and the 1Password service account token never passes through you.
+`get_page_text`, `read_page` or `screenshot`; on the Google "OAuth client created" dialog
+(`references/04-provision-services.md` 4b) only the single `find "Download JSON"`. A secret never
+appears in a command-line argument, and the 1Password service account token never passes through
+you. If a secret still reaches the transcript or printed output, the run does not stop: it goes on
+with that secret, and the end-of-run report lists it with how to revoke it.
 
 You never create accounts, type passwords or solve CAPTCHAs. The founder approves OAuth consents
 and dashboard keys once, in the consent of phase 1; the pasted `/goal` line carries that consent
@@ -52,7 +55,9 @@ Two hard rules that keep this reliable:
   Vercel. The Supabase database never goes in `.env`. Both files are git-ignored. **Never commit a
   key.** The vault (1Password) is the source of truth: `.env` is regenerated from it and holds real
   values; `.env.prod` holds `op://` references on every secret line. Never edit them by hand.
-  `.env.template` is the committed, empty shape.
+  `.env.template` is the committed, empty shape. `vercel link` also writes a git-ignored
+  `.env.local` that holds only `VERCEL_OIDC_TOKEN`; leave it
+  (`references/03-install-and-secrets.md`).
 
 ## The stack (what's actually in this repo)
 
@@ -108,8 +113,9 @@ Read each reference file when you reach it and follow it; don't run ahead. Keep 
   passes silently.
 
 **Phase 1 — with the founder, in one sitting** → `references/phase-1-setup.md`
-Briefing, one interview (written to `startup.config.json`, `autumn.config.ts` and the landing
-copy), the founder-only checklist, one blanket consent, then the first two ledger steps while the
+Briefing (it ends with the idea and name question when the founder's first message lacks them),
+one interview (written to `startup.config.json`, `autumn.config.ts` and the landing copy), the
+founder-only checklist, one blanket consent, then the first two ledger steps while the
 founder is present: `repository` (`references/01c-create-repository.md`, no push) and
 `vercel-project` (`references/06-deploy-production.md` 6b, which gives the production URL). Then
 `node scripts/preflight.mjs` until `PREFLIGHT OK`, and the `/goal` line the founder pastes after
@@ -125,7 +131,7 @@ No question to the founder. It runs the reference steps in this order, each clos
 | `local-env` | `references/03-install-and-secrets.md` |
 | `supabase`, `google-oauth`, `posthog`, `smtp`, `autumn`, `dash0` | `references/04-provision-services.md` 4a to 4f |
 | `verify-local` | `references/05-verify-locally.md` |
-| `deploy` | `references/06-deploy-production.md` 6d, 6e, 6g, 6i and 6j item 1 only |
+| `deploy` | `references/06-deploy-production.md` 6e, 6g, the first push (6j item 1), 6d right after it, then 6i |
 | `smoke-test` | `node scripts/smoke-test.mjs` and the browser check |
 | `report` | the end-of-run report below |
 
@@ -156,8 +162,11 @@ The `report` step ends the run with:
 - **production is on the Autumn sandbox** (Stripe test mode): until go-live, anyone can get past
   the paywall with a Stripe test card; going live (`references/after-the-run.md`) ends it;
 - **left for cleanup**: each key the run replaced instead of deleting (provider, key name), each
-  resource an earlier attempt left behind (a Google Cloud project or OAuth client), and each
-  exposed secret the founder chose to keep (a `Decision: keep`), or "none";
+  resource an earlier attempt left behind (a Google Cloud project or OAuth client), and each cloud
+  resource the founder chose to keep (a `Decision: keep`), or "none";
+- **exposed secrets**: each secret that reached the transcript or printed output during the run
+  (the run went on with it): the provider, the vault item and field (or the resource, such as the
+  deploy hook), and how to revoke it as its reference step says, or "none";
 - what stays for later: the company and go-live, a custom domain with Resend, Upstash, Microsoft
   OAuth, branch protection if GitHub refused it;
 - where the secrets live: the 1Password vault `startup-<slug>` (items `local`, `production`,

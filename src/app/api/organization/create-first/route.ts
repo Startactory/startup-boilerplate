@@ -7,6 +7,7 @@ import {
 } from '@/application/organization/create-first-organization';
 import { applyRateLimit } from '@/application/rate-limit/apply-rate-limit';
 import { unauthorized } from '@/core/errors';
+import { getActiveLocale } from '@/i18n/active-locale';
 import { parseJsonBody } from '@/shared/api-route';
 import { jsonError } from '@/shared/errors-http';
 import { log } from '@/shared/logger';
@@ -49,9 +50,13 @@ export async function POST(req: Request): Promise<Response> {
   const body = await parseJsonBody(req, BodySchema);
   if (!body.ok) return body.response;
 
-  log.info('api.organization.create_first.request', { userId: me.value.id });
+  const locale = await getActiveLocale();
+  log.info('api.organization.create_first.request', {
+    userId: me.value.id,
+    locale,
+  });
 
-  const result = await createFirstOrganization(body.value);
+  const result = await createFirstOrganization({ ...body.value, locale });
   if (!result.success) {
     log.warn('api.organization.create_first.failure', {
       userId: me.value.id,

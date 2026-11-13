@@ -33,8 +33,11 @@ review of the generated templates. Until then production stays on the Autumn san
    key is never printed:
 
    ```bash
-   AUTUMN_PROD_SECRET_KEY=op://startup-<slug>/production/AUTUMN_SECRET_KEY node scripts/with-vault.mjs run -- pnpm dlx atmn push -p --yes
+   AUTUMN_PROD_SECRET_KEY=op://startup-<slug>/production/AUTUMN_SECRET_KEY node scripts/with-vault.mjs run -- pnpm exec atmn push -p --yes
    ```
+
+   `pnpm exec` runs the atmn 1.x that `package.json` pins; `pnpm dlx atmn` would fetch atmn 2,
+   which refuses this config.
 
    Success ends with the products listed as pushed to production. If `atmn` still reads the
    sandbox key from `.env`, stop and report it rather than push to the wrong environment.
@@ -62,9 +65,11 @@ The founder buys the domain (a purchase: theirs). Then, with the founder's go-ah
 3. **App URL**: `node scripts/init-env.mjs --apply --file .env.prod --app-url "https://<domain>"`.
    Better Auth `trustedOrigins`, secure cookies, OAuth redirects and email links key off it; a
    wrong value gives sign-in loops.
-4. **Google**: in the `<name>` client (not `(local)`), add `https://<domain>/auth/callback/google`,
-   and point the app's home page and privacy policy to the domain. The page can show the client
-   secret: narrow `find` queries only.
+4. **Google**: open the console on the founder's account
+   (`https://console.cloud.google.com/auth/overview?project=<googleCloudProject>&authuser=<googleAccount>`);
+   in the `<name>` client (not `(local)`), add `https://<domain>/auth/callback/google`, and point
+   the app's home page and privacy policy to the domain. The page can show the client secret:
+   narrow `find` queries only.
 5. **Resend**: create the `RESEND_FULL_ACCESS_API_KEY` master key as `00-founder-setup.md` item 6
    does; add the domain in Resend in the region `data-region.md` gives, add its DNS records, and
    wait for "verified". Then `node scripts/providers/resend-keys.mjs`, which prints
@@ -81,7 +86,7 @@ The founder buys the domain (a purchase: theirs). Then, with the founder's go-ah
 2. The terms of sale show the price, the trial and the currency. On any change to `price`,
    `trialDays` or `currency`, bump `legal.termsVersion` to today's date and run
    `node scripts/sync-startup-profile.mjs`, so customers accept the new terms.
-3. `pnpm dlx atmn push --yes` pushes the sandbox, which production uses until go-live. After
+3. `pnpm exec atmn push --yes` pushes the sandbox, which production uses until go-live. After
    go-live, also run the production push of "Go live" item 5.
 4. Commit on a branch and merge its PR: CI deploys the new price and terms.
 

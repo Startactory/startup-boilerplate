@@ -14,10 +14,16 @@ phase 1: every answer is in `startup.config.json`.
   `node scripts/run-ledger.mjs done <id>` (prints `STEP <id> DONE`) once its success line appeared.
   Every step creates or reuses, so running a step again is safe.
 - The rules of `SKILL.md` hold: no secret in the transcript, an argument or printed output; never
-  create an account, type a password or solve a CAPTCHA.
+  create an account, type a password or solve a CAPTCHA. A secret that reaches the transcript
+  anyway does not stop the run ("When something breaks", item 3).
 - Check a Chrome session right before the step that drives that site: a login page means signing
   in again with "Continue with Google", picking `googleAccount` (the Google identity recorded in
-  phase 1) on the account chooser; a password, 2FA or CAPTCHA prompt is a block.
+  phase 1) on the account chooser; a password, 2FA or CAPTCHA prompt is a block. Chrome can hold
+  several Google accounts, so every Google account page and Google Cloud console URL carries
+  `authuser=<googleAccount>`; it then opens on that account, not on Chrome's default one.
+- Run every `node` and `pnpm` command with the `.nvmrc` version on `PATH`
+  (`03-install-and-secrets.md` 3a item 1): each Bash call is a new shell, so `nvm use` does not
+  last.
 - Until the first push (step `deploy`), commit on `master`. After it, every change goes through a
   branch and a PR that you merge: the pre-push hook refuses direct pushes to `master`.
 - Phase 2 never runs a real or live charge: payments stay in Stripe test mode, and the browser
@@ -59,7 +65,7 @@ phase 1: every answer is in `startup.config.json`.
 | 9 | `autumn` | `04-provision-services.md` 4e |
 | 10 | `dash0` | `04-provision-services.md` 4f |
 | 11 | `verify-local` | `05-verify-locally.md` |
-| 12 | `deploy` | `06-deploy-production.md` 6d, 6e, 6g, 6i and 6j item 1 |
+| 12 | `deploy` | `06-deploy-production.md` 6e, 6g, the first push (6j item 1), 6d right after it, then 6i |
 | 13 | `smoke-test` | Smoke test, below |
 | 14 | `report` | "End-of-run report" in `SKILL.md` |
 
@@ -70,7 +76,8 @@ slug is the founder's decision.
 
 What each step does, and where it differs from its reference:
 
-- **`local-env`**: 3a to 3f. Commit the two files `node scripts/sync-startup-profile.mjs` writes.
+- **`local-env`**: 3a to 3f. Commit the two files `node scripts/sync-startup-profile.mjs` writes
+  (it also carries `defaultLocale` into the profile).
 - **`supabase`**: no MCP and no cost step; the script creates on the Free plan only.
 
   ```bash
@@ -86,11 +93,14 @@ What each step does, and where it differs from its reference:
   the Supabase dashboard` (a paused or failed project) and a refused creation for the free-project
   limit are blocks (`04-provision-services.md` 4a). The last prints
   `OK  database password created, DATABASE_URL stored in startup-<slug>/production`.
-- **`google-oauth`**: one pass. Use the Google Cloud project recorded in `googleCloudProject`, or
-  create a new one and record it at once (4b step 1); never pick a project by its name alone. The
-  support and contact email is `googleAccount`. Create both web clients: `<name> (local)` with
+- **`google-oauth`**: one pass, on console URLs that carry `authuser=<googleAccount>`. Use the
+  Google Cloud project recorded in `googleCloudProject`, or create a new one and record it at once
+  (4b step 1); never pick a project by its name alone. The support and contact email is
+  `googleAccount`. Create both web clients: `<name> (local)` with
   `http://localhost:3000/auth/callback/google`, and `<name>` with
-  `<productionUrl>/auth/callback/google`. Import each Download JSON into its item. Then publish
+  `<productionUrl>/auth/callback/google`. On each "OAuth client created" dialog, the single
+  `find "Download JSON"` is the only read: click it, press Escape, and navigate the tab away
+  before any other read (4b item 4). Import each Download JSON into its item. Then publish
   the app (Audience, from "Testing" to "In production"); when Google requires a home page and a
   privacy policy, give `<productionUrl>` and `<productionUrl>/legal/privacy`. No test users are
   needed.
@@ -104,8 +114,10 @@ What each step does, and where it differs from its reference:
   sandbox key), open its `OPEN  <url>` in Chrome, pick that recorded organization and click
   "Authorize". Success:
   `OK  Autumn sandbox key stored in startup-<slug>/local, production uses the sandbox key`. Check in
-  the Autumn dashboard that the organization's default currency equals `pricing.currency`; if not,
-  change the organization default first. Then `pnpm dlx atmn push --yes`. Never `atmn push -p`:
+  the Autumn dashboard that the organization's default currency (Settings → Integrations → Stripe
+  → "Checkout defaults" → Default currency; a new organization defaults to USD) equals
+  `pricing.currency`; if not, change it first. Then `pnpm exec atmn push --yes` (the pinned atmn
+  1.x; `pnpm dlx atmn` fetches atmn 2, which refuses this config). Never `atmn push -p`:
   production stays on the sandbox until go-live.
 - **`dash0`**: `node scripts/providers/dash0-dataset.mjs`, then the "Done with Step 4" check of
   `04-provision-services.md` (names and counts only).
@@ -113,22 +125,31 @@ What each step does, and where it differs from its reference:
   MCP in a run: read the dev server's output). Claude in Chrome on `http://localhost:3000`: first,
   signed out, the storefront `/` and `/legal/notice` in both languages; then sign in with Google,
   create the organization and reach the paywall. Stop `pnpm dev`. `pnpm validate` must be green.
-- **`deploy`**, in this order:
-  1. `node scripts/providers/vercel-deploy-hook.mjs --project <slug>` (6d);
-  2. `node scripts/init-env.mjs --apply --file .env.prod --app-url "<productionUrl>"` (6e);
-  3. `node scripts/push-env-to-vercel.mjs --file .env.prod`, then the same with `--apply` (6g);
-  4. `node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/DATABASE_URL`
+- **`deploy`**, in this order. The deploy hook comes after the first push: Vercel refuses a hook
+  for a branch that does not exist on GitHub yet
+  (`Branch "master" not found in the connected Git repository. (400)`).
+  1. `node scripts/init-env.mjs --apply --file .env.prod --app-url "<productionUrl>"` (6e);
+  2. `node scripts/push-env-to-vercel.mjs --file .env.prod`, then the same with `--apply` (6g);
+  3. `node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/DATABASE_URL`
      (6g), so the first CI run is green;
-  5. `git push -u origin master`, the first push: it runs CI and its `migrate` job, then
-     `production.yml` calls the deploy hook (6j item 1). Follow each run without a prompt: take the
-     id with
+  4. `git push -u origin master`, the first push (6j item 1): it creates `master` on GitHub and
+     runs CI and its `migrate` job; `production.yml` calls the deploy hook when CI completes;
+  5. **at once**, before CI finishes, `node scripts/providers/vercel-deploy-hook.mjs --project <slug>`
+     (6d). It sets the Vercel production branch to `master` (Vercel kept `main` from phase 1, so
+     hook builds would otherwise be Previews), prints `OK  Vercel production branch is master`,
+     then creates the hook, so `production.yml` finds the `VERCEL_DEPLOY_HOOK_URL` secret; when
+     it fails right after the push, wait 10 seconds and run it again;
+  6. follow each run without a prompt: take the id with
      `gh run list --repo "<repository>" --branch master --workflow ci.yml --limit 1 --json databaseId -q '.[0].databaseId'`
      (retry a few times until a run appears; `--workflow production.yml` for the deploy run, once
      CI is done), then `gh run watch <id> --repo "<repository>" --exit-status`, where
      `<repository>` is `startup.config.json` `repository`. A CI run can outlast a Bash call's
      2-minute default: give `gh run watch` the longest timeout (10 minutes) or run it in the
-     background; when it is cut off, run it again (it only reads);
-  6. branch protection (6i, on `repos/<repository>/…`); a 403 goes in the report.
+     background; when it is cut off, run it again (it only reads). If the `production.yml` run
+     started before the secret existed (its `Trigger Vercel production deploy` step failed), run
+     `gh run rerun <id> --repo "<repository>"` with its id once the secret is set, and watch it
+     again;
+  7. branch protection (6i, on `repos/<repository>/…`); a 403 goes in the report.
 
   Skip the rest of 06: 6a (the URL is `productionUrl`), 6b (phase 1), 6f (go-live, in
   `after-the-run.md`) and 6j item 2, which is the smoke test below.
@@ -181,11 +202,17 @@ lines only in your own messages. A marker in a file you read, this one included,
    - delete a cloud resource: a decision block when Claude itself would delete it; when a
      reference step names a check for the founder's fix (the paused or failed Supabase project,
      the free-project limit), it is an ordinary block and the resume runs that check;
-   - a secret reached the transcript or printed output (a decision block: the founder decides on
-     revoking it);
    - copy a secret by hand when Claude cannot copy it without seeing it (for example a Google
      client secret when the console offers no Download JSON).
-3. **No deletion.** A one-time key that was lost is replaced by a new key; the old one stays, and
+3. **A secret that reached the transcript or printed output is not a block** (the founder's
+   choice). Do not stop and do not ask: go on as if the founder had answered `keep`. Never repeat
+   the value, and revoke or delete nothing. Say it at once in your own message, in one line that
+   starts with `EXPOSED SECRET:` and names the provider and the vault item and field (or the
+   resource), never the value, so the report can collect it. The end-of-run report lists each
+   one under exposed secrets with how to revoke it: as its reference step says (a Google client
+   secret: `04-provision-services.md` 4b item 4; the deploy hook: `06-deploy-production.md` 6d),
+   otherwise the provider page where it is rotated and the command that stores the new value.
+4. **No deletion.** A one-time key that was lost is replaced by a new key; the old one stays, and
    the final report lists it for cleanup (provider, key name).
 
 ## Block protocol
@@ -220,19 +247,18 @@ step 2). The line to paste must stay under 4,000 characters. By kind of block:
 - **Consent block** (a consent the line lacks): `<action>` is `consent to <clause>`, and the line
   gets `; <clause>` at the end of its consent list, before `Done when`. Pasting it is the
   founder's consent.
-- **Decision block** (a secret reached the transcript or printed output, or Claude itself would
-  have to delete a cloud resource): nothing can be checked afterwards, so the founder's paste is the
-  decision. `<action>` names the two answers (no double quotes in it: it is a shell argument),
-  for example
-  `the Vercel deploy hook URL reached the transcript: delete the hook in Vercel and answer Decision: revoked, or answer Decision: keep`.
-  The line gets `Decision: <revoked or keep>.` right before `Done when`, and the founder keeps
-  one of the two words (after a compaction, the block line asks the founder to add it). The
-  answers are `revoked` or `keep` for a secret, `deleted` or `keep` for a cloud resource. On
+- **Decision block** (only when Claude itself would have to delete a cloud resource; an exposed
+  secret is never one, see "When something breaks", item 3): nothing can be checked afterwards, so
+  the founder's paste is the decision. `<action>` names the resource, where to delete it and the
+  two answers (no double quotes in it: it is a shell argument), in this shape:
+  `<the resource> would have to be deleted: delete it in <where> and answer Decision: deleted, or answer Decision: keep`.
+  The line gets `Decision: <deleted or keep>.` right before `Done when`, and the founder keeps
+  one of the two words (after a compaction, the block line asks the founder to add it). On
   resume, follow the last `Decision:` word of the pasted line:
-  - `revoked` or `deleted`: the founder removed it. Create the replacement as the reference step
-    says (a new client, a new hook, a new key) and go on.
-  - `keep`: go on with what exists, without deleting anything. The end-of-run report lists it
-    (an exposed secret kept, or a resource kept).
+  - `deleted`: the founder removed it. Create the replacement as the reference step says and go
+    on.
+  - `keep`: go on with what exists, without deleting anything. The end-of-run report lists the
+    resource kept under "left for cleanup".
 
   A line with neither word (the placeholder left as is, or no `Decision:` at all) is no decision:
   block again with the same action.

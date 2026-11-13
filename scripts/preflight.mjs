@@ -6,7 +6,6 @@ import {
   findFactoryOrganization,
   listActiveProjects,
 } from './providers/supabase-project.mjs';
-import { validateRunConfig } from './startup-config.mjs';
 import {
   FOUNDER_VAULT,
   MASTER_KEYS_ITEM,
@@ -20,6 +19,8 @@ const FREE_PLAN_ACTIVE_PROJECTS = 2;
 const DASH0_REVOKED_STATUSES = new Set([401, 402, 403]);
 const DASH0_FIX =
   'Dash0 trial ended or token revoked — the founder renews the Dash0 subscription';
+const DEPENDENCIES_FIX = 'pnpm install';
+const MISSING_PACKAGE_PATTERN = /Cannot find package/;
 
 function masterKeyFields(dataRegion) {
   return [
@@ -53,8 +54,31 @@ async function attempt(name, check) {
   }
 }
 
-function checkConfig(config) {
-  const result = validateRunConfig(config);
+function isMissingPackage(error) {
+  return (
+    error?.code === 'ERR_MODULE_NOT_FOUND' &&
+    MISSING_PACKAGE_PATTERN.test(error.message)
+  );
+}
+
+// why: startup-config.mjs needs valibot, so a static import crashes before pnpm install
+export async function loadConfigValidator({
+  importModule = (specifier) => import(specifier),
+} = {}) {
+  try {
+    const { validateRunConfig } = await importModule('./startup-config.mjs');
+    return validateRunConfig;
+  } catch (error) {
+    if (isMissingPackage(error)) return null;
+    throw error;
+  }
+}
+
+function checkConfig({ config, validateConfig }) {
+  if (!validateConfig) {
+    return fail('config', `cannot be checked before ${DEPENDENCIES_FIX}`);
+  }
+  const result = validateConfig(config);
   return verdict(
     'config',
     result.ok,
@@ -144,7 +168,13 @@ async function checkGhSession({ run }) {
   const name = 'gh-session';
   const status = await run('gh', ['auth', 'status']);
   if (status.code !== 0) return fail(name, 'gh auth login');
-  const protocol = await run('gh', ['config', 'get', 'git_protocol']);
+  const protocol = await run('gh', [
+    'config',
+    'get',
+    'git_protocol',
+    '-h',
+    'github.com',
+  ]);
   if (protocol.stdout.trim() !== 'https') return pass(name);
   const scopes = `${status.stdout}\n${status.stderr}`;
   return verdict(
@@ -220,8 +250,13 @@ export async function runPreflight({
   op,
   fetch = globalThis.fetch,
   readToken = readServiceAccountToken,
+  loadValidator = loadConfigValidator,
 }) {
-  const results = [checkConfig(config)];
+  const validateConfig = await loadValidator();
+  const results = [
+    verdict('dependencies', validateConfig !== null, DEPENDENCIES_FIX),
+    checkConfig({ config, validateConfig }),
+  ];
   results.push(...(await checkTools({ commandExists, run })));
   results.push(await attempt('vault', () => checkVault({ run, readToken })));
 

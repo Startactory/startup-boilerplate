@@ -31,6 +31,11 @@ regenerate the file with `node scripts/vault-sync.mjs --env local` (`.env`) or
 
 Both files are git-ignored (`.env`, `.env.*`; `.env.template` is the only committed one).
 
+A third file appears on its own: `vercel link` (phase 1, `06-deploy-production.md` 6b) writes
+`.env.local` with one variable, `VERCEL_OIDC_TOKEN`. It is git-ignored too (`.env.*`), and
+`next dev` loads it next to `.env` (its output shows `Environments: .env.local, .env`). It holds
+no app configuration and is harmless: leave it, and never put an app variable in it.
+
 **The Supabase database never goes in `.env`.** Local development runs against a local database:
 it is free and disposable, and a broken migration or a stray `drizzle:push` cannot damage real
 user data. `scripts/set-env-var.mjs` and `scripts/vault-put.mjs` refuse a Supabase `DATABASE_URL`
@@ -42,13 +47,25 @@ Nothing loads `.env.prod` by accident.
 
 ## 3a. Install toolchain & dependencies
 
-1. Use the Node version in `.nvmrc` (`nvm use` if available).
+1. Use the Node version in `.nvmrc` (the one CI uses) for every `node`, `pnpm` and script
+   command of the run. Claude's Bash tool starts a new shell for each call, so `nvm use` does not
+   last past its own call. Put the `.nvmrc` version on `PATH` in each command instead:
+
+   ```bash
+   export PATH="$HOME/.nvm/versions/node/$(cat .nvmrc)/bin:$PATH" && node --version
+   ```
+
+   It must print the `.nvmrc` version; prefix every later command the same way
+   (`export PATH=… && pnpm install`). When that directory does not exist, install the version
+   once with `source "$HOME/.nvm/nvm.sh" && nvm install` (it reads `.nvmrc`).
 2. `pnpm install` — this also runs husky's `prepare` and builds the allowed native deps
    (`sharp`, `esbuild`, …). Phase 1 may already have run it; running it again is safe.
 3. `node scripts/sync-startup-profile.mjs` — turns the `brand`, `legal` and `pricing.currency`
-   written in Step 1d into `src/shared/startup-profile/profile.json` and `src/app/brand.css`. It
-   needs the installed dependencies and ends with `OK  startup profile synced (<name>)`; on a
-   `FAIL` line fix the named field in `startup.config.json` and re-run.
+   written in Step 1d, and `defaultLocale` (`01-name-startup.md` item 4; absent means `fr`), into
+   `src/shared/startup-profile/profile.json` and `src/app/brand.css`. The app then uses
+   `defaultLocale` as its default locale. It needs the installed dependencies and ends with
+   `OK  startup profile synced (<name>)`; on a `FAIL` line fix the named field in
+   `startup.config.json` and re-run.
 4. Commit the two generated files on `master` (the first push is still to come, in 6j):
 
    ```bash
