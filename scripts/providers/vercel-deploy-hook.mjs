@@ -14,6 +14,7 @@ const HOOK_URL_SHAPE_HINT =
 const ANY_URL_PATTERN = /https?:\/\/[^\s"'`<>]+/g;
 const UNKNOWN_COMMAND_PATTERN =
   /unknown command|not a valid command|deploy-hooks/i;
+const PRODUCTION_BRANCH_STEP = 'vercel api production branch update';
 const BRANCH_NOT_FOUND_PATTERN = new RegExp(
   `branch\\W+${GIT_BRANCH}\\W+not found`,
   'i',
@@ -45,6 +46,46 @@ function sanitizeHookUrl({ text, source }) {
     );
   }
   return url;
+}
+
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+// why: the answer is the whole project, deploy hook URLs included, so only one field is read
+function describeProductionBranch(stdout) {
+  const body = parseJson(stdout);
+  const branch = body?.link?.productionBranch;
+  if (typeof branch === 'string') return { branch, detail: redactUrls(branch) };
+  const reason = body?.error?.message;
+  return {
+    branch: null,
+    detail:
+      typeof reason === 'string'
+        ? redactUrls(reason)
+        : 'an answer without link.productionBranch',
+  };
+}
+
+function ensureProductionBranch({ run, project }) {
+  const result = run(
+    'vercel',
+    ['api', `/v9/projects/${project}/branch`, '-X', 'PATCH', '--input', '-'],
+    { input: JSON.stringify({ branch: GIT_BRANCH }) },
+  );
+  if (result.status !== 0) {
+    throw commandFailure(PRODUCTION_BRANCH_STEP, result.stderr);
+  }
+  const { branch, detail } = describeProductionBranch(result.stdout);
+  if (branch !== GIT_BRANCH) {
+    throw new Error(
+      `${PRODUCTION_BRANCH_STEP} failed: expected ${GIT_BRANCH}, got ${detail}`,
+    );
+  }
 }
 
 function parseHooks(stdout) {
@@ -115,6 +156,7 @@ export function provisionDeployHook({
   project,
   repository = '',
 }) {
+  ensureProductionBranch({ run, project });
   const existingUrl = findExistingUrl({ run, project });
   const url = existingUrl ?? createHook({ run, project });
 
@@ -154,6 +196,7 @@ function main() {
       project,
       repository,
     });
+    console.log(`OK  Vercel production branch is ${GIT_BRANCH}`);
     console.log(
       `OK  deploy hook ${HOOK_NAME} ${outcome}, stored in ${vault}/${CI_ITEM}, set as GitHub secret`,
     );

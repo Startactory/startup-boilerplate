@@ -15,18 +15,34 @@ const created = {
   stderr: '',
 };
 
+function projectAnswer(productionBranch: string): RunResult {
+  return {
+    status: 0,
+    stdout: JSON.stringify({
+      name: 'acme',
+      link: {
+        type: 'github',
+        productionBranch,
+        deployHooks: [{ name: 'production', url: HOOK_URL }],
+      },
+    }),
+    stderr: '',
+  };
+}
+
+type Answers = { list: RunResult; create?: RunResult; branch?: RunResult };
+
 function setup({
   list,
   create = created,
-}: {
-  list: RunResult;
-  create?: RunResult;
-}) {
+  branch = projectAnswer('master'),
+}: Answers) {
   const calls: Call[] = [];
   const run = vi.fn(
     (command: string, args: string[], options: { input?: string } = {}) => {
       calls.push({ command, args, input: options.input });
       if (command === 'gh') return { status: 0, stdout: '', stderr: '' };
+      if (args[0] === 'api') return branch;
       if (args[1] === 'list') return list;
       return create;
     },
@@ -35,7 +51,7 @@ function setup({
   return { run, op, calls };
 }
 
-function provisionError(options: { list: RunResult; create?: RunResult }) {
+function provisionError(options: Answers) {
   const { run, op } = setup(options);
   try {
     provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' });
@@ -74,6 +90,82 @@ describe('provisionDeployHook', () => {
     const gh = calls.find((call) => call.command === 'gh');
     expect(gh?.args).toEqual(['secret', 'set', 'VERCEL_DEPLOY_HOOK_URL']);
     expect(gh?.input).toBe(HOOK_URL);
+  });
+
+  it('sets the Vercel production branch to master before the hook', () => {
+    const { run, op, calls } = setup({ list: emptyList });
+    provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' });
+    expect(calls[0]).toEqual({
+      command: 'vercel',
+      args: ['api', '/v9/projects/acme/branch', '-X', 'PATCH', '--input', '-'],
+      input: '{"branch":"master"}',
+    });
+    expect(calls.map((call) => call.args[1])).toEqual([
+      '/v9/projects/acme/branch',
+      'list',
+      'create',
+      'set',
+    ]);
+  });
+
+  it('sets the production branch before reusing an existing hook', () => {
+    const { run, op, calls } = setup({ list: listing(HOOK_URL) });
+    expect(
+      provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' }),
+    ).toBe('reused');
+    expect(calls[0]?.args[1]).toBe('/v9/projects/acme/branch');
+  });
+
+  it('stops before the hook when the production branch stays main', () => {
+    const { message, op } = provisionError({
+      list: emptyList,
+      branch: projectAnswer('main'),
+    });
+    expect(message).toBe(
+      'vercel api production branch update failed: expected master, got main',
+    );
+    expect(message).not.toContain(HOOK_URL);
+    expect(op.writeFields).not.toHaveBeenCalled();
+  });
+
+  it('prints the reason of a failed branch update with every URL redacted', () => {
+    const { run, op, calls } = setup({
+      list: emptyList,
+      branch: {
+        status: 1,
+        stdout: projectAnswer('master').stdout,
+        stderr: `Error: forbidden, see ${HOOK_URL}\n`,
+      },
+    });
+    expect(() =>
+      provisionDeployHook({ op, run, vault: 'startup-acme', project: 'acme' }),
+    ).toThrow(
+      /^vercel api production branch update failed: Error: forbidden, see <url redacted>$/,
+    );
+    expect(calls).toHaveLength(1);
+    expect(op.writeFields).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'text that is not JSON',
+      'oops',
+      'an answer without link.productionBranch',
+    ],
+    [
+      'an API error',
+      JSON.stringify({ error: { message: `Not authorized ${HOOK_URL}` } }),
+      'Not authorized <url redacted>',
+    ],
+  ])('stops on a branch update answer with %s', (_label, stdout, detail) => {
+    const { message, op } = provisionError({
+      list: emptyList,
+      branch: { status: 0, stdout, stderr: '' },
+    });
+    expect(message).toBe(
+      `vercel api production branch update failed: expected master, got ${detail}`,
+    );
+    expect(op.writeFields).not.toHaveBeenCalled();
   });
 
   it('targets the repository from startup.config.json', () => {
@@ -235,6 +327,7 @@ describe('provisionDeployHook', () => {
     const op = { writeFields: vi.fn() };
     const run = vi.fn((command: string, args: string[]) => {
       if (command === 'gh') return { status: 1, stdout: '', stderr: HOOK_URL };
+      if (args[0] === 'api') return projectAnswer('master');
       if (args[1] === 'list') return emptyList;
       return { status: 0, stdout: HOOK_URL, stderr: '' };
     });

@@ -238,7 +238,11 @@ also removes today's second Google pass (step 6h). Phase 2 then runs:
    hook and its GitHub secret, before CI finishes. The `DATABASE_URL` secret exists before that
    first push, so the first CI run is green. Revised after the first live run: Vercel refuses a
    deploy hook for a branch that does not exist on GitHub yet, so the hook can only follow the
-   push; a deploy run that started before its secret existed is re-run (`gh run rerun`).
+   push; a deploy run that started before its secret existed is re-run (`gh run rerun`). The same
+   script first sets the Vercel production branch to `master` (Git-connected to an empty repository
+   in phase 1, the project keeps `main`, and hook builds of `master` were then Previews), and
+   `vercel.json` disables every Git deployment (`"git": { "deploymentEnabled": false }`), so no
+   branch or pull request builds a Preview: production deploys only through the hook.
 6. Smoke test, after the Vercel build is Ready.
 7. Final report (the per-service checklist of today) and a push notification.
 

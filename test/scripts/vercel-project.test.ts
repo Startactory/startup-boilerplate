@@ -447,7 +447,7 @@ describe('writeProductionUrl', () => {
 });
 
 describe('writeVercelSettings', () => {
-  const gitBlock = { deploymentEnabled: { master: false } };
+  const gitBlock = { deploymentEnabled: false };
 
   it('pins the Next.js preset and the region, and keeps the git block', () => {
     const fs = memoryFs({ 'vercel.json': JSON.stringify({ git: gitBlock }) });

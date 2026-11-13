@@ -135,8 +135,10 @@ What each step does, and where it differs from its reference:
   4. `git push -u origin master`, the first push (6j item 1): it creates `master` on GitHub and
      runs CI and its `migrate` job; `production.yml` calls the deploy hook when CI completes;
   5. **at once**, before CI finishes, `node scripts/providers/vercel-deploy-hook.mjs --project <slug>`
-     (6d), so `production.yml` finds the `VERCEL_DEPLOY_HOOK_URL` secret; when it fails right after
-     the push, wait 10 seconds and run it again;
+     (6d). It sets the Vercel production branch to `master` (Vercel kept `main` from phase 1, so
+     hook builds would otherwise be Previews), prints `OK  Vercel production branch is master`,
+     then creates the hook, so `production.yml` finds the `VERCEL_DEPLOY_HOOK_URL` secret; when
+     it fails right after the push, wait 10 seconds and run it again;
   6. follow each run without a prompt: take the id with
      `gh run list --repo "<repository>" --branch master --workflow ci.yml --limit 1 --json databaseId -q '.[0].databaseId'`
      (retry a few times until a run appears; `--workflow production.yml` for the deploy run, once
