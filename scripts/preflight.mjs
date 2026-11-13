@@ -21,6 +21,8 @@ const DASH0_FIX =
   'Dash0 trial ended or token revoked — the founder renews the Dash0 subscription';
 const DEPENDENCIES_FIX = 'pnpm install';
 const MISSING_PACKAGE_PATTERN = /Cannot find package/;
+const NVMRC_PATH = '.nvmrc';
+const NODE_VERSION_PATTERN = /^v?(\d+)(\.\d+){0,2}$/;
 
 function masterKeyFields(dataRegion) {
   return [
@@ -94,13 +96,50 @@ async function exitsZero(run, command, args) {
   }
 }
 
-async function checkTools({ commandExists, run }) {
+function majorVersion(version) {
+  return NODE_VERSION_PATTERN.exec(version)?.[1] ?? null;
+}
+
+function readPinnedVersion(readNvmrc) {
+  try {
+    return readNvmrc().trim();
+  } catch {
+    return null;
+  }
+}
+
+function checkNodeVersion({ nodeVersion, readNvmrc }) {
+  const name = 'node-version';
+  const pinned = readPinnedVersion(readNvmrc);
+  if (pinned === null) {
+    return fail(
+      name,
+      `cannot read ${NVMRC_PATH} — run from the repository root`,
+    );
+  }
+  const pinnedMajor = majorVersion(pinned);
+  if (!pinnedMajor) {
+    return fail(
+      name,
+      `${NVMRC_PATH} holds "${pinned}", expected a version like v25.2.1`,
+    );
+  }
+  const version = pinned.replace(/^v/, '');
+  return verdict(
+    name,
+    majorVersion(nodeVersion) === pinnedMajor,
+    `use Node ${version} — prefix commands with export PATH="$HOME/.nvm/versions/node/v${version}/bin:$PATH" (or nvm use)`,
+  );
+}
+
+async function checkTools({ commandExists, run, nodeVersion, readNvmrc }) {
   const results = [
     verdict(
       'tool:node',
       commandExists('node'),
       'install Node.js, the version in .nvmrc (brew install node)',
     ),
+    checkNodeVersion({ nodeVersion, readNvmrc }),
     verdict('tool:pnpm', commandExists('pnpm'), 'npm i -g pnpm'),
     verdict(
       'tool:op',
@@ -251,13 +290,17 @@ export async function runPreflight({
   fetch = globalThis.fetch,
   readToken = readServiceAccountToken,
   loadValidator = loadConfigValidator,
+  nodeVersion = process.versions.node,
+  readNvmrc = () => readFileSync(NVMRC_PATH, 'utf8'),
 }) {
   const validateConfig = await loadValidator();
   const results = [
     verdict('dependencies', validateConfig !== null, DEPENDENCIES_FIX),
     checkConfig({ config, validateConfig }),
   ];
-  results.push(...(await checkTools({ commandExists, run })));
+  results.push(
+    ...(await checkTools({ commandExists, run, nodeVersion, readNvmrc })),
+  );
   results.push(await attempt('vault', () => checkVault({ run, readToken })));
 
   const { slug, dataRegion } = config;

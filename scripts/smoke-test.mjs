@@ -1,6 +1,11 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import postgres from 'postgres';
+import {
+  describeProductionBranch,
+  GIT_BRANCH,
+  redactUrls,
+} from './providers/vercel-deploy-hook.mjs';
 import {
   ITEM_FOR_ENVIRONMENT,
   readStartupConfig,
@@ -10,6 +15,7 @@ import { createOp } from './vault/op.mjs';
 
 const LEGAL_PAGES = ['notice', 'terms', 'privacy', 'cookies'];
 const GOOGLE_HOST = 'accounts.google.com';
+const PNG_CONTENT_TYPE = 'image/png';
 const HTML_ENTITIES = [
   ['&', '&amp;'],
   ['<', '&lt;'],
@@ -44,6 +50,38 @@ async function checkLanding({ url, fetch, expectedName }) {
 async function checkLegalPage({ url, fetch, page }) {
   const response = await fetch(`${url}/legal/${page}`);
   return { ok: response.status === 200, detail: `status ${response.status}` };
+}
+
+async function checkBrandLogo({ url, fetch }) {
+  const response = await fetch(`${url}/brand-logo.png`);
+  if (response.status !== 200) {
+    return { ok: false, detail: `status ${response.status}` };
+  }
+  const contentType = response.headers.get('content-type') ?? 'none';
+  return {
+    ok: contentType.startsWith(PNG_CONTENT_TYPE),
+    detail: `content-type ${contentType}, expected ${PNG_CONTENT_TYPE}`,
+  };
+}
+
+function checkProductionBranch({ runCommand, project }) {
+  const endpoint = `/v9/projects/${project}`;
+  const result = runCommand('vercel', ['api', endpoint]);
+  if (result.status !== 0) {
+    const reason = redactUrls(result.stderr).trim().split('\n')[0];
+    return {
+      ok: false,
+      detail: `vercel api ${endpoint} failed${reason ? `: ${reason}` : ''}`,
+    };
+  }
+  const { branch, detail } = describeProductionBranch(result.stdout);
+  if (branch === null) {
+    return { ok: false, detail: `vercel api ${endpoint} gave ${detail}` };
+  }
+  return {
+    ok: branch === GIT_BRANCH,
+    detail: `Vercel production branch is ${detail}, expected ${GIT_BRANCH} — run node scripts/providers/vercel-deploy-hook.mjs --project ${project}`,
+  };
 }
 
 async function checkVersion({ url, fetch, expectedCommit }) {
@@ -106,6 +144,8 @@ async function runCheck({ name, run, describeError = (e) => e.message }) {
 export async function runSmokeTest({
   url,
   fetch,
+  runCommand,
+  project,
   expectedCommit,
   expectedName,
   googleClientId,
@@ -118,9 +158,14 @@ export async function runSmokeTest({
       name: `legal/${page}`,
       run: () => checkLegalPage({ url, fetch, page }),
     })),
+    { name: 'brand-logo', run: () => checkBrandLogo({ url, fetch }) },
     {
       name: 'version',
       run: () => checkVersion({ url, fetch, expectedCommit }),
+    },
+    {
+      name: 'production-branch',
+      run: () => checkProductionBranch({ runCommand, project }),
     },
     {
       name: 'google-sign-in',
@@ -152,6 +197,15 @@ function parseUrlArgument(argv) {
     );
   }
   return value;
+}
+
+function defaultRun(command, args) {
+  const result = spawnSync(command, args, { encoding: 'utf8' });
+  return {
+    status: result.error ? 1 : (result.status ?? 1),
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
 }
 
 function countJournalEntries() {
@@ -203,6 +257,8 @@ async function main() {
     const results = await runSmokeTest({
       url,
       fetch: globalThis.fetch,
+      runCommand: defaultRun,
+      project: config.slug,
       expectedCommit,
       expectedName: config.name,
       googleClientId,

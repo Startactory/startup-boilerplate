@@ -253,10 +253,14 @@ it: `node scripts/vault-put.mjs --list-fields local` (or `production`) lists
    then push the env again as `06-deploy-production.md` 6g does), and only then disable and delete
    the old secret. A client from an earlier attempt whose file never reached the vault stays; the
    end-of-run report lists it under "left for cleanup".
-5. **Publish the app** so anyone can sign in to the live site (covered by the consent):
-   **Audience → Publish app**, from "Testing" to "In production". When Google requires a home page
-   and a privacy policy (**Branding**), give `<productionUrl>` and `<productionUrl>/legal/privacy`.
-   No test users are needed.
+5. **Set the app links, then publish the app** so anyone can sign in to the live site (covered
+   by the consent). In **Branding**, set the three app links: home page `<productionUrl>`,
+   privacy policy `<productionUrl>/legal/privacy` and terms of service
+   `<productionUrl>/legal/terms`, and save. Then **Audience → Publish app**, from "Testing" to
+   "In production". No test users are needed. Until Google verifies the brand, its consent screen
+   shows the domain instead of the app name. That is expected, not a failure: brand verification
+   needs a domain the founder owns, verified in Google Search Console, so it comes with a custom
+   domain after the run (`after-the-run.md`, "A custom domain, with Resend").
 
 (Microsoft OAuth is optional and left as a TODO — the code enables it automatically if
 `MICROSOFT_CLIENT_ID/SECRET` are set; redirect URI `/auth/callback/microsoft`.)

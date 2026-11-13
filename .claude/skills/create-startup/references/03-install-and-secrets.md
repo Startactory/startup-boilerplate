@@ -31,10 +31,12 @@ regenerate the file with `node scripts/vault-sync.mjs --env local` (`.env`) or
 
 Both files are git-ignored (`.env`, `.env.*`; `.env.template` is the only committed one).
 
-A third file appears on its own: `vercel link` (phase 1, `06-deploy-production.md` 6b) writes
-`.env.local` with one variable, `VERCEL_OIDC_TOKEN`. It is git-ignored too (`.env.*`), and
-`next dev` loads it next to `.env` (its output shows `Environments: .env.local, .env`). It holds
-no app configuration and is harmless: leave it, and never put an app variable in it.
+`vercel link` (phase 1, `06-deploy-production.md` 6b) writes a third file, `.env.local`, with one
+variable, `VERCEL_OIDC_TOKEN`. `next dev` would load it next to `.env`, so `vercel-project.mjs`
+removes it right after the link and prints `OK  removed .env.local written by vercel link`; only
+the two files above remain. If a `.env.local` shows up again (a `vercel link` or `vercel env pull`
+run by hand, for example), list its names (`cut -d= -f1 .env.local`) and, when it holds only
+`VERCEL_OIDC_TOKEN`, remove it with `rm .env.local`. An app variable never goes in it.
 
 **The Supabase database never goes in `.env`.** Local development runs against a local database:
 it is free and disposable, and a broken migration or a stray `drizzle:push` cannot damage real
@@ -57,7 +59,9 @@ Nothing loads `.env.prod` by accident.
 
    It must print the `.nvmrc` version; prefix every later command the same way
    (`export PATH=… && pnpm install`). When that directory does not exist, install the version
-   once with `source "$HOME/.nvm/nvm.sh" && nvm install` (it reads `.nvmrc`).
+   once with `source "$HOME/.nvm/nvm.sh" && nvm install` (it reads `.nvmrc`). The preflight's
+   `node-version` check fails when the Node major on `PATH` does not match `.nvmrc`, and prints
+   this same prefix as its fix.
 2. `pnpm install` — this also runs husky's `prepare` and builds the allowed native deps
    (`sharp`, `esbuild`, …). Phase 1 may already have run it; running it again is safe.
 3. `node scripts/sync-startup-profile.mjs` — turns the `brand`, `legal` and `pricing.currency`

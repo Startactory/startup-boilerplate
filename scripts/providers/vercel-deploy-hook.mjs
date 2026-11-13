@@ -3,8 +3,10 @@ import { CI_ITEM, readStartupConfig, startupVault } from '../vault/names.mjs';
 import { createOp } from '../vault/op.mjs';
 
 const HOOK_NAME = 'production';
-const GIT_BRANCH = 'master';
+export const GIT_BRANCH = 'master';
 const URL_FIELD = 'VERCEL_DEPLOY_HOOK_URL';
+const PRODUCTION_URL_VARIABLE = 'PRODUCTION_URL';
+const PRODUCTION_URL_SHAPE = /^https:\/\/[^\s/"'`<>]+$/;
 const HOOK_URL_PATTERN =
   /https:\/\/api\.vercel\.com\/v1\/integrations\/deploy\/[^\s"'`<>]+/;
 const HOOK_URL_SHAPE =
@@ -29,7 +31,7 @@ function defaultRun(command, args, { input } = {}) {
   };
 }
 
-function redactUrls(text) {
+export function redactUrls(text) {
   return text.replace(ANY_URL_PATTERN, '<url redacted>');
 }
 
@@ -57,7 +59,7 @@ function parseJson(text) {
 }
 
 // why: the answer is the whole project, deploy hook URLs included, so only one field is read
-function describeProductionBranch(stdout) {
+export function describeProductionBranch(stdout) {
   const body = parseJson(stdout);
   const branch = body?.link?.productionBranch;
   if (typeof branch === 'string') return { branch, detail: redactUrls(branch) };
@@ -149,29 +151,67 @@ function createHook({ run, project }) {
   });
 }
 
+function normalizeProductionUrl(productionUrl) {
+  const url =
+    typeof productionUrl === 'string' ? productionUrl.replace(/\/+$/, '') : '';
+  if (!PRODUCTION_URL_SHAPE.test(url)) {
+    throw new Error(
+      'no productionUrl like https://<name>.vercel.app in startup.config.json — run node scripts/providers/vercel-project.mjs first',
+    );
+  }
+  return url;
+}
+
+function setProductionUrlVariable({ run, repoArgs, siteUrl }) {
+  const result = run('gh', [
+    'variable',
+    'set',
+    PRODUCTION_URL_VARIABLE,
+    ...repoArgs,
+    '--body',
+    siteUrl,
+  ]);
+  if (result.status !== 0) {
+    throw commandFailure(
+      `gh variable set ${PRODUCTION_URL_VARIABLE}`,
+      result.stderr,
+    );
+  }
+}
+
 export function provisionDeployHook({
   op,
   run = defaultRun,
   vault,
   project,
   repository = '',
+  productionUrl,
 }) {
+  const siteUrl = normalizeProductionUrl(productionUrl);
   ensureProductionBranch({ run, project });
   const existingUrl = findExistingUrl({ run, project });
-  const url = existingUrl ?? createHook({ run, project });
+  const hookUrl = existingUrl ?? createHook({ run, project });
 
-  op.writeFields({ vault, item: CI_ITEM, fields: new Map([[URL_FIELD, url]]) });
+  op.writeFields({
+    vault,
+    item: CI_ITEM,
+    fields: new Map([[URL_FIELD, hookUrl]]),
+  });
 
   const repoArgs = repository ? ['--repo', repository] : [];
   const gh = run('gh', ['secret', 'set', URL_FIELD, ...repoArgs], {
-    input: url,
+    input: hookUrl,
   });
   if (gh.status !== 0) {
     throw new Error(
       `gh secret set ${URL_FIELD} failed — the URL is stored in ${vault}/${CI_ITEM}; re-run to retry`,
     );
   }
-  return existingUrl ? 'reused' : 'created';
+  setProductionUrlVariable({ run, repoArgs, siteUrl });
+  return {
+    outcome: existingUrl ? 'reused' : 'created',
+    productionUrl: siteUrl,
+  };
 }
 
 function readProjectArg(argv) {
@@ -188,17 +228,21 @@ function readProjectArg(argv) {
 function main() {
   try {
     const project = readProjectArg(process.argv.slice(2));
-    const { slug, repository } = readStartupConfig();
+    const { slug, repository, productionUrl } = readStartupConfig();
     const vault = startupVault(slug);
-    const outcome = provisionDeployHook({
+    const provisioned = provisionDeployHook({
       op: createOp(),
       vault,
       project,
       repository,
+      productionUrl,
     });
     console.log(`OK  Vercel production branch is ${GIT_BRANCH}`);
     console.log(
-      `OK  deploy hook ${HOOK_NAME} ${outcome}, stored in ${vault}/${CI_ITEM}, set as GitHub secret`,
+      `OK  deploy hook ${HOOK_NAME} ${provisioned.outcome}, stored in ${vault}/${CI_ITEM}, set as GitHub secret`,
+    );
+    console.log(
+      `OK  GitHub variable ${PRODUCTION_URL_VARIABLE} set to ${provisioned.productionUrl}`,
     );
   } catch (error) {
     console.error(error.message);

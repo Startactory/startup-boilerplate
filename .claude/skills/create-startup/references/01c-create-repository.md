@@ -26,8 +26,9 @@ gh repo set-default --view
 ```
 
 When the first two print the same `<owner>/<slug>` and the `origin` URL names it, run
-`gh repo set-default "<owner>/<slug>"` if the last line printed anything else (safe to re-run),
-then close the step (section 5, last line). Never rely on `gh` without `--repo` (or the
+`gh repo set-default "<owner>/<slug>"` if the last line printed anything else, and
+`git config merge.ours.driver true` (4.4); both are safe to re-run. Then close the step
+(section 5, last line). Never rely on `gh` without `--repo` (or the
 repository named in the command) before that default is set: with a second remote, `gh` resolves
 to `upstream`, the boilerplate.
 
@@ -60,7 +61,7 @@ gh repo view "<owner>/<slug>" --json nameWithOwner 2>/dev/null && echo "TAKEN" |
 
 `TAKEN` is fine only when it is this startup's repository: `startup.config.json` `repository` is
 already `<owner>/<slug>` (an interrupted run). Then reuse it: do 4.1 if `origin` still points at
-the boilerplate, and replace 4.3 with
+the boilerplate, do 4.4, and replace 4.3 with
 
 ```bash
 git remote get-url origin 2>/dev/null || git remote add origin "$(gh repo view "<owner>/<slug>" --json sshUrl -q .sshUrl)"
@@ -77,7 +78,8 @@ before it gets here.
 
 ## 4. Create the repository
 
-Work on `master`: the CI workflows, the deploy workflow and `vercel.json` all key off that branch.
+Work on `master`: the CI workflows and the deploy workflow key off that branch, and so does the
+Vercel production branch (`06-deploy-production.md` 6d).
 
 1. Keep the boilerplate as `upstream`, so the startup can pull its fixes later, and make it
    fetch-only so nothing is pushed to it by mistake (skip this when `git remote -v` already shows
@@ -112,22 +114,33 @@ Work on `master`: the CI workflows, the deploy workflow and `vercel.json` all ke
 
    The first push (6j) keeps the boilerplate history: merging `upstream/master` later needs it.
 
+4. Define the `ours` merge driver, one time per clone (it lives in `.git/config`, which is not
+   committed, and is safe to re-run):
+
+   ```bash
+   git config merge.ours.driver true
+   ```
+
+   The committed `.gitattributes` marks the three files the profile sync generates
+   (`src/shared/startup-profile/profile.json`, `src/app/brand.css`, `public/brand-logo.png`)
+   `merge=ours`. With the driver defined, a later `git merge upstream/master` keeps the
+   startup's copies of them instead of a conflict, and the sync regenerates them
+   (`after-the-run.md`, "Taking boilerplate fixes"). Without it, git ignores the attribute and
+   those files conflict.
+
 ## 5. Verify
 
 ```bash
 git remote -v
 gh repo view "<owner>/<slug>" --json nameWithOwner,visibility -q '"\(.nameWithOwner) \(.visibility)"'
 gh repo set-default --view
+git config merge.ours.driver
 ```
 
 Expect `origin` on `<owner>/<slug>`, `upstream` on the boilerplate with a `DISABLED` push URL,
-`<owner>/<slug> PRIVATE`, and `<owner>/<slug>` as the default. The repository stays empty until 6j
-pushes `master`.
+`<owner>/<slug> PRIVATE`, `<owner>/<slug>` as the default, and `true`. The repository stays empty
+until 6j pushes `master`.
 
-Later, to take boilerplate fixes:
-
-```bash
-git fetch upstream && git merge upstream/master
-```
+Later, to take boilerplate fixes, follow `after-the-run.md`, "Taking boilerplate fixes".
 
 Then `node scripts/run-ledger.mjs done repository` (prints `STEP repository DONE`).

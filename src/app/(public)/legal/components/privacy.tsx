@@ -83,6 +83,8 @@ export async function Privacy(): Promise<React.ReactElement> {
       </LegalSection>
       <LegalSection title={t('rights.title')}>
         <p>{t('rights.intro')}</p>
+        <p>{t('rights.selfService')}</p>
+        <p>{t('rights.retained')}</p>
         <p>{t('rights.contact', { email: contactEmail })}</p>
         <p>{t('rights.complaint')}</p>
       </LegalSection>

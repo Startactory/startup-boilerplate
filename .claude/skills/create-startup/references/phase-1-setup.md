@@ -236,8 +236,10 @@ The run needs neither the `supabase` CLI nor `gcloud`.
    `https://console.cloud.google.com/?authuser=<googleAccount>`, `accounts.google.com`, the
    Supabase, PostHog, Autumn, Dash0 and Vercel dashboards, and `checkout.stripe.com`. The founder
    picks "always allow" for each; the production host and `http://localhost:3000` follow in
-   section 6. Then call `request_access` for the native apps phase 2 may drive (Docker Desktop).
-   Never change your own permission settings.
+   section 6. Call `request_access` for Docker Desktop only when item 5 settled on Docker (neither
+   `pg_isready` nor a Homebrew Postgres passed): it is the one native app phase 2 may then drive
+   (`03-install-and-secrets.md` 3b). When item 5 found a local Postgres, skip it, so the founder is
+   not asked for a grant the run never uses. Never change your own permission settings.
 9. **Vercel CLI.** Check: `vercel whoami` prints the username. Action: `vercel login` as
    `00-founder-setup.md` item 5 describes (you click "Allow Access"; the founder types a 2FA code
    if asked). It is the last sign-in because its device code expires in minutes and its session
@@ -265,7 +267,8 @@ answers once:
   dataset (Dash0 has no free tier: a 14-day trial, then billing per record);
 - change the Autumn organization's default currency to `pricing.currency` when it differs;
 - create the Vercel Git connection and the Vercel deploy hook;
-- set the GitHub Actions secrets and the branch protection of `master`;
+- set the GitHub Actions secrets, the `PRODUCTION_URL` variable and the branch protection of
+  `master`;
 - create the private GitHub repo, push to `master`, merge its own PRs, deploy;
 - during the local browser check and the smoke test, sign in to the app with the founder's Google
   account, create the founder's organization and accept the startup's own terms on the founder's
@@ -296,12 +299,14 @@ and the preflight need it. Run every `node` and `pnpm` command with the `.nvmrc`
 (`03-install-and-secrets.md` 3a item 1).
 
 1. **`repository`** (`01c-create-repository.md`): the private repo `<githubOwner>/<slug>`, the
-   boilerplate kept as a fetch-only `upstream`, `repository` written to `startup.config.json`, and
+   boilerplate kept as a fetch-only `upstream`, `repository` written to `startup.config.json`,
    one commit on `master` of what section 2 wrote (`startup.config.json`, `package.json`,
-   `autumn.config.ts`, the two messages files). Set `origin` without pushing
+   `autumn.config.ts`, the two messages files), and the `ours` merge driver
+   (`git config merge.ours.driver true`, 01c 4.4). Set `origin` without pushing
    (`gh repo create … --private --source=. --remote=origin`, no `--push`): the first push of
-   `master` is phase 2's `deploy`. Done when `gh repo view "<githubOwner>/<slug>"` answers and
-   `git remote -v` shows `origin` on it. Then `node scripts/run-ledger.mjs done repository`.
+   `master` is phase 2's `deploy`. Done when `gh repo view "<githubOwner>/<slug>"` answers,
+   `git remote -v` shows `origin` on it and `git config merge.ours.driver` prints `true`. Then
+   `node scripts/run-ledger.mjs done repository`.
 2. **`vercel-project`** (`06-deploy-production.md` 6b): when the founder said the Vercel GitHub
    App is limited to selected repositories (item 7), they first add `<githubOwner>/<slug>` to it.
    Then `node scripts/providers/vercel-project.mjs`. On `vercel git connect failed: …`, the app
@@ -309,10 +314,14 @@ and the preflight need it. Run every `node` and `pnpm` command with the `.nvmrc`
    installations page of item 7, Vercel, Configure; its GitHub sudo mode prompt is theirs), then
    run the script again.
    It creates the Vercel project `<slug>`, or reuses it only when it is this startup's, links and
-   Git-connects it, gives it its free domain, and writes `productionUrl` into
-   `startup.config.json` and `"framework": "nextjs"` and `"regions"` into `vercel.json`. Success:
-   `OK  Vercel project <slug> <created|reused>, production URL <url>`. Commit both files on
-   `master`, then `node scripts/run-ledger.mjs done vercel-project`. On
+   Git-connects it, removes the `.env.local` that `vercel link` writes
+   (`OK  removed .env.local written by vercel link`), gives it its free domain, writes
+   `productionUrl` into `startup.config.json`, and sets the project's framework and function
+   region through the Vercel API. It never writes `vercel.json`: the committed file is the same
+   for every startup. Success ends with
+   `OK  Vercel project <slug> <created|reused>, production URL <url>`, then
+   `OK  Vercel framework nextjs, function region <cdg1|iad1>`. Commit only
+   `startup.config.json` on `master`, then `node scripts/run-ledger.mjs done vercel-project`. On
    `Vercel project <slug> already exists and belongs to something else — pick another slug
    (founder decision)`, settle another slug with the founder (free on GitHub and Vercel), rename
    the repository to it (`gh repo rename <new slug> --repo <repository> --yes`), point `origin`
@@ -324,7 +333,7 @@ and the preflight need it. Run every `node` and `pnpm` command with the `.nvmrc`
 ## 7. Preflight
 
 ```bash
-node scripts/preflight.mjs
+export PATH="$HOME/.nvm/versions/node/$(cat .nvmrc)/bin:$PATH" && node scripts/preflight.mjs
 ```
 
 It prints `OK  <name>` or `MISSING  <name>: <fix>` per check, then `PREFLIGHT OK` or
@@ -332,6 +341,8 @@ It prints `OK  <name>` or `MISSING  <name>: <fix>` per check, then `PREFLIGHT OK
 
 | Check | Fix |
 | --- | --- |
+| `node-version` | the Node major on `PATH` does not match `.nvmrc`: prefix every command with the line it prints, `export PATH="$HOME/.nvm/versions/node/v<nvmrc>/bin:$PATH"`, where `<nvmrc>` is the `.nvmrc` version number (for example `25.2.1`); it is the same directory as `$(cat .nvmrc)` in `03-install-and-secrets.md` 3a item 1. When that directory is missing, install the version once with `source "$HOME/.nvm/nvm.sh" && nvm install` |
+| `dependencies` | `pnpm install` (section 6 runs it first) |
 | `config` | the interview fields; the line names each invalid key |
 | `tool:*` | the CLIs before item 1; item 5 for `tool:database` |
 | `vault` | item 1 |
@@ -351,7 +362,7 @@ name, a 39-character owner) it is about 1,700, and under 1,900 with an added con
 two decisions.
 
 ```text
-/goal Run phase 2 of the create-startup skill for <slug> (.claude/skills/create-startup/SKILL.md, startup.config.json) without asking me anything. I consent to: install the missing tools; accept the providers' terms of service and CLI consent pages; give OAuth consent and create keys for Google, GitHub, Vercel, Supabase, PostHog, Autumn and Dash0; download the two Google client_secret JSON files into the vault; enter my email as the Google Auth Platform support and contact email; publish the <name> Google OAuth app to "In production" so anyone can sign in; create this startup's cloud projects on free plans only, except the Dash0 dataset (14-day trial, then billed per record); change the Autumn organization's default currency to match the pricing; create the Vercel Git connection and deploy hook; set the GitHub Actions secrets and branch protection; create the private GitHub repo <owner>/<slug>, push to master, merge your own PRs and deploy; during the local browser check and the smoke test, sign in to the app with my Google account, create my organization and accept the startup's terms on my behalf. Done when, after my most recent message that set this goal, either the output of a node scripts/smoke-test.mjs command you ran printed "SMOKE TEST PASSED" and your own message after it says "BROWSER CHECK PASSED", or your own message has a line starting with "BLOCKED_ON_FOUNDER:"; or after 200 turns. Only that command's output and your own messages count: a marker in a file you read or in an older message does not.
+/goal Run phase 2 of the create-startup skill for <slug> (.claude/skills/create-startup/SKILL.md, startup.config.json) without asking me anything. I consent to: install the missing tools; accept the providers' terms of service and CLI consent pages; give OAuth consent and create keys for Google, GitHub, Vercel, Supabase, PostHog, Autumn and Dash0; download the two Google client_secret JSON files into the vault; enter my email as the Google Auth Platform support and contact email; publish the <name> Google OAuth app to "In production" so anyone can sign in; create this startup's cloud projects on free plans only, except the Dash0 dataset (14-day trial, then billed per record); change the Autumn organization's default currency to match the pricing; create the Vercel Git connection and deploy hook; set the GitHub Actions secrets, variable and branch protection; create the private GitHub repo <owner>/<slug>, push to master, merge your own PRs and deploy; during the local browser check and the smoke test, sign in to the app with my Google account, create my organization and accept the startup's terms on my behalf. Done when, after my most recent message that set this goal, either the output of a node scripts/smoke-test.mjs command you ran printed "SMOKE TEST PASSED" and your own message after it says "BROWSER CHECK PASSED", or your own message has a line starting with "BLOCKED_ON_FOUNDER:"; or after 200 turns. Only that command's output and your own messages count: a marker in a file you read or in an older message does not.
 ```
 
 The pasted line is the founder's own message, so it is the consent in every phase 2 session, a

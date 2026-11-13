@@ -248,4 +248,5 @@ Check for these two fields the same way as above.
 
 Every check of this file passes: tools, service account (`startup-founder: existing`), provider
 sessions, CLI logins, and the master-key field names (SMTP included). At the end of phase 1,
-`node scripts/preflight.mjs` checks the tools, the vault, the master keys and the CLI sessions again.
+`node scripts/preflight.mjs` checks the tools (the Node major of `.nvmrc` included), the vault,
+the master keys and the CLI sessions again.

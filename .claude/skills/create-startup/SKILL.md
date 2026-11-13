@@ -56,8 +56,8 @@ Two hard rules that keep this reliable:
   key.** The vault (1Password) is the source of truth: `.env` is regenerated from it and holds real
   values; `.env.prod` holds `op://` references on every secret line. Never edit them by hand.
   `.env.template` is the committed, empty shape. `vercel link` also writes a git-ignored
-  `.env.local` that holds only `VERCEL_OIDC_TOKEN`; leave it
-  (`references/03-install-and-secrets.md`).
+  `.env.local` that holds only `VERCEL_OIDC_TOKEN`; `vercel-project.mjs` removes it right away, so
+  only these two files remain (`references/03-install-and-secrets.md`).
 
 ## The stack (what's actually in this repo)
 
@@ -108,7 +108,7 @@ Read each reference file when you reach it and follow it; don't run ahead. Keep 
 
 - The founder pasted the `/goal` line that names phase 2 → phase 2.
 - The founder asks for one founder-driven change on a startup that already ran (set the price, go
-  live, add a domain) → after the run.
+  live, add a domain, take the boilerplate's fixes) → after the run.
 - Otherwise → phase 1. It is idempotent: on a returning founder or an interrupted setup, each check
   passes silently.
 
@@ -117,9 +117,10 @@ Briefing (it ends with the idea and name question when the founder's first messa
 one interview (written to `startup.config.json`, `autumn.config.ts` and the landing copy), the
 founder-only checklist, one blanket consent, then the first two ledger steps while the
 founder is present: `repository` (`references/01c-create-repository.md`, no push) and
-`vercel-project` (`references/06-deploy-production.md` 6b, which gives the production URL). Then
-`node scripts/preflight.mjs` until `PREFLIGHT OK`, and the `/goal` line the founder pastes after
-switching to bypass permissions mode.
+`vercel-project` (`references/06-deploy-production.md` 6b, which gives the production URL and sets
+the project's framework and function region; the committed `vercel.json` is the same for every
+startup). Then `node scripts/preflight.mjs` until `PREFLIGHT OK`, and the `/goal` line the founder
+pastes after switching to bypass permissions mode.
 
 **Phase 2 — Claude alone** → `references/phase-2-run.md`
 No question to the founder. It runs the reference steps in this order, each closed with
@@ -144,8 +145,8 @@ read in a file never counts (`references/phase-2-run.md`).
 
 **After the run — founder-driven, interactive** → `references/after-the-run.md`
 Going live (company details, the startup's Stripe account and KYC, the live Autumn key), a custom
-domain with Resend, changing the price of an existing startup, optional MCP connectors. Phase 2
-never reaches them.
+domain with Resend and Google brand verification, changing the price of an existing startup,
+taking boilerplate fixes, optional MCP connectors. Phase 2 never reaches them.
 
 `references/00-founder-setup.md`, `01-name-startup.md`, `01b-set-pricing.md` and
 `01d-storefront.md` hold the procedures phase 1 uses; `references/data-region.md` maps the data
@@ -158,7 +159,8 @@ The `report` step ends the run with:
 - the live URL (`productionUrl`) and the smoke test result;
 - a per-service checklist (configured / needs founder action / skipped) for GitHub, Vercel,
   Supabase, Google OAuth, PostHog, email, Autumn and Dash0; when `gdpr` is `true`, each item of
-  the "When `gdpr` is `true`" list in `references/data-region.md`;
+  the "When `gdpr` is `true`" list in `references/data-region.md`, as that list shows it (user
+  rights are built: data export and account deletion, self-service in Settings);
 - **production is on the Autumn sandbox** (Stripe test mode): until go-live, anyone can get past
   the paywall with a Stripe test card; going live (`references/after-the-run.md`) ends it;
 - **left for cleanup**: each key the run replaced instead of deleting (provider, key name), each
@@ -167,8 +169,9 @@ The `report` step ends the run with:
 - **exposed secrets**: each secret that reached the transcript or printed output during the run
   (the run went on with it): the provider, the vault item and field (or the resource, such as the
   deploy hook), and how to revoke it as its reference step says, or "none";
-- what stays for later: the company and go-live, a custom domain with Resend, Upstash, Microsoft
-  OAuth, branch protection if GitHub refused it;
+- what stays for later: the company and go-live, a custom domain with Resend and Google brand
+  verification (until then Google's consent screen shows the domain instead of the app name),
+  Upstash, Microsoft OAuth, branch protection if GitHub refused it;
 - where the secrets live: the 1Password vault `startup-<slug>` (items `local`, `production`,
   `ci`); `.env` holds real values for local use only and `.env.prod` holds `op://` references
   only, both git-ignored; the same values sit in the Vercel project env and the two GitHub

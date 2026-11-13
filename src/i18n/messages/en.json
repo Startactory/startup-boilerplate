@@ -113,7 +113,28 @@
     "emptyAccounts": "No linked accounts.",
     "dangerSection": "Account",
     "signOutTitle": "Sign out of this device",
-    "signOutDescription": "You'll need to sign in again to access your workspace."
+    "signOutDescription": "You'll need to sign in again to access your workspace.",
+    "dataSection": "Your data",
+    "exportTitle": "Export my data",
+    "exportDescription": "Download a copy of your personal data as a JSON file.",
+    "exportAction": "Export",
+    "exportError": "Your data could not be exported. Please try again.",
+    "dangerZoneSection": "Danger zone",
+    "deleteTitle": "Delete my account",
+    "deleteDescription": "Permanently delete your account and your personal data.",
+    "deleteAction": "Delete account",
+    "deleteDialogTitle": "Delete your account?",
+    "deleteDialogDescription": "This is permanent and cannot be undone. Export your data first if you want to keep a copy.",
+    "deleteConsequenceAccount": "Your profile, sessions and linked sign-in accounts are deleted.",
+    "deleteConsequenceOrganizations": "Organizations where you are the only member are deleted, and their subscription is cancelled.",
+    "deleteConsequenceMemberships": "You leave every other organization.",
+    "deleteConfirmLabel": "Type {email} to confirm",
+    "deleteConfirm": "Delete my account",
+    "deleteCancel": "Cancel",
+    "deleteConfirmMismatch": "This email address does not match your account.",
+    "deleteOwnerBlocked": "You are the only owner of an organization that has other members. Transfer ownership or remove its members before deleting your account.",
+    "deleteError": "Your account could not be deleted. Please try again.",
+    "rateLimited": "Too many attempts. Please wait a minute and try again."
   },
   "EditProfile": {
     "title": "Edit profile",
@@ -318,6 +339,8 @@
       "rights": {
         "title": "Your rights",
         "intro": "You have the right to access, rectify and erase your data, to restrict or object to its processing, and to data portability. Where processing is based on consent, you can withdraw it at any time.",
+        "selfService": "You can export your data and delete your account yourself at any time, from Settings in the app. Deleting your account erases your profile, sessions and linked sign-in accounts, removes you from your organizations, and deletes the organizations where you are the only member, cancelling their subscription.",
+        "retained": "Some records outlive an account deletion. The record that your organization accepted the terms of service (version and date, no longer linked to your account) is kept as proof of the contract, and billing records are kept by Stripe for the period required by accounting law. Logs, traces and analytics already held by our sub-processors (Dash0, Vercel, PostHog) are not erased when you delete your account: they expire at the end of each provider's retention period.",
         "contact": "To exercise your rights, write to {email}.",
         "complaint": "If you consider that your rights are not respected, you can lodge a complaint with the CNIL (Commission Nationale de l'Informatique et des Libertés), www.cnil.fr."
       }
