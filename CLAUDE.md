@@ -139,7 +139,7 @@ Domains and their tables:
 |---|---|---|
 | `auth` | `user`, `session`, `account`, `verification` | `infra/auth/auth`, `application/me/get-current-user`, `application/me/organization-scope` |
 | `organization` | `organization`, `member`, `invitation` (writes also via better-auth org plugin) | `application/organization/*` use cases |
-| `billing` | none (Autumn owns billing state) | `application/billing/get-app-entitlement` |
+| `billing` | `terms_acceptance` (subscription state itself lives in Autumn) | `application/billing/get-app-entitlement`, `application/billing/detach-terms-acceptances-from-user` |
 | `rate-limit` / `email` | none (platform, open to all) | `apply-rate-limit`, `email-sender` |
 
 Rules the checker enforces:
