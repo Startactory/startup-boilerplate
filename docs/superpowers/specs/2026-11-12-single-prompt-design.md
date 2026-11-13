@@ -140,8 +140,9 @@ first, short-lived sign-ins last, so they are fresh when phase 2 starts.
 7. Site and app permissions for the unattended run: Claude opens, once, every site phase 2
    drives in Chrome (Google Cloud console, Supabase, PostHog, Autumn, Dash0, Vercel, the
    production URL, the Stripe checkout) so the founder picks "always allow" for each, and asks
-   computer-use access for the apps it may need. Claude never changes its own permission
-   settings.
+   computer-use access for Docker Desktop only when item 5 settled on Docker for the local
+   Postgres (revised after the second review: otherwise the founder was asked for a grant the
+   run never used). Claude never changes its own permission settings.
 8. `vercel login` (device code, maybe a 2FA code). Last of the sign-ins, because its device code
    expires in minutes and its session must still be valid in phase 2.
 9. The founder switches the session to **bypass permissions mode** (the founder's decision: an
@@ -182,7 +183,9 @@ non-zero exit code on failure. It checks:
 - `startup.config.json` against the full schema of a single-prompt run (every answer present and
   valid);
 - the tools: `node`, `pnpm`, `op`, `vercel` (recent enough for deploy hooks), `gh`, and Postgres or
-  Docker;
+  Docker; the Node major on `PATH` must match `.nvmrc` (the `node-version` check, added after the
+  second review: each Bash call is a new shell, so `nvm use` does not last, and the fix is a
+  `PATH` prefix on every command);
 - the vault: the service account works, and every master key field that the run needs exists
   (names only, never values);
 - the sessions: `gh auth status` (with the `workflow` scope when needed) and `vercel whoami`;
@@ -227,8 +230,10 @@ also removes today's second Google pass (step 6h). Phase 2 then runs:
 2. Install and build the local environment (step 3), including the storefront sync.
 3. Provision the services (step 4): Supabase production database, both Google OAuth clients in one
    pass (local and production redirect URIs are both known) and the Google app published so
-   anyone can sign in (with the production landing as home page and `/legal/privacy` as privacy
-   policy if Google asks for them), PostHog, SMTP, Autumn (an organization recorded by ID, never picked by name;
+   anyone can sign in (with the production landing as home page, `/legal/privacy` as privacy
+   policy and `/legal/terms` as terms of service; until Google verifies the brand, which needs a
+   domain the founder owns and comes after the run, the consent screen shows the domain instead
+   of the app name), PostHog, SMTP, Autumn (an organization recorded by ID, never picked by name;
    login, pricing push, check that the organization's default currency matches
    `pricing.currency`), Dash0.
 4. Verify locally (step 5): migrations, `pnpm validate`, and a browser check on localhost done by
@@ -242,7 +247,17 @@ also removes today's second Google pass (step 6h). Phase 2 then runs:
    script first sets the Vercel production branch to `master` (Git-connected to an empty repository
    in phase 1, the project keeps `main`, and hook builds of `master` were then Previews), and
    `vercel.json` disables every Git deployment (`"git": { "deploymentEnabled": false }`), so no
-   branch or pull request builds a Preview: production deploys only through the hook.
+   branch or pull request builds a Preview: production deploys only through the hook. Revised
+   after the second review: `production.yml` no longer turns green when the hook answers. Its
+   `Wait for the production deployment` step polls `<productionUrl>/api/version` until
+   `commitSha` equals the pushed commit (15 minutes at most) and fails otherwise, so a green run
+   means production serves the commit. It reads the GitHub Actions variable `PRODUCTION_URL`,
+   which the deploy hook script sets with the production branch and the hook secret. The
+   committed `vercel.json` is the same for every startup (`git.deploymentEnabled: false`,
+   `framework: nextjs`): the Vercel project script sets the framework and the function region on
+   the project through the Vercel API, so merging boilerplate fixes later never conflicts on
+   `vercel.json`. The same script removes the `.env.local` that `vercel link` writes, so only
+   `.env` and `.env.prod` remain.
 6. Smoke test, after the Vercel build is Ready.
 7. Final report (the per-service checklist of today) and a push notification.
 
@@ -266,7 +281,11 @@ resumed run can also start over; the ledger only lets it skip finished steps fas
   of step 6f, the startup's Stripe account, KYC, the live Autumn key), a custom domain with
   Resend, and changing the price of an existing startup move to a separate "After the run"
   section of the skill. They stay interactive, phase 2 never reaches them, and the skill's
-  single-step triggers ("set my pricing", "deploy it to prod") still work outside a run.
+  single-step triggers ("set my pricing", "deploy it to prod") still work outside a run. Added
+  after the second review: taking boilerplate fixes later (merge `upstream/master` on a branch,
+  regenerate the startup profile, PR). The repo's `.gitattributes` marks the three files the
+  profile sync generates `merge=ours`, and the repository step defines that merge driver once per
+  clone (`git config merge.ours.driver true`), so those files never conflict.
 
 ### When something breaks
 
@@ -315,7 +334,10 @@ with `SMOKE TEST PASSED` or `SMOKE TEST FAILED`:
 - starting a Google sign-in returns a redirect to Google with the production client ID and the
   production callback URL;
 - the production database has every migration of `drizzle/` applied (read through the vault, the
-  URL never printed).
+  URL never printed);
+- added after the second review: `/brand-logo.png` (the brand mark the invitation email shows) is
+  a PNG (`brand-logo`), and the Vercel production branch is `master` (`production-branch`; the
+  fix is to run the deploy hook script again).
 
 **Browser check**, by Claude in Chrome: sign in with Google as the founder, create the
 organization (named after the startup), reach the paywall, tick the terms, and reach the Stripe

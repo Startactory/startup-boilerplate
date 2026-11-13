@@ -13,7 +13,7 @@ Vercel `iad1`.
 | Service | `eu` | `us` | Where it is set |
 | --- | --- | --- | --- |
 | Supabase (Postgres) | `eu-west-3` (Paris) | `us-east-1` | `supabase-project.mjs` at project creation (4a) — cannot change later |
-| Vercel Functions | `cdg1` (Paris) | `iad1` | `"regions"` in `vercel.json`, written by `vercel-project.mjs` (6b) — next to the database |
+| Vercel Functions | `cdg1` (Paris) | `iad1` | the project's function region, set through the Vercel API by `vercel-project.mjs` (6b), not in `vercel.json` (the same for every startup) — next to the database |
 | PostHog | `https://eu.i.posthog.com` | `https://us.i.posthog.com` | `NEXT_PUBLIC_POSTHOG_HOST` — `scripts/init-env.mjs` derives it from `dataRegion` |
 | Dash0 | an organization created in `eu-west-1` | an organization created in a US region | the organization's endpoint (4f) |
 | Resend | domain region `eu-west-1` | domain region `us-east-1` | when the domain is added, after the run (`after-the-run.md`) |
@@ -38,12 +38,15 @@ Regions are only part of it. These items make an EU startup compliant; they are 
 no step forgets them. Report each one in the final checklist as shown:
 
 - **Cookie consent** — built (Step 1d): PostHog does not start, or set cookies, before consent.
-- **Privacy policy** — built (Step 1d): what is collected, why, how long, and the sub-processors:
-  Supabase, Vercel, PostHog, Dash0, Resend (or the SMTP provider), Autumn, Stripe, Google
-  (sign-in).
+- **Privacy policy** — built (Step 1d): what is collected, why, how long, the sub-processors
+  (Supabase, Vercel, PostHog, Dash0, Resend or the SMTP provider, Autumn, Stripe, Google for
+  sign-in), and how users exercise their rights in Settings.
 - **Legal notice** — built (Step 1d): required for a company established in France ("mentions
   légales").
-- **User rights** — **needs action**: account deletion and data export (GDPR art. 17 and 20).
+- **User rights** — built: self-service in Settings. "Export my data" downloads the user's data as
+  JSON (GDPR art. 20). "Delete my account" erases it (art. 17): it removes the organizations where
+  the user is the only member and cancels their billing, and it refuses while the user is the last owner of an
+  organization that has other members.
 - **Telemetry hygiene** — `shared/logger` already redacts emails and names. HTTP spans can carry
   client IP addresses, which are personal data; Dash0 keeps them for its retention period.
 

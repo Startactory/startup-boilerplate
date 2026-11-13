@@ -3,7 +3,7 @@
 Phase 2 never reaches these. Each one is interactive and runs with the founder present: ask their
 go-ahead before an OAuth consent, a key, a push to production or anything that costs money. Start
 here directly when the founder asks for one of them on a startup that already ran ("set my
-pricing", "go live", "add my domain").
+pricing", "go live", "add my domain", "take the boilerplate's fixes").
 
 These paths change `startup.config.json` in ways the phase 2 preflight refuses (`legal.company`
 set, a `domain`). That is expected: phase 2 is over.
@@ -67,16 +67,27 @@ The founder buys the domain (a purchase: theirs). Then, with the founder's go-ah
    wrong value gives sign-in loops.
 4. **Google**: open the console on the founder's account
    (`https://console.cloud.google.com/auth/overview?project=<googleCloudProject>&authuser=<googleAccount>`);
-   in the `<name>` client (not `(local)`), add `https://<domain>/auth/callback/google`, and point
-   the app's home page and privacy policy to the domain. The page can show the client secret:
-   narrow `find` queries only.
-5. **Resend**: create the `RESEND_FULL_ACCESS_API_KEY` master key as `00-founder-setup.md` item 6
+   in the `<name>` client (not `(local)`), add `https://<domain>/auth/callback/google`. The client
+   page can show the client secret: narrow `find` queries only. Then, in **Branding**, point the
+   three app links to the domain (home page `https://<domain>`, privacy policy
+   `https://<domain>/legal/privacy`, terms of service `https://<domain>/legal/terms`) and add
+   `<domain>` to the authorized domains.
+5. **Google brand verification.** Until Google verifies the brand, its consent screen shows the
+   domain instead of the app name. Verification needs a domain the founder owns, so it waits for
+   this section (a `*.vercel.app` domain cannot be verified):
+   1. Verify `<domain>` in Google Search Console with the same Google account
+      (`https://search.google.com/search-console?authuser=<googleAccount>`): add a Domain
+      property and the TXT record it shows to the domain's DNS, like the records of item 2, then
+      click "Verify".
+   2. In the Google Auth Platform, **Verification Center**, submit the brand for verification.
+      Google reviews it; once it is verified, the consent screen shows the app name.
+6. **Resend**: create the `RESEND_FULL_ACCESS_API_KEY` master key as `00-founder-setup.md` item 6
    does; add the domain in Resend in the region `data-region.md` gives, add its DNS records, and
    wait for "verified". Then `node scripts/providers/resend-keys.mjs`, which prints
    `OK  Resend local <state>, production <state>, scoped to <domain>, stored in …` and switches
    `EMAIL_PROVIDER` to `resend` in both items: the Gmail app password is no longer used.
-6. Push the env (item 6 of "Go live"), merge a PR to redeploy, then, as
-   `06-deploy-production.md` 6j item 2 says, `git switch master && git pull --ff-only`, wait for
+7. Push the env (item 6 of "Go live"), merge a PR to redeploy, then, as
+   `06-deploy-production.md` 6j item 2 says, `git switch master && git pull --ff-only`, check
    the build, and `node scripts/smoke-test.mjs --url https://<domain>`.
 
 ## Changing the price of an existing startup
@@ -89,6 +100,69 @@ The founder buys the domain (a purchase: theirs). Then, with the founder's go-ah
 3. `pnpm exec atmn push --yes` pushes the sandbox, which production uses until go-live. After
    go-live, also run the production push of "Go live" item 5.
 4. Commit on a branch and merge its PR: CI deploys the new price and terms.
+
+## Taking boilerplate fixes
+
+The boilerplate stays the fetch-only remote `upstream` (`01c-create-repository.md` section 4) and
+keeps getting fixes. Take them on a branch, and ask the founder's go-ahead before merging the PR:
+the merge deploys to production. Run every `node` and `pnpm` command with the `.nvmrc` version on
+`PATH` (`03-install-and-secrets.md` 3a item 1); upstream may change `.nvmrc`, so after the merge,
+install the new version once if its directory is missing. Below, `<repository>` is
+`startup.config.json` `repository` and `<YYYY-MM-DD>` today's date.
+
+1. **The merge driver.** `git config merge.ours.driver` must print `true`; otherwise run
+   `git config merge.ours.driver true` (one time per clone, `01c-create-repository.md` 4.4).
+   Without it, the three generated files below conflict.
+2. **Merge upstream on a branch**, from the deployed `master`:
+
+   ```bash
+   git switch master && git pull --ff-only
+   git fetch upstream
+   git switch -c chore/boilerplate-fixes-<YYYY-MM-DD>
+   git merge upstream/master
+   ```
+
+3. **Resolve what still conflicts** (`git diff --name-only --diff-filter=U` lists it). The three
+   generated files, `src/shared/startup-profile/profile.json`, `src/app/brand.css` and
+   `public/brand-logo.png`, do not: `.gitattributes` marks them `merge=ours`, so the merge keeps
+   the startup's copies and item 4 regenerates them. The likely conflicts:
+   - `autumn.config.ts`: keep the startup's `pro` plan (its price and trial), and take upstream's
+     other changes.
+   - `src/i18n/messages/en.json` and `src/i18n/messages/fr.json`: keep the startup's
+     `Storefront.hero` values (`headline`, `subheadline`), and take upstream's new and changed
+     keys. Both files keep the same shape.
+   - `package.json`: keep the startup's `name` (the slug), and take upstream's other changes.
+   - tests and scripts (`*.test.ts`, `test/**`, `scripts/**`): take upstream's version,
+     `git checkout --theirs -- <path>`.
+
+   `git add` each resolved file, then `git commit --no-edit`.
+4. **Regenerate the profile.** `pnpm install` (upstream may change the dependencies), then
+   `node scripts/sync-startup-profile.mjs`: it regenerates the three generated files from
+   `startup.config.json`, with any profile key upstream added, and ends with
+   `OK  startup profile synced (<name>)`. On a `FAIL` line, add the field it names to
+   `startup.config.json` and run it again. Commit the result (nothing to commit is fine):
+
+   ```bash
+   git add startup.config.json src/shared/startup-profile/profile.json src/app/brand.css public/brand-logo.png
+   git commit -m "chore: sync the startup profile"
+   ```
+
+5. **`pnpm validate`** must be green.
+6. **Open the PR and merge it** once its checks are green and the founder said go. Merge with a
+   merge commit (`--merge`), never a squash or a rebase: the merge commit records upstream's
+   history, so the next `git merge upstream/master` brings only the newer fixes.
+
+   ```bash
+   git push -u origin chore/boilerplate-fixes-<YYYY-MM-DD>
+   gh pr create --repo "<repository>" --base master --fill
+   gh pr checks <number> --repo "<repository>" --watch
+   gh pr merge <number> --repo "<repository>" --merge --delete-branch
+   ```
+
+7. **Deploy and check.** CI applies any migration upstream added (`migrate`), then
+   `production.yml` deploys; a green `production.yml` run means production serves the merge
+   (`06-deploy-production.md` 6j item 1). Then run the smoke test as 6j item 2 says:
+   `git switch master && git pull --ff-only`, check the build, `node scripts/smoke-test.mjs`.
 
 ## Optional MCP connectors (later interactive work)
 

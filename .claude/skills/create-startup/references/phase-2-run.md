@@ -23,7 +23,7 @@ phase 1: every answer is in `startup.config.json`.
   `authuser=<googleAccount>`; it then opens on that account, not on Chrome's default one.
 - Run every `node` and `pnpm` command with the `.nvmrc` version on `PATH`
   (`03-install-and-secrets.md` 3a item 1): each Bash call is a new shell, so `nvm use` does not
-  last.
+  last, and the preflight's `node-version` check fails on another Node major.
 - Until the first push (step `deploy`), commit on `master`. After it, every change goes through a
   branch and a PR that you merge: the pre-push hook refuses direct pushes to `master`.
 - Phase 2 never runs a real or live charge: payments stay in Stripe test mode, and the browser
@@ -32,9 +32,10 @@ phase 1: every answer is in `startup.config.json`.
 ## Start (every session)
 
 1. `node scripts/preflight.mjs` must end with `PREFLIGHT OK`; run it even when the ledger lists
-   `preflight`. Fix each `MISSING` line under the failure policy below (a missing tool, an expired
-   `vercel login` with "Allow Access" clicked in Chrome); a fix only the founder can make is a
-   block. Then `node scripts/run-ledger.mjs done preflight`.
+   `preflight`. Fix each `MISSING` line under the failure policy below and the fix table of
+   `phase-1-setup.md` section 7 (a missing tool, a `node-version` line fixed by the `PATH` prefix
+   it prints, an expired `vercel login` with "Allow Access" clicked in Chrome); a fix only the
+   founder can make is a block. Then `node scripts/run-ledger.mjs done preflight`.
 2. `node scripts/run-ledger.mjs status` prints `done <id>` per finished step, and
    `blocked <action>` after a block. On a `blocked` line this is a resume. Check it by the kind of
    block (Block protocol, below):
@@ -100,10 +101,12 @@ What each step does, and where it differs from its reference:
   `http://localhost:3000/auth/callback/google`, and `<name>` with
   `<productionUrl>/auth/callback/google`. On each "OAuth client created" dialog, the single
   `find "Download JSON"` is the only read: click it, press Escape, and navigate the tab away
-  before any other read (4b item 4). Import each Download JSON into its item. Then publish
-  the app (Audience, from "Testing" to "In production"); when Google requires a home page and a
-  privacy policy, give `<productionUrl>` and `<productionUrl>/legal/privacy`. No test users are
-  needed.
+  before any other read (4b item 4). Import each Download JSON into its item. Then, in Branding,
+  set the three app links: home page `<productionUrl>`, privacy policy
+  `<productionUrl>/legal/privacy` and terms of service `<productionUrl>/legal/terms`, and publish
+  the app (Audience, from "Testing" to "In production"). No test users are needed. Until Google
+  verifies the brand (after the run, with a custom domain), its consent screen shows the domain
+  instead of the app name: expected, not a failure.
 - **`posthog`**: `node scripts/providers/posthog-projects.mjs`. A refused local project on the
   free plan is a warning, not a failure.
 - **`smtp`**: `node scripts/vault-copy-smtp.mjs`, then `SMTP_FROM_NAME` as 4d shows. No Resend: a
@@ -133,22 +136,31 @@ What each step does, and where it differs from its reference:
   3. `node scripts/set-github-secret.mjs DATABASE_URL op://startup-<slug>/production/DATABASE_URL`
      (6g), so the first CI run is green;
   4. `git push -u origin master`, the first push (6j item 1): it creates `master` on GitHub and
-     runs CI and its `migrate` job; `production.yml` calls the deploy hook when CI completes;
+     runs CI and its `migrate` job; when CI completes, `production.yml` calls the deploy hook,
+     then waits until production serves the pushed commit;
   5. **at once**, before CI finishes, `node scripts/providers/vercel-deploy-hook.mjs --project <slug>`
      (6d). It sets the Vercel production branch to `master` (Vercel kept `main` from phase 1, so
-     hook builds would otherwise be Previews), prints `OK  Vercel production branch is master`,
-     then creates the hook, so `production.yml` finds the `VERCEL_DEPLOY_HOOK_URL` secret; when
-     it fails right after the push, wait 10 seconds and run it again;
+     hook builds would otherwise be Previews), the hook with its `VERCEL_DEPLOY_HOOK_URL` secret,
+     and the GitHub Actions variable `PRODUCTION_URL` that `production.yml` polls. Success prints
+     `OK  Vercel production branch is master`, then
+     `OK  deploy hook production <created|reused>, stored in startup-<slug>/ci, set as GitHub secret`,
+     then `OK  GitHub variable PRODUCTION_URL set to <url>`; when it fails right after the push,
+     wait 10 seconds and run it again;
   6. follow each run without a prompt: take the id with
      `gh run list --repo "<repository>" --branch master --workflow ci.yml --limit 1 --json databaseId -q '.[0].databaseId'`
      (retry a few times until a run appears; `--workflow production.yml` for the deploy run, once
      CI is done), then `gh run watch <id> --repo "<repository>" --exit-status`, where
-     `<repository>` is `startup.config.json` `repository`. A CI run can outlast a Bash call's
-     2-minute default: give `gh run watch` the longest timeout (10 minutes) or run it in the
-     background; when it is cut off, run it again (it only reads). If the `production.yml` run
-     started before the secret existed (its `Trigger Vercel production deploy` step failed), run
-     `gh run rerun <id> --repo "<repository>"` with its id once the secret is set, and watch it
-     again;
+     `<repository>` is `startup.config.json` `repository`. A run can outlast a Bash call's
+     2-minute default (the deploy run lasts as long as the Vercel build, up to 15 minutes): give
+     `gh run watch` the longest timeout (10 minutes) or run it in the background; when it is cut
+     off, run it again (it only reads). A green `production.yml` run means production serves the
+     pushed commit: its `Wait for the production deployment` step polls
+     `<productionUrl>/api/version` until `commitSha` equals that commit, for 15 minutes at most,
+     and fails otherwise (a failed or stuck build: 6j item 1). If the `production.yml` run started
+     before `vercel-deploy-hook.mjs` finished (its `Trigger Vercel production deploy` or
+     `Wait for the production deployment` step failed), run
+     `gh run rerun <id> --repo "<repository>"` with its id once the secret and the variable are
+     set, and watch it again;
   7. branch protection (6i, on `repos/<repository>/…`); a 403 goes in the report.
 
   Skip the rest of 06: 6a (the URL is `productionUrl`), 6b (phase 1), 6f (go-live, in
@@ -162,13 +174,22 @@ Run the whole smoke test again on every resume, even when the ledger lists `smok
 1. **The deployed commit.** `git switch master && git pull --ff-only`, every time: after a PR
    merged on GitHub, the local `HEAD` is not the deployed commit. `git rev-parse HEAD` is then what
    `/api/version` must return.
-2. **Wait for the build** of that commit, as `06-deploy-production.md` 6j item 2 shows (at most 15
-   minutes, in the background): `production.yml` is green as soon as its call to the deploy hook
-   returns, while Vercel is still building.
+2. **Check the build** of that commit, as `06-deploy-production.md` 6j item 2 shows (at most 15
+   minutes, in the background). A green `production.yml` run for that commit already means
+   production serves it (its `Wait for the production deployment` step); this wait on
+   `vercel inspect` is the second check, and it returns at once when the deployment is ready.
 3. `node scripts/smoke-test.mjs`. It reads `productionUrl`, prints `OK  <name>` or
-   `FAIL  <name>: <detail>` per check (landing, the four legal pages, version, Google sign-in,
-   migrations), then its pass or fail line. A `version` failure naming an older commit means the
-   deploy is not promoted yet: wait a minute, then run it again.
+   `FAIL  <name>: <detail>` per check, then its pass or fail line. The checks, in order:
+   `landing`, the four legal pages (`legal/notice`, `legal/terms`, `legal/privacy`,
+   `legal/cookies`), `brand-logo` (`/brand-logo.png` is a PNG), `version`, `production-branch`
+   (the Vercel production branch is `master`), `google-sign-in` and `migrations`. A `version`
+   failure naming an older commit means the deploy is not promoted yet: wait a minute, then run
+   it again. On `FAIL  production-branch`, run
+   `node scripts/providers/vercel-deploy-hook.mjs --project <slug>` again (it sets the branch);
+   when `version` failed too, re-run the latest `production.yml` run
+   (`gh run rerun <id> --repo "<repository>"`), watch it, then run the smoke test again. On
+   `FAIL  brand-logo`, run `node scripts/sync-startup-profile.mjs`, commit
+   `public/brand-logo.png` on a branch and merge its PR, then start the smoke test again.
 4. The browser check, by Claude in Chrome on `productionUrl`: sign in with Google as the founder,
    create the organization (named after the startup; reuse it on a re-run), reach the paywall, tick
    the terms, and reach the Stripe checkout page in test mode. Stop there: never enter a card
