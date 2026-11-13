@@ -76,7 +76,7 @@ slug is the founder's decision.
 
 What each step does, and where it differs from its reference:
 
-- **`local-env`**: 3a to 3f. Commit the two files `node scripts/sync-startup-profile.mjs` writes
+- **`local-env`**: 3a to 3f. Commit the three files `node scripts/sync-startup-profile.mjs` writes
   (it also carries `defaultLocale` into the profile).
 - **`supabase`**: no MCP and no cost step; the script creates on the Free plan only.
 

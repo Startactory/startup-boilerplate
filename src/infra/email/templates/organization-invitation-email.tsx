@@ -102,7 +102,7 @@ export function OrganizationInvitationEmail({
   brandName,
 }: InvitationEmailProps): React.ReactElement {
   const t = STRINGS[locale];
-  const logoUrl = `${appUrl}/logo.PNG`;
+  const logoUrl = `${appUrl}/brand-logo.png`;
   return (
     <Html lang={locale}>
       <Head />

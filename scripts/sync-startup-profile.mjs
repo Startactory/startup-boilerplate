@@ -1,6 +1,9 @@
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { icons } from 'lucide-react';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import sharp from 'sharp';
 import * as v from 'valibot';
 import { deriveAccentTokens } from './brand/accent.mjs';
 import { DEFAULT_LOCALE, Legal, SUPPORTED_LOCALES } from './startup-config.mjs';
@@ -8,6 +11,11 @@ import { readStartupConfig } from './vault/names.mjs';
 
 const PROFILE_PATH = 'src/shared/startup-profile/profile.json';
 const BRAND_CSS_PATH = 'src/app/brand.css';
+const BRAND_LOGO_PATH = 'public/brand-logo.png';
+const LOGO_SIZE = 512;
+const LOGO_RADIUS = 112;
+const LOGO_ICON_SIZE = 288;
+const LOGO_ICON_COLOR = '#ffffff';
 const DEFAULT_CURRENCY = 'EUR';
 const DEFAULT_ICON = 'Sparkles';
 const DEFAULT_ACCENT = '#2f3130';
@@ -81,6 +89,31 @@ function renderBrandCss(tokens) {
 `;
 }
 
+// why: emails cannot render the icon component, so they load this PNG of the same brand mark
+export function renderBrandLogoSvg(brand) {
+  const icon = renderToStaticMarkup(
+    createElement(icons[brand.icon], {
+      size: LOGO_ICON_SIZE,
+      color: LOGO_ICON_COLOR,
+      strokeWidth: 2,
+    }),
+  );
+  const offset = (LOGO_SIZE - LOGO_ICON_SIZE) / 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${LOGO_SIZE}" height="${LOGO_SIZE}" viewBox="0 0 ${LOGO_SIZE} ${LOGO_SIZE}"><rect width="${LOGO_SIZE}" height="${LOGO_SIZE}" rx="${LOGO_RADIUS}" fill="${brand.accent}"/><g transform="translate(${offset} ${offset})">${icon}</g></svg>`;
+}
+
+function rasterizeSvg(svg) {
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+export async function writeBrandLogo({
+  brand,
+  writeFile,
+  rasterize = rasterizeSvg,
+}) {
+  writeFile(BRAND_LOGO_PATH, await rasterize(renderBrandLogoSvg(brand)));
+}
+
 export function syncStartupProfile({ config, writeFile }) {
   const brand = resolveBrand(config.brand);
   const profile = {
@@ -101,6 +134,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       config: readStartupConfig(),
       writeFile: writeFileSync,
     });
+    await writeBrandLogo({ brand: profile.brand, writeFile: writeFileSync });
     console.log(`OK  startup profile synced (${profile.name})`);
   } catch (error) {
     console.error(`FAIL  ${error.message}`);

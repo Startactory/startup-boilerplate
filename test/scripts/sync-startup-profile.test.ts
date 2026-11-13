@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { syncStartupProfile } from '../../scripts/sync-startup-profile.mjs';
+import {
+  renderBrandLogoSvg,
+  syncStartupProfile,
+  writeBrandLogo,
+} from '../../scripts/sync-startup-profile.mjs';
 
 const fullConfig = {
   name: 'Acme Analytics',
@@ -137,5 +141,39 @@ describe('syncStartupProfile', () => {
     expect(() => run({ ...fullConfig, pricing: { currency } })).toThrow(
       'pricing.currency',
     );
+  });
+});
+
+describe('renderBrandLogoSvg', () => {
+  it('draws the icon in white on a rounded square of the accent color', () => {
+    const svg = renderBrandLogoSvg({ icon: 'Glasses', accent: '#0f6e8c' });
+    expect(svg).toContain('width="512" height="512"');
+    expect(svg).toContain('rx="112" fill="#0f6e8c"');
+    expect(svg).toContain('stroke="#ffffff"');
+    expect(svg).toContain('translate(112 112)');
+  });
+});
+
+describe('writeBrandLogo', () => {
+  const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+  it('writes public/brand-logo.png as a PNG image', async () => {
+    const writeFile = vi.fn();
+    await writeBrandLogo({
+      brand: { icon: 'Receipt', accent: '#2f3130' },
+      writeFile,
+    });
+    expect(writeFile).toHaveBeenCalledTimes(1);
+    const [path, content] = writeFile.mock.calls[0] as [string, Buffer];
+    expect(path).toBe('public/brand-logo.png');
+    expect([...content.subarray(0, 8)]).toEqual(PNG_SIGNATURE);
+  });
+
+  it('rasterizes the rendered SVG', async () => {
+    const writeFile = vi.fn();
+    const rasterize = vi.fn(async (svg: string) => Buffer.from(svg));
+    const brand = { icon: 'Receipt', accent: '#2f3130' };
+    await writeBrandLogo({ brand, writeFile, rasterize });
+    expect(rasterize).toHaveBeenCalledWith(renderBrandLogoSvg(brand));
   });
 });
