@@ -2,10 +2,13 @@ export const DOMAINS = [
   {
     name: 'auth',
     dirs: [
+      'src/core/account',
       'src/infra/auth',
+      'src/infra/data-access/auth',
       'src/application/me',
       'src/application/settings',
       'src/app/auth',
+      'src/app/api/me',
       'src/app/(public)/sign-in',
       'src/app/(app)/dashboard/settings',
     ],
@@ -40,6 +43,10 @@ export const DOMAINS = [
       'src/application/organization/list-invitations',
       'src/application/organization/get-membership',
       'src/application/organization/get-organization-name',
+      'src/application/organization/list-user-memberships',
+      'src/application/organization/list-user-invitations',
+      'src/application/organization/delete-organization',
+      'src/application/organization/remove-user-from-organizations',
       'src/application/invitations/find-pending-for-current-user',
     ],
   },
@@ -80,13 +87,22 @@ export const DOMAINS = [
       'src/infra/data-access/billing',
     ],
     schemas: ['src/infra/database/schema/billing-schema'],
-    // Reads the active org id via the auth domain (openToAll); nothing else
-    // depends on it yet, so no ALLOWED_EDGES entry is required.
-    public: ['src/application/billing/get-app-entitlement'],
+    // Reads the active org id via the auth domain (openToAll). The auth domain
+    // depends on it for account deletion and personal-data export.
+    public: [
+      'src/application/billing/get-app-entitlement',
+      'src/application/billing/dto',
+      'src/application/billing/list-terms-acceptances-for-user',
+      'src/application/billing/detach-terms-acceptances-from-user',
+      'src/application/billing/delete-organization-billing',
+    ],
   },
 ];
 
-export const ALLOWED_EDGES = [['auth', 'organization']];
+export const ALLOWED_EDGES = [
+  ['auth', 'organization'],
+  ['auth', 'billing'],
+];
 
 export const SHARED_PREFIXES = [
   'src/shared',

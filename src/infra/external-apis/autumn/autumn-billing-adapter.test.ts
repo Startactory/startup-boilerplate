@@ -2,9 +2,14 @@ import { AutumnDefaultError } from 'autumn-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const check = vi.fn();
+const deleteCustomer = vi.fn();
+const mockEnv = vi.hoisted(() => ({
+  AUTUMN_SECRET_KEY: 'am_sk_test_key' as string | undefined,
+  LOG_LEVEL: 'silent',
+}));
 
 vi.mock('@/shared/env', () => ({
-  env: () => ({ AUTUMN_SECRET_KEY: 'am_sk_test_key', LOG_LEVEL: 'silent' }),
+  env: () => mockEnv,
 }));
 
 vi.mock('@/shared/logger', () => ({
@@ -12,7 +17,7 @@ vi.mock('@/shared/logger', () => ({
 }));
 
 vi.mock('./client', () => ({
-  autumnClient: () => ({ check }),
+  autumnClient: () => ({ check, customers: { delete: deleteCustomer } }),
 }));
 
 import { externalApi } from '@/core/errors';
@@ -31,6 +36,12 @@ function autumnHttpError(status: number, body: string): AutumnDefaultError {
     body,
   });
 }
+
+const CUSTOMER_NOT_FOUND_BODY = JSON.stringify({
+  message: 'Customer does not exist in this org and env',
+  code: 'customer_not_found',
+  env: 'sandbox',
+});
 
 describe('autumnBillingAdapter.checkAppAccess', () => {
   beforeEach(() => {
@@ -127,6 +138,82 @@ describe('autumnBillingAdapter.checkAppAccess', () => {
     });
 
     expect(result._unsafeUnwrapErr().code).toBe('external_api');
+    expect(log.error).toHaveBeenCalledOnce();
+  });
+});
+
+describe('autumnBillingAdapter.deleteCustomer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnv.AUTUMN_SECRET_KEY = 'am_sk_test_key';
+  });
+
+  it('deletes the organization customer in Autumn and Stripe', async () => {
+    deleteCustomer.mockResolvedValue({ success: true });
+
+    const result = await autumnBillingAdapter.deleteCustomer({
+      organizationId: ORGANIZATION_ID,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(deleteCustomer).toHaveBeenCalledWith({
+      customerId: ORGANIZATION_ID,
+      deleteInStripe: true,
+    });
+  });
+
+  it('treats a customer Autumn never created as already deleted', async () => {
+    deleteCustomer.mockRejectedValue(
+      autumnHttpError(404, CUSTOMER_NOT_FOUND_BODY),
+    );
+
+    const result = await autumnBillingAdapter.deleteCustomer({
+      organizationId: ORGANIZATION_ID,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(log.info).toHaveBeenCalledWith(
+      'billing.delete_customer.no_customer',
+      {
+        organizationId: ORGANIZATION_ID,
+      },
+    );
+    expect(log.error).not.toHaveBeenCalled();
+  });
+
+  it('skips the call when billing is not configured', async () => {
+    mockEnv.AUTUMN_SECRET_KEY = undefined;
+
+    const result = await autumnBillingAdapter.deleteCustomer({
+      organizationId: ORGANIZATION_ID,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(deleteCustomer).not.toHaveBeenCalled();
+  });
+
+  it('fails when Autumn reports the deletion as unsuccessful', async () => {
+    deleteCustomer.mockResolvedValue({ success: false });
+
+    const result = await autumnBillingAdapter.deleteCustomer({
+      organizationId: ORGANIZATION_ID,
+    });
+
+    expect(result._unsafeUnwrapErr().code).toBe('external_api');
+  });
+
+  it('keeps a server error as a billing failure', async () => {
+    deleteCustomer.mockRejectedValue(
+      autumnHttpError(500, JSON.stringify({ code: 'internal_error' })),
+    );
+
+    const result = await autumnBillingAdapter.deleteCustomer({
+      organizationId: ORGANIZATION_ID,
+    });
+
+    expect(result._unsafeUnwrapErr()).toEqual(
+      externalApi('autumn', 'Customer deletion failed'),
+    );
     expect(log.error).toHaveBeenCalledOnce();
   });
 });

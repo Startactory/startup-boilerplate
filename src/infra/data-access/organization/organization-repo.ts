@@ -58,3 +58,18 @@ export async function createOrganizationWithOwner(args: {
     return err(unknown('Failed to create organization'));
   }
 }
+
+export async function deleteOrganization(
+  organizationId: string,
+): Promise<Result<{ deleted: boolean }, AppError>> {
+  try {
+    const rows = await db
+      .delete(organization)
+      .where(eq(organization.id, organizationId))
+      .returning({ id: organization.id });
+    return ok({ deleted: rows.length > 0 });
+  } catch (e) {
+    log.error('organization.delete.failed', e, { organizationId });
+    return err(unknown('Failed to delete organization'));
+  }
+}

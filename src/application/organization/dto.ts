@@ -19,3 +19,30 @@ export type OrganizationInvitationDto = {
   inviterId: string;
   createdAt: string;
 };
+
+export type UserMembershipDto = {
+  organizationId: string;
+  organizationName: string;
+  role: string;
+  joinedAt: string;
+  otherMemberRoles: string[];
+};
+
+export type ReceivedInvitationDto = {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  role: string;
+  status: string;
+  expiresAt: string;
+  createdAt: string;
+};
+
+export type SentInvitationDto = ReceivedInvitationDto & {
+  email: string;
+};
+
+export type UserInvitationsDto = {
+  sent: SentInvitationDto[];
+  received: ReceivedInvitationDto[];
+};

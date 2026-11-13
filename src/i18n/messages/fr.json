@@ -113,7 +113,28 @@
     "emptyAccounts": "Aucun compte lié.",
     "dangerSection": "Compte",
     "signOutTitle": "Se déconnecter de cet appareil",
-    "signOutDescription": "Vous devrez vous reconnecter pour accéder à votre espace."
+    "signOutDescription": "Vous devrez vous reconnecter pour accéder à votre espace.",
+    "dataSection": "Vos données",
+    "exportTitle": "Exporter mes données",
+    "exportDescription": "Téléchargez une copie de vos données personnelles au format JSON.",
+    "exportAction": "Exporter",
+    "exportError": "Vos données n'ont pas pu être exportées. Veuillez réessayer.",
+    "dangerZoneSection": "Zone de danger",
+    "deleteTitle": "Supprimer mon compte",
+    "deleteDescription": "Supprimez définitivement votre compte et vos données personnelles.",
+    "deleteAction": "Supprimer le compte",
+    "deleteDialogTitle": "Supprimer votre compte ?",
+    "deleteDialogDescription": "Cette action est définitive et irréversible. Exportez vos données au préalable si vous souhaitez en garder une copie.",
+    "deleteConsequenceAccount": "Votre profil, vos sessions et vos comptes de connexion liés sont supprimés.",
+    "deleteConsequenceOrganizations": "Les organisations dont vous êtes le seul membre sont supprimées et leur abonnement est résilié.",
+    "deleteConsequenceMemberships": "Vous quittez toutes les autres organisations.",
+    "deleteConfirmLabel": "Saisissez {email} pour confirmer",
+    "deleteConfirm": "Supprimer mon compte",
+    "deleteCancel": "Annuler",
+    "deleteConfirmMismatch": "Cette adresse e-mail ne correspond pas à votre compte.",
+    "deleteOwnerBlocked": "Vous êtes le seul propriétaire d'une organisation qui compte d'autres membres. Transférez la propriété ou retirez ses membres avant de supprimer votre compte.",
+    "deleteError": "Votre compte n'a pas pu être supprimé. Veuillez réessayer.",
+    "rateLimited": "Trop de tentatives. Patientez une minute puis réessayez."
   },
   "EditProfile": {
     "title": "Modifier le profil",
@@ -318,6 +339,8 @@
       "rights": {
         "title": "Vos droits",
         "intro": "Vous disposez d'un droit d'accès, de rectification et d'effacement de vos données, d'un droit à la limitation et d'opposition au traitement, ainsi que d'un droit à la portabilité. Lorsque le traitement repose sur votre consentement, vous pouvez le retirer à tout moment.",
+        "selfService": "Vous pouvez exporter vos données et supprimer votre compte vous-même à tout moment, depuis les Paramètres de l'application. La suppression du compte efface votre profil, vos sessions et vos comptes de connexion liés, vous retire de vos organisations et supprime les organisations dont vous êtes le seul membre, en résiliant leur abonnement.",
+        "retained": "Certaines données subsistent après la suppression du compte. L'enregistrement de l'acceptation des conditions générales par votre organisation (version et date, qui n'est plus rattaché à votre compte) est conservé comme preuve du contrat, et les données de facturation sont conservées par Stripe pendant la durée imposée par le droit comptable. Les journaux, traces et données d'analyse déjà détenus par nos sous-traitants (Dash0, Vercel, PostHog) ne sont pas effacés lors de la suppression du compte : ils expirent à la fin de la durée de conservation de chaque prestataire.",
         "contact": "Pour exercer vos droits, écrivez à {email}.",
         "complaint": "Si vous estimez que vos droits ne sont pas respectés, vous pouvez introduire une réclamation auprès de la CNIL (Commission Nationale de l'Informatique et des Libertés), www.cnil.fr."
       }

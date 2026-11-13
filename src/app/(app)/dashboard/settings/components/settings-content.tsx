@@ -11,6 +11,8 @@ import { authClient } from '@/shared/auth-client';
 import { AppPageHeader } from '../../components/app-page-header';
 import { DashboardPageHeaderBridge } from '../../components/dashboard-page-header-bridge';
 import { EditProfileDialog } from '../../components/edit-profile-dialog';
+import { DeleteAccountSection } from './delete-account-section';
+import { ExportDataSection } from './export-data-section';
 
 type UserSummary = {
   firstName: string;
@@ -251,6 +253,8 @@ export function SettingsContent({
           )}
         </section>
 
+        <ExportDataSection />
+
         <section>
           <h2 className="mb-3 text-[13px] font-semibold text-graphite uppercase tracking-wide">
             {t('dangerSection')}
@@ -275,6 +279,8 @@ export function SettingsContent({
             </Button>
           </div>
         </section>
+
+        <DeleteAccountSection email={user.email} />
       </div>
 
       <EditProfileDialog

@@ -6,8 +6,13 @@ export type CheckAppAccessInput = {
   organizationId: string;
 };
 
+export type DeleteCustomerInput = {
+  organizationId: string;
+};
+
 export type BillingPort = {
   checkAppAccess(
     input: CheckAppAccessInput,
   ): Promise<Result<Entitlement, AppError>>;
+  deleteCustomer(input: DeleteCustomerInput): Promise<Result<void, AppError>>;
 };
