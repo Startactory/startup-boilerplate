@@ -35,8 +35,12 @@ to `upstream`, the boilerplate.
 
 ```bash
 gh auth status
-gh config get git_protocol
+gh config get git_protocol -h github.com
 ```
+
+Read the github.com value (the one `gh auth status` shows as `Git operations protocol`), never the
+global `gh config get git_protocol`: they can differ, and only the host value decides how pushes
+to GitHub go.
 
 - The founder signed in during phase 1 (checklist item 6, `gh auth login --web -s workflow`), and
   the preflight's `gh-session` check passed. You cannot sign in for them: in phase 2 a lost
@@ -63,8 +67,8 @@ git remote get-url origin 2>/dev/null || git remote add origin "$(gh repo view "
 gh repo set-default "<owner>/<slug>"
 ```
 
-(use `url` instead of `sshUrl` when `git_protocol` is `https`). The first line adds `origin` only
-when it is missing, so a re-run does not fail on it.
+(use `url` instead of `sshUrl` when `gh config get git_protocol -h github.com` prints `https`).
+The first line adds `origin` only when it is missing, so a re-run does not fail on it.
 
 Any other `TAKEN` means the name belongs to something else: never use it. In phase 1, pick a free
 variant of the slug, update `startup.config.json` and `package.json`, and tell the founder

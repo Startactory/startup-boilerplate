@@ -72,9 +72,11 @@ assigned.
    example: "Create my startup: <the idea>. Name: <the name>."
 2. **Briefing** (one message): what phase 1 needs from them (about how long, which accounts, that
    they must keep the laptop awake and plugged in during phase 2), and what stays manual for later
-   (company, Stripe live, domain).
-3. **Interview** (one message, one answer): Claude derives everything it can from the idea and
-   asks only for the rest. The founder answers once, approving or changing the proposals.
+   (company, Stripe live, domain). When the first message lacks the idea or the name, the briefing
+   ends with that one question.
+3. **Interview** (one message, one answer, once the idea and the name are known): Claude derives
+   everything it can from the idea and asks only for the rest. The founder answers once, approving
+   or changing the proposals.
 4. **Founder-only actions**: a checklist, each item checked first and skipped silently when it
    already passes. For a returning founder (second startup), most items pass and this is short.
 5. **Blanket consent** (one message, one "yes").
@@ -89,7 +91,11 @@ assigned.
 
 Asked, because Claude cannot infer them:
 
-- the idea and the name (from the first message; asked only if missing);
+- the idea and the name (from the first message; when missing, asked at the end of the briefing,
+  since every derivation below needs them);
+- which Google account is the founder's identity, when Chrome is signed in to more than one
+  (Claude lists them all through `myaccount.google.com/?authuser=0`, `1`, …; Chrome's default
+  account is not necessarily the founder's);
 - the founder's full name (legal notice) and contact email (default: the founder's Google
   identity);
 - the Gmail address for SMTP (default: the Google identity);
@@ -100,6 +106,8 @@ Derived and shown for one review, as today's steps derive them:
 - the slug (checked up front against the vault, Dash0 and GitHub name rules and against an
   existing `<owner>/<slug>` repo);
 - the data region (default `eu`: the founders are established in France);
+- the site's default language, `defaultLocale` (`fr` by default, `en` proposed for a `us` startup
+  or a founder who writes in English);
 - the pricing proposal of `01b-set-pricing.md` (amount, interval, trial, currency `EUR`,
   rationale);
 - the brand (lucide icon, accent color) and the landing copy in French and English, from
@@ -124,9 +132,11 @@ first, short-lived sign-ins last, so they are fresh when phase 2 starts.
    blanket consent, as step 0 does today. The founder acts only if a page asks for a password or
    2FA.
 4. The Gmail app password for SMTP: only the founder can create it; it reaches the vault through
-   the clipboard, as step 0 does today.
+   the clipboard, as step 0 does today. Claude first checks that 2-Step Verification is on for
+   that account (App passwords does not exist without it).
 5. Postgres or Docker on the machine (install under the consent).
-6. `gh auth login`, with the `workflow` scope when the git protocol is https.
+6. `gh auth login`, with the `workflow` scope when the git protocol of github.com
+   (`gh config get git_protocol -h github.com`) is https.
 7. Site and app permissions for the unattended run: Claude opens, once, every site phase 2
    drives in Chrome (Google Cloud console, Supabase, PostHog, Autumn, Dash0, Vercel, the
    production URL, the Stripe checkout) so the founder picks "always allow" for each, and asks
@@ -197,9 +207,9 @@ The operative template, with the full consent list, is in
 `.claude/skills/create-startup/references/phase-1-setup.md`. The docs do not say a skill can set
 `/goal` itself, so the founder pastes it. After a block the founder pastes their own last line
 again, in bypass permissions mode: unchanged for an ordinary block, with the missing clause added
-for a consent block, or with `Decision: <answer>.` added for a decision block (see "When
-something breaks"). Only the markers printed after that paste count, so an older block does not
-end the resumed run.
+for a consent block, or with `Decision: <answer>.` added for a decision block, which only a
+deletion Claude itself would make raises (see "When something breaks"). Only the markers printed
+after that paste count, so an older block does not end the resumed run.
 
 ## Phase 2 in detail
 
@@ -223,9 +233,12 @@ also removes today's second Google pass (step 6h). Phase 2 then runs:
    `pricing.currency`), Dash0.
 4. Verify locally (step 5): migrations, `pnpm validate`, and a browser check on localhost done by
    Claude in Chrome.
-5. Deploy (step 6): deploy hook, `.env.prod` and the Vercel env push, GitHub secrets, then the
-   first push to `master`, which runs CI, the migration and the deploy. The `DATABASE_URL` secret
-   exists before that first push, so the first CI run is green.
+5. Deploy (step 6): `.env.prod` and the Vercel env push, the `DATABASE_URL` GitHub secret, then
+   the first push to `master`, which runs CI, the migration and the deploy, and at once the deploy
+   hook and its GitHub secret, before CI finishes. The `DATABASE_URL` secret exists before that
+   first push, so the first CI run is green. Revised after the first live run: Vercel refuses a
+   deploy hook for a branch that does not exist on GitHub yet, so the hook can only follow the
+   push; a deploy run that started before its secret existed is re-run (`gh run rerun`).
 6. Smoke test, after the Vercel build is Ready.
 7. Final report (the per-service checklist of today) and a push notification.
 
@@ -266,7 +279,6 @@ resumed run can also start over; the ledger only lets it skip finished steps fas
    - complete a KYC;
    - give a consent that the saved consent does not cover;
    - delete a cloud resource;
-   - a secret reached the transcript or printed output (the founder decides on revoking it);
    - copy a secret by hand when Claude cannot copy it without seeing it (for example a Google
      client secret when the console offers no Download JSON). Added during the build: a security
      rule makes the founder necessary.
@@ -276,9 +288,15 @@ resumed run can also start over; the ledger only lets it skip finished steps fas
    (see "The `/goal` line" for the consent and decision variants; the operative wording is in
    `.claude/skills/create-startup/references/phase-2-run.md`). That line meets the `/goal`
    condition, so the loop stops instead of spinning. A consent block is cleared by the clause in
-   the pasted line, a decision block (a leaked secret, or a deletion Claude itself would make) by
-   the `Decision:` word in it, and any other block by its check passing on resume.
-4. **No deletion.** A one-time key that was lost is replaced by a new key; the old one stays and
+   the pasted line, a decision block (a deletion Claude itself would make) by the `Decision:` word
+   in it, and any other block by its check passing on resume.
+4. **A leaked secret is not a block.** A secret that reaches the transcript or printed output is
+   still a failure (see the anti-goals), but the run does not stop for it: Claude goes on as if the
+   founder had kept it, revokes nothing, and the final report lists each exposed secret (provider,
+   vault item, how to revoke it). Revised after the first live run, at the founder's request: the
+   earlier decision block stopped an unattended run for something the founder preferred to handle
+   at the end.
+5. **No deletion.** A one-time key that was lost is replaced by a new key; the old one stays and
    the final report lists it for cleanup.
 
 ### Smoke test
@@ -337,6 +355,8 @@ repo; the final report says how to remove it.
   published. The founder accepted that, while production is on the Autumn sandbox, any visitor
   can get past the paywall with a Stripe test card; the final report says so, and going live
   ends it.
+- A secret that reaches the transcript does not stop the run; the founder is told at the very end,
+  in the final report (decided after the first live run).
 
 ## Claude's calls (marked as such, from the playback the founder approved)
 

@@ -28,8 +28,8 @@ not wired yet, record the request in `pricing.deferred`, and set the closest fla
 
 ## 1. Gather the inputs
 
-The `idea` comes from the founder's first message (the interview asks for it only when the message
-lacks it). Infer the rest from the idea; the interview asks nothing about these:
+The `idea` comes from the founder's first message (the phase 1 briefing asks for it when the
+message lacks it). Infer the rest from the idea; the interview asks nothing about these:
 
 - **Customer** — who pays: an individual (`individual`), a small team or SMB (`team`), or a
   business buying a business-critical tool (`business`).

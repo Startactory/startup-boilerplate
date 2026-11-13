@@ -2,7 +2,7 @@ import { feature, item, plan } from 'atmn';
 
 // Pricing model for the boilerplate: a hard paywall on the whole app.
 // `app_access` is a boolean feature that only the paid plan grants; the app's
-// entitlement gate checks it. Retune tiers/prices here, then `pnpm dlx atmn push`.
+// entitlement gate checks it. Retune tiers/prices here, then `pnpm exec atmn push`.
 
 export const appAccess = feature({
   id: 'app_access',
