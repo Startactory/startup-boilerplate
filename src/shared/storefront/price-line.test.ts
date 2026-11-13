@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { pro } from '../../../autumn.config';
 import {
   getStartupProfile,
   type LegalIdentity,
@@ -23,11 +24,15 @@ const companyLegal: LegalIdentity = {
 
 describe('getProPricing', () => {
   it('reads the committed pro plan price and the profile currency', () => {
+    const declaredTrial = pro.freeTrial;
     expect(getProPricing()).toEqual({
-      amount: 20,
-      interval: 'month',
+      amount: pro.price?.amount,
+      interval: pro.price?.interval,
       currency: getStartupProfile().currency,
-      trialDays: 0,
+      trialDays:
+        declaredTrial?.durationType === 'day'
+          ? Math.max(0, declaredTrial.durationLength)
+          : 0,
     });
   });
 });

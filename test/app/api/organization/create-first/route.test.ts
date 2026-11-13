@@ -13,6 +13,10 @@ vi.mock('@/application/organization/create-first-organization', () => ({
   createFirstOrganization: vi.fn(),
 }));
 
+vi.mock('@/i18n/active-locale', () => ({
+  getActiveLocale: vi.fn(),
+}));
+
 vi.mock('@/shared/logger', () => ({
   log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -22,10 +26,12 @@ import { getCurrentUser } from '@/application/me/get-current-user';
 import { createFirstOrganization } from '@/application/organization/create-first-organization';
 import { applyRateLimit } from '@/application/rate-limit/apply-rate-limit';
 import { unauthorized } from '@/core/errors';
+import { getActiveLocale } from '@/i18n/active-locale';
 
 const mockedUser = vi.mocked(getCurrentUser);
 const mockedRateLimit = vi.mocked(applyRateLimit);
 const mockedCreateFirst = vi.mocked(createFirstOrganization);
+const mockedActiveLocale = vi.mocked(getActiveLocale);
 
 function request(body: unknown): Request {
   return new Request('http://localhost/api/organization/create-first', {
@@ -54,6 +60,7 @@ beforeEach(() => {
     success: true,
     organizationId: 'org-1',
   });
+  mockedActiveLocale.mockResolvedValue('en');
 });
 
 describe('POST /api/organization/create-first', () => {
@@ -65,7 +72,21 @@ describe('POST /api/organization/create-first', () => {
       success: true,
       organizationId: 'org-1',
     });
-    expect(mockedCreateFirst).toHaveBeenCalledWith(VALID_BODY);
+    expect(mockedCreateFirst).toHaveBeenCalledWith({
+      ...VALID_BODY,
+      locale: 'en',
+    });
+  });
+
+  it('creates the organization in the request locale', async () => {
+    mockedActiveLocale.mockResolvedValue('fr');
+
+    await POST(request(VALID_BODY));
+
+    expect(mockedCreateFirst).toHaveBeenCalledWith({
+      ...VALID_BODY,
+      locale: 'fr',
+    });
   });
 
   it('returns 401 without creating an organization when unauthenticated', async () => {

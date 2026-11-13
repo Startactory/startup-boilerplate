@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getAppEntitlement } from '@/application/billing/get-app-entitlement';
+import { BrandLogo } from '@/components/brand/brand-logo';
+import { ProPriceLine } from '@/components/pricing/pro-price-line';
 import { env } from '@/shared/env';
 import { PaywallView } from './components/paywall-view';
 
@@ -10,5 +12,11 @@ export default async function PaywallPage(): Promise<React.ReactElement> {
   }
 
   const showDevSkip = env().VERCEL_ENV !== 'production';
-  return <PaywallView showDevSkip={showDevSkip} />;
+  return (
+    <PaywallView
+      brandMark={<BrandLogo />}
+      priceLine={<ProPriceLine className="text-sm font-medium text-ink" />}
+      showDevSkip={showDevSkip}
+    />
+  );
 }

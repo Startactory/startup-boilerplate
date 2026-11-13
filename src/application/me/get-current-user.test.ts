@@ -19,6 +19,7 @@ vi.mock('react', async () => {
 });
 
 import { getMembership } from '@/application/organization/get-membership';
+import { DEFAULT_LOCALE } from '@/i18n/locales';
 import { auth } from '@/infra/auth/auth';
 import { getCurrentUser } from './get-current-user';
 
@@ -79,5 +80,22 @@ describe('getCurrentUser', () => {
       expect(r.value.image).toBe('img');
       expect(r.value.locale).toBe('en');
     }
+  });
+
+  it('falls back to the default locale when the user has none', async () => {
+    mockedSession.mockResolvedValueOnce({
+      user: {
+        id: 'user-1',
+        email: 'a@b',
+        firstName: 'A',
+        lastName: 'B',
+        image: null,
+        locale: null,
+      },
+      session: { id: 'sess-1' },
+    } as never);
+    mockedMembership.mockResolvedValueOnce(ok(null));
+    const r = await getCurrentUser();
+    expect(r._unsafeUnwrap().locale).toBe(DEFAULT_LOCALE);
   });
 });

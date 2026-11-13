@@ -3,6 +3,7 @@ import 'server-only';
 import { betterAuth, type LogLevel } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { organization } from 'better-auth/plugins';
+import { DEFAULT_LOCALE, localeOrDefault } from '@/i18n/locales';
 import { db } from '@/infra/database/connection';
 import {
   account,
@@ -57,7 +58,11 @@ export const auth = betterAuth({
   }),
   user: {
     additionalFields: {
-      locale: { type: 'string', required: false, defaultValue: 'fr' },
+      locale: {
+        type: 'string',
+        required: false,
+        defaultValue: DEFAULT_LOCALE,
+      },
       firstName: { type: 'string', required: true, defaultValue: '' },
       lastName: { type: 'string', required: true, defaultValue: '' },
     },
@@ -114,14 +119,9 @@ export const auth = betterAuth({
       cancelPendingInvitationsOnReInvite: true,
       async sendInvitationEmail(data) {
         const acceptUrl = `${e.BETTER_AUTH_URL}/accept-invitation/${data.id}`;
-        const orgLocale =
-          (
-            data.organization as unknown as {
-              locale?: string;
-            }
-          ).locale === 'en'
-            ? 'en'
-            : 'fr';
+        const orgLocale = localeOrDefault(
+          (data.organization as unknown as { locale?: string }).locale,
+        );
         const role = data.role === 'admin' ? 'admin' : 'member';
         const result = await sendOrganizationInvitationEmail({
           recipientEmail: data.email,
