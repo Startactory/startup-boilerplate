@@ -7,6 +7,10 @@ from the founder.
 Write every message to the founder in plain, full sentences, in their language, even when the
 caveman plugin (`.claude/settings.json`) shortens the rest of the session.
 
+Before the briefing, `node scripts/check-working-copy.mjs` must print `OK` (`SKILL.md`, "Where
+to start"). On `STOP`, tell the founder in one message, clone the boilerplate into a new folder
+with the command the line names, move the session there, and start this phase again.
+
 Order of work:
 
 1. Briefing (one message). It ends with the idea and name question when the founder's first
@@ -170,14 +174,16 @@ The run needs neither the `supabase` CLI nor `gcloud`.
    of `00-founder-setup.md` item 2.
 2. **Provider accounts and Chrome sessions**: Google, GitHub, Vercel, Supabase, PostHog (the
    region's account), Autumn, Dash0. Check: open each dashboard (Google:
-   `https://console.cloud.google.com/?authuser=<googleAccount>`); a dashboard, not a login page,
-   passes (`00-founder-setup.md` item 4). Then read which identity each one is signed in to (a
-   narrow `find` on the account menu, or the address or organization the page shows) and compare
-   it with `googleAccount`. A different identity is fine for a provider that phase 2 uses only
-   through its API with a master key (Supabase, also PostHog and Dash0), as long as that
-   provider's master key already exists: item 3 would create a missing one in this Chrome
-   session, so in that account. For a provider that phase 2 drives in Chrome (Google Cloud,
-   Autumn, Vercel's device page), the founder confirms the account or signs in to the right one.
+   `https://console.cloud.google.com/?authuser=<googleAccount>`; PostHog: the region's host,
+   `https://eu.posthog.com` or `https://us.posthog.com`, and only a page that stays on that host
+   passes); a dashboard, not a login page, passes (`00-founder-setup.md` item 4). Then read
+   which identity each one is signed in to (a narrow `find` on the account menu, or the address
+   or organization the page shows) and compare it with `googleAccount`. A different identity is
+   fine for a provider that phase 2 uses only through its API with a master key (Supabase, also
+   PostHog and Dash0), as long as that provider's master key already exists: item 3 would create
+   a missing one in this Chrome session, so in that account. For a provider that phase 2 drives
+   in Chrome (Google Cloud, Autumn, Vercel's device page), the founder confirms the account or
+   signs in to the right one.
    This check proves the Chrome session only, never which account an existing master key belongs
    to: the preflight's `supabase-quota` and `dash0` checks prove that the keys reach the right
    organization. Action: ask the founder once, for all the signed-out providers together, at

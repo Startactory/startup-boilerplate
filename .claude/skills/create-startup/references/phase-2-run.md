@@ -112,7 +112,8 @@ What each step does, and where it differs from its reference:
 - **`smtp`**: `node scripts/vault-copy-smtp.mjs`, then `SMTP_FROM_NAME` as 4d shows. No Resend: a
   run has no domain.
 - **`autumn`**: in Chrome, select the Autumn organization recorded in `autumnOrganization`, or
-  create a new one and record its ID there (04 4e step 1; never pick one by name alone). Run
+  create a new one, switch to it (Autumn stays on the previous one) and record its ID there (04 4e
+  step 1; never pick one by name alone). Run
   `node scripts/providers/autumn-login.mjs` in the background (its default: production uses the
   sandbox key), open its `OPEN  <url>` in Chrome, pick that recorded organization and click
   "Authorize". Success:
@@ -123,10 +124,12 @@ What each step does, and where it differs from its reference:
   1.x; `pnpm dlx atmn` fetches atmn 2, which refuses this config). Never `atmn push -p`:
   production stays on the sandbox until go-live.
 - **`dash0`**: `node scripts/providers/dash0-dataset.mjs`, then the "Done with Step 4" check of
-  `04-provision-services.md` (names and counts only).
+  `04-provision-services.md` (names and counts only). `Dash0 dataset <slug> already exists … pick
+  another slug (founder decision)` is a block: another slug is the founder's decision.
 - **`verify-local`**: `pnpm drizzle:migrate`; `pnpm dev` in the background (no `next-devtools`
   MCP in a run: read the dev server's output). Claude in Chrome on `http://localhost:3000`: first,
-  signed out, the storefront `/` and `/legal/notice` in both languages; then sign in with Google,
+  delete the leftover `LOCALE` and `cookie_consent` cookies (05 5b item 3), then, signed out, the
+  storefront `/` and `/legal/notice` in both languages; then sign in with Google,
   create the organization and reach the paywall. Stop `pnpm dev`. `pnpm validate` must be green.
 - **`deploy`**, in this order. The deploy hook comes after the first push: Vercel refuses a hook
   for a branch that does not exist on GitHub yet

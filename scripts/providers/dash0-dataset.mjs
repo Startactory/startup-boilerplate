@@ -12,6 +12,7 @@ import { readMasterKeys } from './master-keys.mjs';
 
 const PRODUCTION_ITEM = ITEM_FOR_ENVIRONMENT.production;
 const DATASET_SLUG_PATTERN = /^[a-zA-Z0-9_-]{3,26}$/;
+const ENDPOINT_FIELD = 'OTEL_EXPORTER_OTLP_ENDPOINT';
 const HEADERS_FIELD = 'OTEL_EXPORTER_OTLP_HEADERS';
 
 function assertValidEnvValue(name, value) {
@@ -61,29 +62,44 @@ export async function provisionDash0({
       `slug "${slug}" is not a valid Dash0 dataset id (3-26 letters, digits, - or _)`,
     );
   }
-  assertValidEnvValue('OTEL_EXPORTER_OTLP_ENDPOINT', otlpEndpoint);
+  assertValidEnvValue(ENDPOINT_FIELD, otlpEndpoint);
 
   const baseUrl = apiUrl.replace(/\/$/, '');
   const origin = `${slug}-ingest`;
   const vault = startupVault(slug);
+  const datasetUrl = `${baseUrl}/api/datasets/${slug}`;
   const call = (options) =>
     requestJson({ provider: 'dash0', fetch, token: adminToken, ...options });
 
-  const datasetResponse = await call({
-    method: 'PUT',
-    url: `${baseUrl}/api/datasets/${slug}`,
-    body: {
-      apiVersion: 'dash0.com/v1alpha1',
-      kind: 'Dash0Dataset',
-      metadata: { name: slug, labels: { 'dash0.com/id': slug } },
-      spec: {},
-    },
-  });
-  const dataset = datasetResponse.status === 201 ? 'created' : 'reused';
-
   const stored = op.readFields({ vault, item: PRODUCTION_ITEM });
+  const existing = await call({ method: 'GET', url: datasetUrl });
+  let dataset = 'reused';
+  if (existing.status === 404) {
+    // why: claiming the dataset before creating it lets a re-run after an interrupted creation reuse it
+    op.writeFields({
+      vault,
+      item: PRODUCTION_ITEM,
+      fields: new Map([[ENDPOINT_FIELD, otlpEndpoint]]),
+    });
+    await call({
+      method: 'PUT',
+      url: datasetUrl,
+      body: {
+        apiVersion: 'dash0.com/v1alpha1',
+        kind: 'Dash0Dataset',
+        metadata: { name: slug, labels: { 'dash0.com/id': slug } },
+        spec: {},
+      },
+    });
+    dataset = 'created';
+  } else if (!stored?.get(ENDPOINT_FIELD)) {
+    throw new Error(
+      `Dash0 dataset ${slug} already exists and ${vault}/${PRODUCTION_ITEM} never claimed it, so it belongs to something else — pick another slug (founder decision)`,
+    );
+  }
+
   const fields = new Map([
-    ['OTEL_EXPORTER_OTLP_ENDPOINT', otlpEndpoint],
+    [ENDPOINT_FIELD, otlpEndpoint],
     ['OTEL_SERVICE_NAME', slug],
   ]);
 

@@ -179,9 +179,11 @@ Chrome is signed in to Google as `googleAccount`:
 `https://myaccount.google.com/?authuser=<googleAccount>` shows that address (a sign-in page means
 signing in again, `phase-2-run.md`). Chrome can hold several Google accounts and the console opens
 on the default one, so every console URL below carries `authuser=<googleAccount>` (`&authuser=…`
-after `?project=…`). Before each creation (the project, each client), check with a narrow
-`find "Google Account"` that the console's account button names `googleAccount`; never on the
-client-created dialog of item 4. On a re-run, reuse the Google project recorded in
+after `?project=…`). Before each creation (the project, each client), check the console's
+account: its avatar button (top right) has no address in its accessible name, so click it, check
+with a narrow `find "Currently signed in"` that it reads "Currently signed in to Google Cloud
+using `googleAccount`", and press Escape to close the menu. Never on the client-created dialog of
+item 4. On a re-run, reuse the Google project recorded in
 `googleCloudProject` and its Auth Platform setup, and create only a client whose item still lacks
 it: `node scripts/vault-put.mjs --list-fields local` (or `production`) lists
 `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` by name once they are stored. Then in Chrome:
@@ -360,9 +362,12 @@ it.
      `in Autumn, give my account access to organization <autumnOrganization> again`; on resume,
      look for it again.
    - Otherwise, create a new organization named after the startup, even when one with that name
-     already exists (if Autumn refuses a duplicate name, name it `<name> (<slug>)`). Right after
-     the creation, read its ID on its settings page, write it to `startup.config.json` as
-     `autumnOrganization` and commit it, so a re-run reuses this one.
+     already exists (if Autumn refuses a duplicate name, name it `<name> (<slug>)`). Autumn stays
+     on the organization that was active before the creation, so its settings page still shows
+     that one: switch to the new organization (organization menu, "Switch organization", the new
+     name; with two of that name, the one that was not in the list before), and check that
+     Settings → Organization shows its name and slug. Only then read its ID on that page, write it
+     to `startup.config.json` as `autumnOrganization` and commit it, so a re-run reuses this one.
 2. **Log in the CLI and move the keys into the vault.** Run in the background:
 
    ```bash
@@ -432,12 +437,17 @@ node scripts/providers/dash0-dataset.mjs
 ```
 
 It reads the organization's admin token, API URL and OTLP endpoint for the startup's region from
-`startup-founder/master-keys`, creates (or reuses) the dataset named after the `slug`, creates an
-ingest-only token scoped to it, and stores the endpoint and the headers
-(`Authorization=Bearer …,Dash0-Dataset=<slug>`) in the `production` item, then regenerates
-`.env.prod`. Success prints
-`OK  dataset <slug> <state>, ingest token <state>, stored in startup-<slug>/production`.
-It is idempotent, and rotates a token the vault lost. An "is not a valid Dash0 dataset id" error
+`startup-founder/master-keys`, creates the dataset named after the `slug` (or reuses it when this
+startup's `production` item already claims it), creates an ingest-only token scoped to it, and
+stores the endpoint and the headers (`Authorization=Bearer …,Dash0-Dataset=<slug>`) in the
+`production` item, then regenerates `.env.prod`. Success prints
+`OK  dataset <slug> <created|reused>, ingest token <created|reused|rotated>, stored in startup-<slug>/production`.
+It is idempotent, and rotates a token the vault lost. It writes the endpoint to the `production`
+item before it creates the dataset: that claim lets a re-run after an interrupted creation reuse
+the dataset. `Dash0 dataset <slug> already exists and startup-<slug>/production never claimed it,
+so it belongs to something else — pick another slug (founder decision)` means a dataset of that
+name was made by another startup or by hand: never send this startup's data to it. Another slug is
+the founder's decision, so in phase 2 it is a block. An "is not a valid Dash0 dataset id" error
 means the slug does not fit Dash0 (3-26 letters, digits, `-` or `_`); the preflight's slug rule
 already fits it, so never rename the slug in phase 2.
 

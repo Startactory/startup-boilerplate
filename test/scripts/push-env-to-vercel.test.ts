@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   main,
   pushEnv,
@@ -150,5 +150,35 @@ describe('push-env-to-vercel', () => {
     });
     expect(code).toBe(1);
     expect(calls.filter((args) => args[0] === 'env')).toHaveLength(0);
+  });
+
+  it('points to a deploy through CI after a push, never the Vercel CLI', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    try {
+      const code = main({
+        argv: ['--file', '.env.prod', '--apply'],
+        op: { injectText: () => '' },
+        run: () => ({ status: 0, stderr: '' }),
+        fs: fakeFs({
+          '.env.prod': [
+            'NEXT_PUBLIC_APP_URL=https://acme.vercel.app',
+            'BETTER_AUTH_URL=https://acme.vercel.app',
+            'DATABASE_URL=postgresql://user:pass@db.example.com:5432/postgres',
+            'DATABASE_SSL=require',
+            'BETTER_AUTH_SECRET=a-long-enough-test-secret-value-1234',
+            'GOOGLE_CLIENT_ID=id.apps.googleusercontent.com',
+            'GOOGLE_CLIENT_SECRET=test-client-secret',
+            'AUTUMN_SECRET_KEY=am_sk_test_value',
+          ].join('\n'),
+          '.vercel/project.json': '{}',
+        }),
+      });
+      expect(code).toBe(0);
+      const output = log.mock.calls.map((args) => args.join(' ')).join('\n');
+      expect(output).toContain('gh run rerun');
+      expect(output).not.toContain('vercel --prod');
+    } finally {
+      log.mockRestore();
+    }
   });
 });

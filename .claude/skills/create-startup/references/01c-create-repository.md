@@ -83,7 +83,8 @@ Vercel production branch (`06-deploy-production.md` 6d).
 
 1. Keep the boilerplate as `upstream`, so the startup can pull its fixes later, and make it
    fetch-only so nothing is pushed to it by mistake (skip this when `git remote -v` already shows
-   `upstream`, after an interrupted attempt):
+   `upstream`, after an interrupted attempt). Run `node scripts/check-working-copy.mjs` first: on
+   `STOP` rename nothing, this is not a fresh clone (`SKILL.md`, "Where to start").
 
    ```bash
    git remote rename origin upstream

@@ -25,9 +25,16 @@ here.
 2. Load the Chrome tools in one ToolSearch call and read the `chrome-browser` skill, then use Claude
    in Chrome on `http://localhost:3000`.
 3. First, signed out, check the storefront from Step 1d: open `/` and `/legal/notice` in both
-   languages. The headline and sentence read well, the button shows the right price and trial,
-   the accent and logo render, the legal notice names the founder and the contact email, and the
-   cookie banner appears (refuse it: nothing in this check needs analytics). If anything is wrong,
+   languages. Chrome keeps `localhost` cookies across startups, so an earlier startup run on this
+   machine leaves `LOCALE` and `cookie_consent`, which hide the default language and the cookie
+   banner. Before the first look, on `http://localhost:3000`, delete those two cookies with
+   `javascript_tool` (`document.cookie = 'LOCALE=; Max-Age=0; path=/'`, the same for
+   `cookie_consent`), then reload: the page must open in `defaultLocale`. In `pnpm dev`, the first
+   language switch compiles `/api/locale` for 10 to 20 seconds: wait for the page to come back in
+   the other language before reading it. The headline and sentence read well, the button shows the
+   right price and trial, the accent and logo render, the legal notice names the founder and the
+   contact email, and the cookie banner appears (refuse it: nothing in this check needs
+   analytics). If anything is wrong,
    fix the copy or the config, re-run `node scripts/sync-startup-profile.mjs`, commit the change on
    `master`, and look again.
 4. Sign in with **Google** as `googleAccount` (email/password is disabled — Google is the only
