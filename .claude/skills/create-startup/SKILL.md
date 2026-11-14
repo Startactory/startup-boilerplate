@@ -106,6 +106,13 @@ Read each reference file when you reach it and follow it; don't run ahead. Keep 
 
 **Where to start:**
 
+- First, in every case: `node scripts/check-working-copy.mjs` (it needs only git, not
+  `pnpm install`). `OK` means a fresh clone, or this startup's own clone once the `repository`
+  step ran. `STOP` means the session is in a development checkout (several local branches or
+  linked worktrees), such as the boilerplate maintainers' own: clone the boilerplate into a new
+  folder with the command the line names, open the session in that folder, and start there. Never
+  run a step in a checkout that stops: the interview would write the startup's files into it and
+  the `repository` step would turn its `origin` into a fetch-only `upstream`.
 - The founder pasted the `/goal` line that names phase 2 → phase 2.
 - The founder asks for one founder-driven change on a startup that already ran (set the price, go
   live, add a domain, take the boilerplate's fixes) → after the run.

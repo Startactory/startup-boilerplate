@@ -117,6 +117,13 @@ are not needed for the run: Stripe comes with going live, Resend with a custom d
 **Check**, per provider: open its dashboard in Chrome and look at the page. A signed-in dashboard
 (not a login page) passes. Use narrow `find` queries ("Sign in", "Continue with Google") to tell.
 
+PostHog regions are separate accounts on separate hosts: open `https://eu.posthog.com` for `EU`
+and `https://us.posthog.com` for `US`. When Chrome holds a session in the other region only,
+PostHog redirects there (its login page first shows "Redirecting to your logged-in account" with
+a 3-second countdown), and the page you land on is the other region's dashboard. So the check
+passes only when the final URL is still on the region's host. To sign in to the region's
+account, open its `/login` page and click "Cancel redirect" before the countdown ends.
+
 **If signed out**, follow the sign-in rule of `phase-1-setup.md` (section 3, item 2): the founder
 says once, for all the signed-out providers together, where they already have an account. For a
 confirmed existing account, open its sign-in page, click "Continue with Google" (GitHub for
