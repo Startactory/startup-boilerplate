@@ -191,7 +191,12 @@ export function main({ argv, op, run, fs }) {
 
   const { ok, failed } = pushEnv({ values: vars, target, run });
   console.log(`\n${ok} pushed, ${failed} failed`);
-  console.log('Redeploy for the new values to take effect: vercel --prod');
+  console.log(
+    'The new values apply from the next production deploy: the next merge into master, or gh run rerun <id> --repo <repository> on the latest production.yml run.',
+  );
+  console.log(
+    'Never deploy from this machine with the Vercel CLI: it skips CI and its migrations.',
+  );
   return failed > 0 ? 1 : 0;
 }
 

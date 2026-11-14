@@ -14,16 +14,23 @@ function fakeResponse(status: number, body: unknown) {
   };
 }
 
+type Fields = Map<string, string>;
+
 function setup({
   production = null,
   tokenExists = false,
-  datasetStatus = 201,
+  datasetExists = false,
 }: {
-  production?: Map<string, string> | null;
+  production?: Fields | null;
   tokenExists?: boolean;
-  datasetStatus?: number;
+  datasetExists?: boolean;
 } = {}) {
-  const writeFields = vi.fn();
+  const events: string[] = [];
+  const writeFields = vi.fn(
+    ({ fields }: { vault: string; item: string; fields: Fields }) => {
+      events.push(`write ${[...fields.keys()].join(',')}`);
+    },
+  );
   const op = {
     readFields: vi.fn(({ vault }: { vault: string }) =>
       vault === 'startup-founder' ? new Map() : production,
@@ -32,9 +39,13 @@ function setup({
   };
   const calls: string[] = [];
   const fetch = vi.fn(async (url: string, init: { method: string }) => {
-    calls.push(`${init.method} ${url.replace(API, '')}`);
+    const call = `${init.method} ${url.replace(API, '')}`;
+    calls.push(call);
+    events.push(call);
     if (url.includes('/api/datasets/')) {
-      return fakeResponse(datasetStatus, {});
+      // why: Dash0 answers 200, not 201, to a PUT that creates the dataset
+      if (init.method === 'PUT') return fakeResponse(200, {});
+      return datasetExists ? fakeResponse(200, {}) : fakeResponse(404, null);
     }
     if (init.method === 'GET') {
       return tokenExists ? fakeResponse(200, {}) : fakeResponse(404, null);
@@ -43,7 +54,7 @@ function setup({
     return fakeResponse(201, { spec: { token: INGEST_TOKEN } });
   });
   const syncEnv = vi.fn();
-  return { op, fetch, writeFields, syncEnv, calls };
+  return { op, fetch, writeFields, syncEnv, calls, events };
 }
 
 function run(s: ReturnType<typeof setup>, slug = 'acme') {
@@ -58,21 +69,25 @@ function run(s: ReturnType<typeof setup>, slug = 'acme') {
   });
 }
 
+function lastWrite(s: ReturnType<typeof setup>) {
+  return s.writeFields.mock.calls.at(-1)?.[0];
+}
+
 describe('provisionDash0', () => {
-  it('writes the endpoint and headers to production only', async () => {
+  it('creates the dataset and writes the endpoint and headers to production only', async () => {
     const s = setup();
     const result = await run(s);
     expect(result).toEqual({ dataset: 'created', token: 'created' });
     expect(s.calls).toEqual([
+      'GET /api/datasets/acme',
       'PUT /api/datasets/acme',
       'GET /api/auth-tokens/acme-ingest',
       'PUT /api/auth-tokens/acme-ingest',
     ]);
-    expect(s.writeFields).toHaveBeenCalledTimes(1);
-    const call = s.writeFields.mock.calls[0]?.[0];
-    expect(call?.vault).toBe('startup-acme');
-    expect(call?.item).toBe('production');
-    expect(Object.fromEntries(call?.fields ?? [])).toEqual({
+    const write = lastWrite(s);
+    expect(write?.vault).toBe('startup-acme');
+    expect(write?.item).toBe('production');
+    expect(Object.fromEntries(write?.fields ?? [])).toEqual({
       OTEL_EXPORTER_OTLP_ENDPOINT: OTLP,
       OTEL_EXPORTER_OTLP_HEADERS: `Authorization=Bearer ${INGEST_TOKEN},Dash0-Dataset=acme`,
       OTEL_SERVICE_NAME: 'acme',
@@ -80,6 +95,16 @@ describe('provisionDash0', () => {
     expect(s.syncEnv).toHaveBeenCalledWith(
       expect.objectContaining({ environment: 'production' }),
     );
+  });
+
+  it('claims the dataset in the vault before creating it', async () => {
+    const s = setup();
+    await run(s);
+    expect(s.events.slice(0, 3)).toEqual([
+      'GET /api/datasets/acme',
+      'write OTEL_EXPORTER_OTLP_ENDPOINT',
+      'PUT /api/datasets/acme',
+    ]);
   });
 
   it('sends a versioned resource for the ingest token', async () => {
@@ -100,24 +125,40 @@ describe('provisionDash0', () => {
 
   it('is idempotent on re-run', async () => {
     const s = setup({
-      production: new Map([['OTEL_EXPORTER_OTLP_HEADERS', 'x=y']]),
-      datasetStatus: 200,
+      production: new Map([
+        ['OTEL_EXPORTER_OTLP_ENDPOINT', OTLP],
+        ['OTEL_EXPORTER_OTLP_HEADERS', 'x=y'],
+      ]),
+      datasetExists: true,
     });
     const result = await run(s);
     expect(result).toEqual({ dataset: 'reused', token: 'reused' });
-    expect(s.calls).toEqual(['PUT /api/datasets/acme']);
-    const fields = Object.fromEntries(
-      s.writeFields.mock.calls[0]?.[0].fields ?? [],
+    expect(s.calls).toEqual(['GET /api/datasets/acme']);
+    expect(s.writeFields).toHaveBeenCalledTimes(1);
+    expect(Object.fromEntries(lastWrite(s)?.fields ?? [])).not.toHaveProperty(
+      'OTEL_EXPORTER_OTLP_HEADERS',
     );
-    expect(fields).not.toHaveProperty('OTEL_EXPORTER_OTLP_HEADERS');
+  });
+
+  it('refuses a dataset this startup never claimed', async () => {
+    const s = setup({ datasetExists: true });
+    await expect(run(s)).rejects.toThrow(
+      'Dash0 dataset acme already exists and startup-acme/production never claimed it',
+    );
+    expect(s.calls).toEqual(['GET /api/datasets/acme']);
+    expect(s.writeFields).not.toHaveBeenCalled();
   });
 
   it('rotates a key the vault does not hold', async () => {
-    const s = setup({ tokenExists: true });
+    const s = setup({
+      production: new Map([['OTEL_EXPORTER_OTLP_ENDPOINT', OTLP]]),
+      datasetExists: true,
+      tokenExists: true,
+    });
     const result = await run(s);
-    expect(result.token).toBe('rotated');
+    expect(result).toEqual({ dataset: 'reused', token: 'rotated' });
     expect(s.calls).toEqual([
-      'PUT /api/datasets/acme',
+      'GET /api/datasets/acme',
       'GET /api/auth-tokens/acme-ingest',
       'DELETE /api/auth-tokens/acme-ingest',
       'PUT /api/auth-tokens/acme-ingest',
