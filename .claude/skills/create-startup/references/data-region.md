@@ -1,6 +1,6 @@
 # Data region — one answer, every service
 
-The phase 1 interview records `dataRegion` (`eu` or `us`) and `gdpr` (`true` or `false`) in
+Phase 1 records, from the start line's EU answer, `dataRegion` (`eu` or `us`) and `gdpr` (`true` or `false`) in
 `startup.config.json` (`01-name-startup.md` item 3; default `eu`). Every later step reads them from
 there. No later step asks the founder again, and none picks a region per service by taste: a single
 US service is enough to move EU personal data out of the EU.

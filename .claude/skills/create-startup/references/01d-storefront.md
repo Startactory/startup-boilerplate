@@ -3,9 +3,9 @@
 **Phase 1** derives and writes the storefront; phase 2 syncs it (step 3a) and looks at it (step
 5b). Give the startup a public landing page at `/`, French-law legal pages, and a cookie banner,
 all generated from `idea`, `name` and `pricing` already in `startup.config.json`. The legal notice
-needs the founder's **full name** and a **contact email** before any company exists: the phase 1
-interview (`phase-1-setup.md` section 2) asks for both (default contact email: `googleAccount`)
-and shows sections 2 and 3 below for review.
+needs the founder's **full name** and a **contact email** before any company exists: phase 1
+(`phase-1-setup.md` section 2) reads the name on the founder's Google account page and uses
+`googleAccount` as the contact email, and shows sections 2 and 3 below without asking.
 
 The boilerplate stays brand-neutral. Everything startup-specific lives in `startup.config.json`
 and the `Storefront` i18n messages, never in components.
@@ -44,7 +44,7 @@ The phase 1 briefing (`phase-1-setup.md` section 1) says it in short:
 ## 1. Gather
 
 Read `startup.config.json` for `name`, `idea` and `pricing`. `legal.founderName` and
-`legal.contactEmail` come from the phase 1 interview's answer.
+`legal.contactEmail` come from phase 1 (`phase-1-setup.md` section 2).
 
 ## 2. Derive the copy and the brand from the idea
 

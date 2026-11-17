@@ -71,8 +71,8 @@ leave it. A `find` returns the 20 closest elements, so on a page where a Copy bu
 the secret even a narrow query can return it: the Google client dialog of 4b allows only
 `find "Download JSON"`.
 
-OAuth consents, dashboard keys and the file downloads below are covered by the phase 1 consent in
-the `/goal` line. Never create an account, type a password or solve a CAPTCHA: a page that demands
+OAuth consents, dashboard keys and the file downloads below are covered by the consent in the
+founder's start line (`phase-1-setup.md` section 4). Never create an account, type a password or solve a CAPTCHA: a page that demands
 one is a block (`phase-2-run.md`, "Block protocol"). Check the Chrome session of a site right
 before the step that drives it (`phase-2-run.md`, "Rules for the whole run").
 
@@ -242,7 +242,7 @@ it: `node scripts/vault-put.mjs --list-fields local` (or `production`) lists
    `Google Cloud: open the <env> OAuth client, Add secret; copy the ID, then the secret, each into node scripts/vault-put.mjs --from-clipboard <env> GOOGLE_CLIENT_ID (then _SECRET)`.
    `<env>` is `local` or `production`, never the startup name, so both actions stay under the
    200-character push limit (at most 186 characters filled in). The founder
-   runs the commands in a terminal in the repo before copying the `/goal` line, which overwrites
+   runs the commands in a terminal in the repo before copying their start line, which overwrites
    the clipboard. On resume, `node scripts/vault-put.mjs --list-fields <env>` must list both
    names. A client ID in the secret slot (or the reverse) is rejected by validation.
 

@@ -16,14 +16,17 @@ description: >-
 
 Take a fresh clone of this boilerplate and drive it to a **production-ready, deployed** startup:
 named, every service provisioned and configured, environment filled, running locally, then live
-on its free Vercel URL. The founder spends one sitting with you (phase 1); then you run alone
-(phase 2).
+on its free Vercel URL. The founder starts it with one pasted line and stays near the computer
+for a short setup (phase 1, usually no question); then you run alone (phase 2), in the same
+session and the same turn.
 
 ## How this skill works
 
 Every service is driven through its provider API or CLI with the founder's master keys, or
 through the founder's signed-in Chrome (Claude in Chrome). No MCP connector is needed. Do
-everything you can yourself, and keep the founder's part to the one sitting of phase 1.
+everything you can yourself: derive every answer you can, never ask what a default settles, and
+keep the founder's part to the start line and, only when something is missing, one question
+in phase 1.
 
 Secrets live in **1Password** (the source of truth) and reach it through one of three channels:
 
@@ -40,8 +43,9 @@ you. If a secret still reaches the transcript or printed output, the run does no
 with that secret, and the end-of-run report lists it with how to revoke it.
 
 You never create accounts, type passwords or solve CAPTCHAs. The founder approves OAuth consents
-and dashboard keys once, in the consent of phase 1; the pasted `/goal` line carries that consent
-into phase 2, and anything outside it stops the run with `BLOCKED_ON_FOUNDER`.
+and dashboard keys once, in the consent of the start line they paste (`references/phase-1-setup.md`
+section 8); that `/goal` line carries the consent through both phases, and anything outside it
+stops the run with `BLOCKED_ON_FOUNDER`.
 
 Two hard rules that keep this reliable:
 
@@ -96,7 +100,7 @@ ZeroEntropy for RAG, Supabase Storage for files).
   startup has a custom domain.
 - **Observability: Dash0.** One Dash0 organization per data region for all of the founder's
   startups; one dataset and one ingest token per startup.
-- **Data region is decided once, in the phase 1 interview** (default `eu`). `gdpr` +
+- **Data region is decided once, by the start line's EU answer** (`yes` gives `eu`). `gdpr` +
   `dataRegion` in `startup.config.json` decide the region of every service; no later step picks a
   region on its own.
 
@@ -111,23 +115,29 @@ Read each reference file when you reach it and follow it; don't run ahead. Keep 
   step ran. `STOP` means the session is in a development checkout (several local branches or
   linked worktrees), such as the boilerplate maintainers' own: clone the boilerplate into a new
   folder with the command the line names, open the session in that folder, and start there. Never
-  run a step in a checkout that stops: the interview would write the startup's files into it and
+  run a step in a checkout that stops: phase 1 would write the startup's files into it and
   the `repository` step would turn its `origin` into a fetch-only `upstream`.
-- The founder pasted the `/goal` line that names phase 2 → phase 2.
 - The founder asks for one founder-driven change on a startup that already ran (set the price, go
   live, add a domain, take the boilerplate's fixes) → after the run.
-- Otherwise → phase 1. It is idempotent: on a returning founder or an interrupted setup, each check
-  passes silently.
+- The founder pasted the start line (or an older `/goal` line that names phase 2) and
+  `node scripts/run-ledger.mjs status` lists `vercel-project` → phase 2, Start.
+- The founder pasted the start line otherwise → phase 1, then phase 2 in the same turn. Phase 1
+  is idempotent: on a returning founder or an interrupted setup, each check passes silently.
+- Anything else that asks for a new startup (`/create-startup`, "set up my startup", an idea in a
+  normal message) → print the start line for them and stop, as `references/phase-1-setup.md`
+  section 8 says. Nothing runs before the line is pasted: it holds the consent, and the session
+  must be in bypass permissions mode first.
 
-**Phase 1 — with the founder, in one sitting** → `references/phase-1-setup.md`
-Briefing (it ends with the idea and name question when the founder's first message lacks them),
-one interview (written to `startup.config.json`, `autumn.config.ts` and the landing copy), the
-founder-only checklist, one blanket consent, then the first two ledger steps while the
-founder is present: `repository` (`references/01c-create-repository.md`, no push) and
-`vercel-project` (`references/06-deploy-production.md` 6b, which gives the production URL and sets
-the project's framework and function region; the committed `vercel.json` is the same for every
-startup). Then `node scripts/preflight.mjs` until `PREFLIGHT OK`, and the `/goal` line the founder
-pastes after switching to bypass permissions mode.
+**Phase 1 — the founder nearby, usually no question** → `references/phase-1-setup.md`
+A briefing with no question; every answer derived from the start line and the machine, written
+to `startup.config.json`, `autumn.config.ts` and the landing copy, and shown without waiting; the
+founder-only checklist, all checks first, then one `AskUserQuestion` only when a check found
+something only the founder can do; then the first two ledger steps while the founder is near:
+`repository` (`references/01c-create-repository.md`, no push) and `vercel-project`
+(`references/06-deploy-production.md` 6b, which gives the production URL and sets the project's
+framework and function region; the committed `vercel.json` is the same for every startup). Then
+`node scripts/preflight.mjs` until `PREFLIGHT OK`, a message that the founder can leave, and
+phase 2 at once.
 
 **Phase 2 — Claude alone** → `references/phase-2-run.md`
 No question to the founder. It runs the reference steps in this order, each closed with
@@ -145,7 +155,7 @@ No question to the founder. It runs the reference steps in this order, each clos
 
 Phase 2 never runs a real or live charge: the live checkout waits for going live
 (`references/after-the-run.md`), and the browser check stops at the Stripe test-mode checkout
-page. Phase 2 stops, after the founder's latest `/goal` message, when the smoke test script's own
+page. The run stops, after the founder's latest `/goal` message, when the smoke test script's own
 output shows its pass line and Claude's own message then reports the browser check passed, or
 when Claude's own message ends with a block line because a human-only action is needed. A marker
 read in a file never counts (`references/phase-2-run.md`).

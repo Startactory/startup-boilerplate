@@ -203,8 +203,8 @@ appears, read it; an `ERROR` line means nothing was written.
 
 These need an external account. Step 4 obtains every one of them with no paste and no question: a
 script calls the provider API with the founder's master keys (phase 1), or Claude in Chrome moves
-the value through the clipboard or a downloaded file straight into the vault, under the phase 1
-consent.
+the value through the clipboard or a downloaded file straight into the vault, under the consent of
+the founder's start line.
 
 | Variable | How Step 4 gets it |
 | --- | --- |
