@@ -2,9 +2,8 @@
 
 **Phase 1.** The name threads through everything later (package name, Supabase/Vercel project
 names, the Autumn account, OAuth app name, email `from`), so it is settled first and persisted.
-The phase 1 interview (`phase-1-setup.md` section 2) takes the name from the founder's first
-message, or from their answer to the briefing's question when the message lacks it, and shows
-what this file derives for review in its one message. This file holds the derivation rules and
+Phase 1 (`phase-1-setup.md` section 2) takes the name from the founder's start line, derives
+the rest with this file, and shows the result without waiting for an answer. This file holds the derivation rules and
 the JSON they write; it asks nothing.
 
 1. `name`: the display name exactly as given (e.g. `Acme Analytics`).
@@ -23,16 +22,17 @@ the JSON they write; it asks nothing.
      its JSON can hold deploy hook URLs, which are secrets. When the slug is taken by anything
      else, on GitHub or Vercel, propose another slug.
    - `githubOwner`: the GitHub account that owns the repository. Default: the personal account
-     (`gh api user -q .login`); the interview asks only when `gh org list` shows organizations.
+     (`gh api user -q .login`), or the organization the start line's notes name. Never a question.
    - `googleAccount` (required, an email address): the founder's Google identity among the
-     Google accounts Chrome is signed in to; the interview asks which one when there are several
+     Google accounts Chrome is signed in to: the start line's Google account, else the only one;
+     phase 1's early question asks which one only when there are several and the line names none
      (`00-founder-setup.md` item 3). The preflight's `config` check refuses a config without it.
    - `domain`: always `""` in a run. A custom domain comes after the run (`after-the-run.md`).
 3. Derive the data region. GDPR applies when the company is established in the EU, the EEA or the
    UK **or** offers its service to people there (GDPR art. 3), not because of where servers sit.
    The founders are established in France, so the default is:
    - `"gdpr": true`, `"dataRegion": "eu"`;
-   - `"gdpr": false`, `"dataRegion": "us"` only when the founder's interview answer says so.
+   - `"gdpr": false`, `"dataRegion": "us"` when the start line answers `no` to "Company or users in the EU".
 
    `dataRegion` picks the region of every service (see `references/data-region.md`); `gdpr`
    switches on the compliance work. Later steps read these fields and never ask again. When in
@@ -40,7 +40,7 @@ the JSON they write; it asks nothing.
 4. Derive the site's default language, `defaultLocale`: the language a visitor sees before
    choosing one (no `LOCALE` cookie yet). `"fr"` by default; propose `"en"` when the founder chose
    `us` or writes in English. The founder's answer wins. The key is optional and a config without
-   it means `fr`, but the interview always writes it. Step 3a's
+   it means `fr`, but phase 1 always writes it. Step 3a's
    `node scripts/sync-startup-profile.mjs` copies it into the startup profile, and the app uses it
    as its default locale.
 5. Persist to `startup.config.json` at the repo root so later steps and later sessions can read it
@@ -60,6 +60,6 @@ the JSON they write; it asks nothing.
    }
    ```
 
-   If the file already exists (an interrupted phase 1), the interview proposes its values; update
-   it with the founder's answer rather than overwriting it blindly.
+   If the file already exists (an interrupted phase 1), keep its values; apply only what the
+   founder changed since, rather than overwriting it blindly.
 6. Update the `name` field in `package.json` to the slug (it currently reads `startup-boilerplate`).

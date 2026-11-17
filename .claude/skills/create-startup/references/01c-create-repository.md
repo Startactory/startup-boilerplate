@@ -9,7 +9,7 @@ this step the startup's production secrets would land in the boilerplate repo. D
 anything else touches GitHub.
 
 **Do this yourself; it asks nothing.** The owner is `githubOwner` and the name is `slug`, both in
-`startup.config.json` from the phase 1 interview. This step pushes nothing: the first push of
+`startup.config.json` from phase 1 (`phase-1-setup.md` section 2). This step pushes nothing: the first push of
 `master` is phase 2's `deploy` step (`06-deploy-production.md` 6j), once the `DATABASE_URL` secret
 exists.
 
@@ -92,7 +92,7 @@ Vercel production branch (`06-deploy-production.md` 6d).
    ```
 
 2. Record the repository in `startup.config.json` (`"repository": "<owner>/<slug>"`), then commit
-   what the phase 1 interview wrote (nothing to commit after an interrupted attempt is fine):
+   what phase 1 section 2 wrote (nothing to commit after an interrupted attempt is fine):
 
    ```bash
    git add startup.config.json package.json autumn.config.ts src/i18n/messages/en.json src/i18n/messages/fr.json

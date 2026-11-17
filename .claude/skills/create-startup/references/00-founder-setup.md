@@ -3,10 +3,10 @@
 **Phase 1.** Everything the founder needs before the first startup: tools, a 1Password service
 account, provider accounts, CLI logins, and the master keys that let later steps create
 per-startup keys on their own. The founder-only checklist of `phase-1-setup.md` (section 3) runs
-these checks and acts on a failing one only after the founder's consent (section 4). Phase 2 uses
+these checks before any action, and acts on a failing one under the consent of the founder's
+start line (section 4). Phase 2 uses
 only item 1 (install a missing tool), item 4 (sign in again with "Continue with Google"), item 5
-(`vercel login` again) and item 6 (create a missing or wrong master key), under the consent in
-the `/goal` line. The rest is the founder's, so in phase 2 a block: item 2 (the service account,
+(`vercel login` again) and item 6 (create a missing or wrong master key), under the same consent. The rest is the founder's, so in phase 2 a block: item 2 (the service account,
 in Terminal.app), item 3 (a Chrome with no Google sign-in) and the SMTP part of item 6 (the Gmail
 app password).
 
@@ -16,8 +16,8 @@ it passes. Never redo an item that already passes.
 ## Hard rules for this step
 
 - You never create an account, type a password, or solve a CAPTCHA. The founder does those.
-- Creating a key in a dashboard and giving an OAuth consent are covered by the phase 1 consent
-  (`phase-1-setup.md` section 4); do neither before the founder gave it.
+- Creating a key in a dashboard and giving an OAuth consent are covered by the consent of the
+  founder's start line (`phase-1-setup.md` section 4); do neither when the founder struck it.
 - On a page that shows a secret (an API key, a token, an app password), use narrow `find` queries
   only (for example "Copy button", "Create API key"). Never `get_page_text`, `read_page` or
   `screenshot` there: the secret would enter your context.
@@ -98,11 +98,12 @@ supplies the token to the child process. The vault scripts read the token themse
 
 The founder's Google account is the identity for every provider. Chrome (the Claude in Chrome
 extension) can be signed in to several Google accounts, and its default one (`authuser=0`) is not
-necessarily the founder's. The phase 1 interview lists them all: it opens
+necessarily the founder's. Phase 1 (section 2) lists them all: it opens
 `https://myaccount.google.com/?authuser=0`, then `?authuser=1`, `?authuser=2` and so on, and notes
 the address each one shows, until a sign-in page or an address already noted (the account chooser
 of any Google page lists them too). With one account, that account is `googleAccount`; with
-several, the interview asks the founder which one is theirs for the startup. When Chrome is signed
+several, the start line's Google account picks it, and only when the line names none does
+phase 1's early question ask the founder which one is theirs for the startup. When Chrome is signed
 in to none, the founder signs in: the password and any 2FA code are theirs.
 
 ## 4. Provider accounts
@@ -228,7 +229,7 @@ The two Dash0 endpoints are not secret; copy each the same way, one command per 
 
 SMTP is the no-domain email option, and every run uses it (a run has no domain). Claude cannot
 create a Gmail app password, so the founder does. `<gmail address>` is the SMTP Gmail address
-from the phase 1 interview (default `googleAccount`).
+from phase 1 (`googleAccount`).
 
 1. **2-Step Verification first.** Open
    `https://myaccount.google.com/security?authuser=<gmail address>` and check, with a narrow

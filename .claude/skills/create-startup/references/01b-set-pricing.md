@@ -4,10 +4,11 @@
 startup charges before any service is provisioned. Step 4e (phase 2) pushes the result to the
 Autumn sandbox, so the price must be final in `autumn.config.ts` by then.
 
-You derive the pricing from the idea (sections 1 to 3), and the phase 1 interview
-(`phase-1-setup.md` section 2) shows the proposal for review in its one message. The founder's one
-answer either keeps it or gives their own price (`pricing.source` is then `founder`). Never block
-on this step: with no opinion from the founder, the derived proposal stands.
+You derive the pricing from the idea (sections 1 to 3), unless the start line's notes give a
+price (`pricing.source` is then `founder`). Phase 1 (`phase-1-setup.md` section 2) shows the
+result without waiting for an answer. Never ask about the price and never block on this step:
+the derived price stands, and the founder changes it after the run when they want
+(`after-the-run.md`).
 
 ## What the app can sell today
 
@@ -28,8 +29,8 @@ not wired yet, record the request in `pricing.deferred`, and set the closest fla
 
 ## 1. Gather the inputs
 
-The `idea` comes from the founder's first message (the phase 1 briefing asks for it when the
-message lacks it). Infer the rest from the idea; the interview asks nothing about these:
+The `idea` comes from the founder's start line (phase 1 asks for it only when the line leaves
+it empty). Infer the rest from the idea; nothing asks the founder about these:
 
 - **Customer** — who pays: an individual (`individual`), a small team or SMB (`team`), or a
   business buying a business-critical tool (`business`).
@@ -82,9 +83,8 @@ Do not propose freemium: the paywall cannot grant partial access today.
 
 ## 4. Show, then persist
 
-The interview shows the proposal in a few lines: price and interval, trial, currency (`EUR` by
-default) and a one-sentence rationale (bucket, alternative, value). Apply it as the founder's one
-answer leaves it.
+Phase 1 shows the price in a few lines: price and interval, trial, currency (`EUR` by default)
+and a one-sentence rationale (bucket, alternative, value). Persist it right away.
 
 Add a `pricing` block to `startup.config.json` (keep the existing fields):
 

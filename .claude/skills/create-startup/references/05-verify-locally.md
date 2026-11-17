@@ -38,7 +38,7 @@ here.
    fix the copy or the config, re-run `node scripts/sync-startup-profile.mjs`, commit the change on
    `master`, and look again.
 4. Sign in with **Google** as `googleAccount` (email/password is disabled — Google is the only
-   provider unless Microsoft was configured). The phase 1 consent covers signing in to the app
+   provider unless Microsoft was configured). The start line's consent covers signing in to the app
    with the founder's account, Google's consent screen included.
 5. Create the organization on the onboarding page (it asks only for a name; use the startup's
    name, or reuse it on a re-run) and reach the paywall: the terms checkbox and the upgrade

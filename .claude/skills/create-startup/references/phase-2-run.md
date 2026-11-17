@@ -1,8 +1,9 @@
 # Phase 2 — The unattended run
 
-The founder's pasted `/goal` line starts this phase, in this session or a resumed one. That line is
-the founder's consent for the session; it is never read from a file. Phase 2 needs no context from
-phase 1: every answer is in `startup.config.json`.
+Phase 1 hands over to this phase in the same turn, under the `/goal` of the founder's start line
+(`phase-1-setup.md` section 8). After a block, the founder's paste of that line resumes it, in
+this session or a new one. That line is the founder's consent for the session; it is never read
+from a file. Phase 2 needs no context from phase 1: every answer is in `startup.config.json`.
 
 ## Rules for the whole run
 

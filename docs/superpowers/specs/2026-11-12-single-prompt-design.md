@@ -4,6 +4,17 @@ Date: 2026-11-12. Status: agreed with the founder in chat (brainstorming), revie
 check whose two open questions the founder answered. The founder asked to go from design to
 build without a further approval step.
 
+**Revised 2026-11-17, after the second live run.** That run stopped the founder four times in
+phase 1: the interview (three questions, all with good defaults), the consent with a region
+switch, the switch to bypass permissions mode, and the `/goal` paste. The flow is now: the
+founder picks bypass permissions mode before the first message and pastes one start line
+(`.claude/skills/create-startup/references/phase-1-setup.md` section 8) that carries the name,
+the idea, the EU answer and the consent. Phase 1 derives every other answer, shows it without
+waiting, runs every check first, and asks at most one `AskUserQuestion` for what only the founder
+can do. Phase 2 follows in the same turn under the same `/goal`. The sections below describe the
+first version; where they speak of the interview, the consent message or the hand-over paste,
+the skill's references win.
+
 ## Intent
 
 The boilerplate promises "one prompt to a running company". Today the `create-startup` skill
